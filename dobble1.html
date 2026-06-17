@@ -91,6 +91,20 @@
     
     let masterDeck = [];
     let currentCard1 = null; let currentCard2 = null;
+    let symbolQueue = [];
+
+    function fillSymbolQueue() {
+        symbolQueue = [];
+        let p = CONFIG.masterSymbols - 1;
+        let total = p * p + p + 1;
+        for(let i = 0; i < total; i++) {
+            if (CONFIG.mode === 'word-picture') {
+                if (!CONFIG.assets[i] || !CONFIG.assets[i].image) continue;
+            }
+            symbolQueue.push(i);
+        }
+        symbolQueue.sort(() => Math.random() - 0.5);
+    }
     
     const bgMusic = CONFIG.bgMusic ? new Audio(CONFIG.bgMusic) : null;
     if(bgMusic) { bgMusic.volume = CONFIG.volMusic; bgMusic.loop = true; }
@@ -139,6 +153,7 @@
         document.getElementById('start-screen').style.display = 'none';
         if(bgMusic) bgMusic.play().catch(()=>{});
         masterDeck = generateDobbleDeck(CONFIG.masterSymbols);
+        fillSymbolQueue();
         dealCards();
         if(CONFIG.isTrial) startTrialTimer();
     }
@@ -166,33 +181,14 @@
     }
 
     function dealCards() {
-        let idx1, idx2, c1, c2, matchSym;
-        let valid = false;
-        let tries = 0;
+        if (symbolQueue.length === 0) fillSymbolQueue();
+        let matchSym = symbolQueue.pop();
         
-        while (!valid && tries < 1000) {
-            idx1 = Math.floor(Math.random() * masterDeck.length);
-            idx2 = Math.floor(Math.random() * masterDeck.length);
-            if (idx1 === idx2) continue;
-            
-            c1 = masterDeck[idx1]; c2 = masterDeck[idx2];
-            matchSym = c1.find(sym => c2.includes(sym));
-            
-            if (CONFIG.mode === 'word-picture') {
-                if (CONFIG.assets[matchSym] && CONFIG.assets[matchSym].image) {
-                    valid = true;
-                }
-            } else {
-                valid = true;
-            }
-            tries++;
-        }
+        let validCards = masterDeck.filter(card => card.includes(matchSym));
+        validCards.sort(() => Math.random() - 0.5);
         
-        if (!valid) {
-            idx1 = 0; idx2 = 1;
-            c1 = masterDeck[idx1]; c2 = masterDeck[idx2];
-            matchSym = c1.find(sym => c2.includes(sym));
-        }
+        let c1 = validCards[0];
+        let c2 = validCards[1];
         
         let display1 = [matchSym]; let display2 = [matchSym];
         let rem1 = c1.filter(s => s !== matchSym).sort(() => Math.random() - 0.5);
