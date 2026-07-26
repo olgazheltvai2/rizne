@@ -223,49 +223,10 @@
             box-shadow: 0px 0px 0 #000;
         }
 
-        #lobby-btn {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            z-index: 999;
-            background: #222;
-            color: #fff;
-            border: 3px solid #fff;
-            border-radius: 30px;
-            padding: 8px 18px;
-            font-size: 16px;
-            font-family: Arial, sans-serif;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-            transition: 0.2s;
-            opacity: 0.7;
-        }
-        #lobby-btn:hover {
-            opacity: 1;
-            transform: scale(1.05);
-        }
-
-        #firebase-status {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 999;
-            background: rgba(0,0,0,0.7);
-            color: #fff;
-            border-radius: 20px;
-            padding: 4px 16px;
-            font-size: 14px;
-            font-family: Arial, sans-serif;
-            pointer-events: none;
-        }
-        #firebase-status.online { background: #2e7d32; }
-        #firebase-status.offline { background: #c62828; }
-
         #bat-character {
             position: absolute;
             bottom: 10px;
-            left: 10px;
+            left: 0;
             width: 160px;
             height: auto;
             z-index: 10;
@@ -391,13 +352,7 @@
             #bat-character {
                 width: 100px;
                 bottom: 4px;
-                left: 4px;
-            }
-            #lobby-btn {
-                font-size: 14px;
-                padding: 6px 14px;
-                bottom: 10px;
-                left: 10px;
+                left: 0;
             }
         }
 
@@ -441,6 +396,8 @@
             }
             #bat-character {
                 width: 70px;
+                bottom: 4px;
+                left: 0;
             }
         }
     </style>
@@ -502,12 +459,9 @@
         </div>
     </div>
 
-    <button id="lobby-btn" onclick="goToLobby()">🏠 Лобі</button>
-    <div id="firebase-status">⏳ Підключення...</div>
-
     <script>
         // ================================================================
-        // ОРИГІНАЛЬНА ЛОГІКА ГРИ (без змін)
+        // ОРИГІНАЛЬНА ЛОГІКА ГРИ
         // ================================================================
 
         const emojiPool = [
@@ -574,13 +528,14 @@
             return shuffledPool.slice(0, 6);
         }
 
+        // Прибираємо випадковий порядок при рендерингу
         function renderEmojis(containerId, emojisList) {
             const container = document.getElementById(containerId);
             if (!container) return;
             container.innerHTML = '';
+            // Без випадкового порядку – виводимо у тому ж порядку, що й у масиві
             const styledEmojis = emojisList.map(emoji => {
-                const randomOrder = Math.floor(Math.random() * 20);
-                return `<div class="emoji-item" style="order: ${randomOrder};">${emoji}</div>`;
+                return `<div class="emoji-item">${emoji}</div>`;
             });
             container.innerHTML = styledEmojis.join('');
         }
@@ -658,35 +613,33 @@
         }
 
         // ================================================================
-        // FIREBASE СИНХРОНІЗАЦІЯ (повністю як у зразку)
+        // FIREBASE СИНХРОНІЗАЦІЯ (використання push для уникнення перезапису)
         // ================================================================
 
-        // Використовуємо ТОЙ САМИЙ URL, що й в успішній грі
         const firebaseConfig = {
             databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/"
         };
 
-        // Ініціалізація Firebase (тільки один раз)
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         }
         const db = firebase.database();
 
-        // Унікальний ID пристрою
         const myDeviceId = Math.random().toString(36).substring(2, 10);
         let isRemoteAction = false;
         let isInitialized = false;
 
-        // ---- Слухач для переходу в лобі (той самий вузол) ----
+        // ---- Слухач для переходу в лобі ----
         db.ref('current_activity').on('value', (snapshot) => {
             if (snapshot.val() === 'lobby') {
                 window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html';
             }
         });
 
-        // ---- Слухач для синхронізації дій (ТОЙ САМИЙ ВУЗОЛ) ----
-        db.ref('chess_action_sync').on('value', (snap) => {
+        // ---- Слухач для синхронізації дій (child_added) ----
+        db.ref('chess_action_sync').on('child_added', (snap) => {
             const action = snap.val();
+            // Перевіряємо, чи це не власна дія та чи вона новіша за останню оброблену
             if (action && action.senderId !== myDeviceId && action.time > (window.lastActionTime || 0)) {
                 isRemoteAction = true;
                 window.lastActionTime = action.time;
@@ -725,26 +678,12 @@
             }
         });
 
-        // ---- Відправка дії ----
+        // ---- Відправка дії (push) ----
         function broadcastAction(actionData) {
             if (!isRemoteAction) {
                 actionData.senderId = myDeviceId;
                 actionData.time = Date.now();
-                db.ref('chess_action_sync').set(actionData);
-            }
-        }
-
-        // ---- Перехід у лобі (кнопка) ----
-        function goToLobby() {
-            window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html';
-        }
-
-        // ---- Статус підключення ----
-        function updateStatus(text, isOnline) {
-            const el = document.getElementById('firebase-status');
-            if (el) {
-                el.textContent = text;
-                el.className = isOnline ? 'online' : 'offline';
+                db.ref('chess_action_sync').push(actionData);
             }
         }
 
@@ -753,16 +692,13 @@
             if (isInitialized) return;
             isInitialized = true;
 
-            // Генеруємо початкову картку
             const newEmojis = getRandomEmojis();
             setCardData(newEmojis, false);
 
-            // Відправляємо дію, щоб інші пристрої синхронізувалися
+            // Відправляємо початковий стан
             setTimeout(() => {
                 broadcastAction({ type: 'newCard', emojis: currentCardEmojis, flipped: false });
             }, 500);
-
-            updateStatus('✅ Синхронізація активна', true);
         }
 
         // ---- Запуск ----
@@ -770,8 +706,7 @@
             if (firebase.apps.length > 0) {
                 initGame();
             } else {
-                updateStatus('⚠️ Firebase не завантажено', false);
-                // Локальний запуск
+                // Локальний запуск, якщо Firebase не завантажився
                 const newEmojis = getRandomEmojis();
                 setCardData(newEmojis, false);
             }
