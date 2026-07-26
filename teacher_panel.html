@@ -4,180 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Вчительська панель (Пульт)</title>
-    <!-- Підключення Firebase (через стандартний CDN для HTML) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-            background-color: #f0f8ff;
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        /* Напівпрозорий контейнер по центру */
-        .main-container {
-            background-color: rgba(255, 255, 255, 0.9);
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            text-align: center;
-            max-width: 600px;
-            width: 90%;
-        }
-
-        h1 {
-            color: #333;
-            margin-bottom: 20px;
-        }
-
-        h2 {
-            color: #555;
-            font-size: 18px;
-            margin-bottom: 10px;
-        }
-
-        .control-group {
-            margin-bottom: 30px;
-            padding: 20px;
-            border: 2px dashed #ccc;
-            border-radius: 10px;
-            background-color: rgba(255, 255, 255, 0.5);
-        }
-
-        button {
-            background-color: #3498db;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            font-size: 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background 0.3s;
-            margin: 5px;
-            font-family: Arial, sans-serif;
-            font-weight: bold;
-        }
-
-        button:hover {
-            background-color: #2980b9;
-        }
-
-        .btn-lobby {
-            background-color: #2ecc71;
-            width: 100%;
-        }
-
-        .btn-lobby:hover {
-            background-color: #27ae60;
-        }
-
-        input[type="text"] {
-            padding: 12px;
-            font-size: 16px;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            width: 60%;
-            margin-right: 10px;
-            font-family: Arial, sans-serif;
-        }
-
-        .status {
-            margin-top: 20px;
-            font-weight: bold;
-            color: #e74c3c;
-            font-size: 18px;
-            padding: 15px;
-            border-radius: 8px;
-            background-color: rgba(0, 0, 0, 0.05);
-        }
-
-        /* --- Автономна Система динамічних фонів (Theme Manager) --- */
-        #theme-btn {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 9999;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background-color: white;
-            border: 2px solid #ccc;
-            font-size: 24px;
-            cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        #theme-modal {
-            position: fixed;
-            bottom: 80px;
-            right: 20px;
-            z-index: 9998;
-            background: white;
-            border: 1px solid #ccc;
-            border-radius: 10px;
-            padding: 15px;
-            max-height: 60vh;
-            overflow-y: auto;
-            display: none;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-            width: 320px;
-        }
-
-        #theme-modal h3 {
-            margin-top: 0;
-            text-align: center;
-            font-size: 18px;
-            font-family: Arial, sans-serif;
-        }
-
-        .theme-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-        }
-
-        .theme-thumbnail {
-            position: relative;
-            cursor: pointer;
-            border: 2px solid transparent;
-            border-radius: 8px;
-            overflow: hidden;
-            height: 80px;
-        }
-
-        .theme-thumbnail:hover {
-            border-color: #3498db;
-        }
-
-        .theme-thumbnail img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .theme-thumbnail span {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(0, 0, 0, 0.6);
-            color: white;
-            font-size: 12px;
-            text-align: center;
-            padding: 4px 0;
-            font-family: Arial, sans-serif;
-        }
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f0f8ff; min-height: 100vh; display: flex; justify-content: center; align-items: center; }
+        .main-container { background-color: rgba(255, 255, 255, 0.95); padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); text-align: center; max-width: 600px; width: 90%; }
+        h1 { color: #333; margin-bottom: 20px; }
+        h2 { color: #555; font-size: 18px; margin-bottom: 10px; margin-top: 0; }
+        .control-group { margin-bottom: 20px; padding: 20px; border: 2px dashed #ccc; border-radius: 10px; background-color: rgba(255, 255, 255, 0.5); }
+        button { color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 8px; cursor: pointer; transition: background 0.3s; margin: 5px; font-weight: bold; }
+        .btn-lobby { background-color: #2ecc71; width: 100%; }
+        .btn-lobby:hover { background-color: #27ae60; }
+        .btn-send { background-color: #3498db; }
+        .btn-send:hover { background-color: #2980b9; }
+        input[type="text"] { padding: 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 8px; width: 60%; margin-right: 10px; }
+        .status { margin-top: 20px; font-weight: bold; color: #e74c3c; font-size: 18px; padding: 15px; border-radius: 8px; background-color: rgba(0, 0, 0, 0.05); }
+        
+        /* Стилі для списку онлайн учнів */
+        .user-row { display: flex; justify-content: space-between; align-items: center; background: white; padding: 10px 15px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .user-name { font-weight: bold; font-size: 18px; display: flex; align-items: center; gap: 10px; }
+        .dot { height: 12px; width: 12px; background-color: #2ecc71; border-radius: 50%; display: inline-block; }
+        .btn-block { background-color: #e74c3c; padding: 8px 15px; font-size: 14px; }
+        .btn-unblock { background-color: #f39c12; padding: 8px 15px; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -185,132 +33,98 @@
     <div class="main-container">
         <h1>Вчительська панель</h1>
         
+        <!-- НОВИЙ БЛОК: Хто онлайн -->
+        <div class="control-group" style="border-color: #3498db;">
+            <h2>Радар: Хто зараз онлайн 📡</h2>
+            <div id="online-users-list">Очікування даних...</div>
+        </div>
+        
         <div class="control-group">
             <h2>Швидке керування</h2>
-            <button class="btn-lobby" onclick="setActivity('lobby')">Повернути учня в Лобі</button>
+            <button class="btn-lobby" onclick="setActivity('lobby')">Повернути всіх у Лобі</button>
         </div>
 
         <div class="control-group">
-            <h2>Запустити нову гру для учня</h2>
-            <p style="font-size: 14px; color: #666; margin-bottom: 15px;">Введіть назву файлу (наприклад: <b>math_1.html</b>)</p>
+            <h2>Запустити нову гру</h2>
             <div style="display: flex; justify-content: center; align-items: center;">
-                <input type="text" id="game-input" placeholder="Назва файлу...">
-                <button onclick="sendCustomGame()">Відправити</button>
+                <input type="text" id="game-input" placeholder="Назва файлу (напр. math_1.html)">
+                <button class="btn-send" onclick="sendCustomGame()">Відправити</button>
             </div>
         </div>
 
-        <div class="status" id="current-status">Стан екрану учня: Завантаження...</div>
-    </div>
-
-    <!-- Кнопка та модальне вікно Theme Manager -->
-    <button id="theme-btn">⚙️</button>
-    <div id="theme-modal">
-        <h3>Оберіть фон</h3>
-        <div class="theme-grid" id="theme-grid"></div>
+        <div class="status" id="current-status">Стан екрану: Завантаження...</div>
     </div>
 
     <script>
-        // --- Логіка Firebase (Керування базою) ---
-        const firebaseConfig = {
-            databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/"
-        };
-        
+        const firebaseConfig = { databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/" };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
         const statusEl = document.getElementById('current-status');
 
-        // Функція запису команди в базу даних
         function setActivity(activityName) {
-            db.ref('current_activity').set(activityName)
-                .catch((error) => {
-                    console.error("Помилка відправки:", error);
-                    alert("Сталася помилка при відправці команди.");
-                });
+            db.ref('current_activity').set(activityName).catch(err => alert("Помилка відправки!"));
         }
 
-        // Відправка довільного файлу з поля вводу
         function sendCustomGame() {
             const inputVal = document.getElementById('game-input').value.trim();
-            if (inputVal === '') {
-                alert("Будь ласка, введіть назву файлу!");
-                return;
-            }
-            setActivity(inputVal);
-            document.getElementById('game-input').value = ''; // очищаємо поле після відправки
+            if (inputVal !== '') { setActivity(inputVal); document.getElementById('game-input').value = ''; }
         }
 
-        // Слухаємо базу, щоб на пульті відображався актуальний стан екрану учня
         db.ref('current_activity').on('value', (snapshot) => {
             const current = snapshot.val();
             if (current === 'lobby') {
-                statusEl.innerText = "Учень зараз бачить: Кімната очікування (Лобі)";
-                statusEl.style.color = "#27ae60"; // Зелений
+                statusEl.innerText = "Зараз на екрані: Кімната очікування";
+                statusEl.style.color = "#27ae60"; 
             } else {
-                statusEl.innerText = `Учень зараз грає в: ${current}`;
-                statusEl.style.color = "#e74c3c"; // Червоний
+                statusEl.innerText = `Зараз на екрані: ${current}`;
+                statusEl.style.color = "#e74c3c"; 
             }
         });
 
-        // --- Логіка Theme Manager ---
-        const themeBtn = document.getElementById('theme-btn');
-        const themeModal = document.getElementById('theme-modal');
-        const themeGrid = document.getElementById('theme-grid');
-        const baseUrl = 'https://olgazheltvai2.github.io/images/backgrounds/';
-        const savedBg = localStorage.getItem('mySavedGameBg');
-        let bgFoundCount = 0;
-        const maxBgCheck = 50; 
-
-        if (savedBg) {
-            document.body.style.backgroundImage = `url('${savedBg}')`;
-        } else {
-            document.body.style.backgroundImage = `url('${baseUrl}background_1.webp')`;
-        }
-
-        themeBtn.addEventListener('click', () => {
-            themeModal.style.display = themeModal.style.display === 'block' ? 'none' : 'block';
+        // --- ЛОГІКА РАДАРУ ТА БЛОКУВАННЯ ---
+        let blockedData = {};
+        db.ref('blocked_users').on('value', (snap) => {
+            blockedData = snap.val() || {};
+            renderOnlineUsers(); // Оновлюємо список, коли хтось блокується/розблоковується
         });
 
-        async function loadBackgrounds() {
-            for (let i = 1; i <= maxBgCheck; i++) {
-                let imgUrl = `${baseUrl}background_${i}.webp`;
-                
-                await new Promise((resolve) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        createThumbnail(imgUrl, i);
-                        bgFoundCount++;
-                        resolve();
-                    };
-                    img.onerror = () => resolve();
-                    img.src = imgUrl;
-                });
-                
-                if (i > bgFoundCount + 3) break; 
-            }
-        }
+        let onlineData = {};
+        db.ref('online_users').on('value', (snap) => {
+            onlineData = snap.val() || {};
+            renderOnlineUsers();
+        });
 
-        function createThumbnail(url, index) {
-            const div = document.createElement('div');
-            div.className = 'theme-thumbnail';
+        function renderOnlineUsers() {
+            const listEl = document.getElementById('online-users-list');
+            listEl.innerHTML = '';
+            const users = Object.keys(onlineData);
             
-            const img = document.createElement('img');
-            img.src = url;
-            
-            const span = document.createElement('span');
-            span.textContent = `Фон ${index}`;
-            
-            div.appendChild(img);
-            div.appendChild(span);
-            
-            div.addEventListener('click', () => {
-                document.body.style.backgroundImage = `url('${url}')`;
-                localStorage.setItem('mySavedGameBg', url);
+            if (users.length === 0) {
+                listEl.innerHTML = '<p style="color: #7f8c8d; font-style: italic;">Нікого немає онлайн</p>';
+                return;
+            }
+
+            users.forEach(user => {
+                const isBlocked = blockedData[user] === true;
+                const div = document.createElement('div');
+                div.className = 'user-row';
+                
+                // Якщо заблокований, міняємо колір крапки на червоний
+                const dotColor = isBlocked ? '#e74c3c' : '#2ecc71';
+                
+                div.innerHTML = `
+                    <div class="user-name"><span class="dot" style="background-color: ${dotColor}"></span> ${user}</div>
+                    <button class="${isBlocked ? 'btn-unblock' : 'btn-block'}" onclick="toggleBlock('${user}', ${!isBlocked})">
+                        ${isBlocked ? '▶️ Розблокувати' : '⏸ Заблокувати'}
+                    </button>
+                `;
+                listEl.appendChild(div);
             });
-            
-            themeGrid.appendChild(div);
         }
 
-        loadBackgrounds();
+        function toggleBlock(user, blockStatus) {
+            db.ref('blocked_users/' + user).set(blockStatus);
+        }
     </script>
 </body>
 </html>
