@@ -719,19 +719,41 @@
 
     <!-- 2. Логіка Firebase для радару та блокування -->
     <script>
+        // НАДІЙНЕ збереження імені
         const urlParams = new URLSearchParams(window.location.search);
-        const myName = urlParams.get('user') || ('Гість_' + Math.floor(Math.random() * 1000));
+        let myName = urlParams.get('user');
 
-        // Генеруємо унікальний номер для вкладки у грі
+        if (myName) {
+            sessionStorage.setItem('myStudentName', myName); 
+        } else {
+            myName = sessionStorage.getItem('myStudentName'); 
+            if (!myName) {
+                myName = 'Гість_' + Math.floor(Math.random() * 1000);
+                sessionStorage.setItem('myStudentName', myName);
+            }
+        }
+
+        // Радар: унікальні вкладки та присутність
         const tabId = Math.random().toString(36).substring(2, 10);
         const myPresenceRef = db.ref('online_users/' + myName + '/' + tabId);
         
-        // Відновлення присутності після втрати з'єднання
         db.ref('.info/connected').on('value', (snapshot) => {
             if (snapshot.val() === true) {
                 myPresenceRef.onDisconnect().remove();
                 myPresenceRef.set(true);
             }
+        });
+
+        // Сигнал від вчителя: "Оновити список"
+        db.ref('force_refresh').on('value', (snapshot) => {
+            if(snapshot.val()) {
+                myPresenceRef.set(true);
+            }
+        });
+
+        // МИТТЄВА ЗАЧИСТКА при виході з гри
+        window.addEventListener('beforeunload', () => {
+            myPresenceRef.remove();
         });
 
         // Слухач блокування
