@@ -614,7 +614,6 @@
             const bat = document.getElementById('bat-character');
             bat.classList.add('reacting');
             setTimeout(() => bat.classList.remove('reacting'), 500);
-            // Відправляємо дію
             broadcastAction({ type: 'newCard', emojis: currentCardEmojis, flipped: false });
         }
 
@@ -659,22 +658,15 @@
         }
 
         // ================================================================
-        // FIREBASE СИНХРОНІЗАЦІЯ (як у зразку)
+        // FIREBASE СИНХРОНІЗАЦІЯ (повністю як у зразку)
         // ================================================================
 
-        // ------ КОНФІГУРАЦІЯ FIREBASE (ЗАМІНІТЬ НА СВОЮ) ------
+        // Використовуємо ТОЙ САМИЙ URL, що й в успішній грі
         const firebaseConfig = {
-            apiKey: "AIzaSyB3VwT7k7Ql5l5l5l5l5l5l5l5l5l5l5",
-            authDomain: "example.firebaseapp.com",
-            databaseURL: "https://example-default-rtdb.firebaseio.com",
-            projectId: "example",
-            storageBucket: "example.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:123456789:web:abcdef123456"
+            databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/"
         };
-        // ------------------------------------------------------
 
-        // Ініціалізація Firebase
+        // Ініціалізація Firebase (тільки один раз)
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         }
@@ -682,28 +674,25 @@
 
         // Унікальний ID пристрою
         const myDeviceId = Math.random().toString(36).substring(2, 10);
-        let isRemoteAction = false; // прапорець, щоб не виконувати власні дії двічі
-        let isInitialized = false; // щоб не дублювати ініціалізацію
+        let isRemoteAction = false;
+        let isInitialized = false;
 
-        // ---- Слухач для переходу в лобі ----
+        // ---- Слухач для переходу в лобі (той самий вузол) ----
         db.ref('current_activity').on('value', (snapshot) => {
             if (snapshot.val() === 'lobby') {
                 window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html';
             }
         });
 
-        // ---- Слухач для синхронізації дій ----
-        db.ref('game_actions').on('value', (snap) => {
+        // ---- Слухач для синхронізації дій (ТОЙ САМИЙ ВУЗОЛ) ----
+        db.ref('chess_action_sync').on('value', (snap) => {
             const action = snap.val();
-            // Якщо дія існує, відправлена іншим пристроєм, і вона новіша за останню
             if (action && action.senderId !== myDeviceId && action.time > (window.lastActionTime || 0)) {
                 isRemoteAction = true;
                 window.lastActionTime = action.time;
 
-                // Обробка типу дії
                 switch (action.type) {
                     case 'flip':
-                        // Встановлюємо стан перегортання без запуску звуків та анімацій
                         const cardInner = document.getElementById('card-inner');
                         if (action.flipped) {
                             cardInner.classList.add('flipped');
@@ -714,7 +703,6 @@
                         break;
 
                     case 'newCard':
-                        // Встановлюємо нову картку з отриманими емодзі
                         if (action.emojis && action.emojis.length > 0) {
                             setCardData(action.emojis, action.flipped || false);
                         }
@@ -742,16 +730,25 @@
             if (!isRemoteAction) {
                 actionData.senderId = myDeviceId;
                 actionData.time = Date.now();
-                db.ref('game_actions').set(actionData);
+                db.ref('chess_action_sync').set(actionData);
             }
         }
 
-        // ---- Перехід у лобі (викликається з кнопки) ----
+        // ---- Перехід у лобі (кнопка) ----
         function goToLobby() {
             window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html';
         }
 
-        // ---- Ініціалізація гри при завантаженні ----
+        // ---- Статус підключення ----
+        function updateStatus(text, isOnline) {
+            const el = document.getElementById('firebase-status');
+            if (el) {
+                el.textContent = text;
+                el.className = isOnline ? 'online' : 'offline';
+            }
+        }
+
+        // ---- Ініціалізація гри ----
         function initGame() {
             if (isInitialized) return;
             isInitialized = true;
@@ -761,37 +758,25 @@
             setCardData(newEmojis, false);
 
             // Відправляємо дію, щоб інші пристрої синхронізувалися
-            // Але робимо це з невеликою затримкою, щоб усі встигли підключитися
             setTimeout(() => {
                 broadcastAction({ type: 'newCard', emojis: currentCardEmojis, flipped: false });
             }, 500);
 
-            // Оновлюємо статус
             updateStatus('✅ Синхронізація активна', true);
-        }
-
-        function updateStatus(text, isOnline) {
-            const el = document.getElementById('firebase-status');
-            if (el) {
-                el.textContent = text;
-                el.className = isOnline ? 'online' : 'offline';
-            }
         }
 
         // ---- Запуск ----
         window.onload = function() {
-            // Перевіряємо, чи Firebase готовий
             if (firebase.apps.length > 0) {
                 initGame();
             } else {
                 updateStatus('⚠️ Firebase не завантажено', false);
-                // Все одно запускаємо гру локально
+                // Локальний запуск
                 const newEmojis = getRandomEmojis();
                 setCardData(newEmojis, false);
             }
         };
 
-        // Якщо DOM вже готовий
         if (document.readyState === 'complete' || document.readyState === 'interactive') {
             setTimeout(() => {
                 if (firebase.apps.length > 0) initGame();
