@@ -717,6 +717,34 @@
         }
     </script>
 
+<!-- УНІВЕРСАЛЬНИЙ БЛОК КОНТРОЛЮ -->
+<!-- 1. Екран-заглушка -->
+<div id="block-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); color: white; z-index: 99999; justify-content: center; align-items: center; flex-direction: column; font-family: sans-serif;">
+    <h1 style="color: #e74c3c; font-size: 50px; margin:0;">Зачекай! ✋</h1>
+    <p style="font-size: 24px;">Зараз не твій урок.</p>
+</div>
+
+<!-- 2. Логіка Firebase (переконайтеся, що бібліотеки Firebase підключені в <head> гри) -->
+<script>
+    // Якщо у грі ще не ініціалізовано Firebase, розкоментуйте наступні два рядки:
+    // firebase.initializeApp({ databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/" });
+    // const db = firebase.database();
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const myName = urlParams.get('user') || 'Гість';
+
+    const myPresenceRef = db.ref('online_users/' + myName);
+    myPresenceRef.set(true);
+    myPresenceRef.onDisconnect().remove();
+
+    db.ref('blocked_users/' + myName).on('value', (snapshot) => {
+        const overlay = document.getElementById('block-overlay');
+        if (snapshot.val() === true) { overlay.style.display = 'flex'; } 
+        else { overlay.style.display = 'none'; }
+    });
+</script>
+<!-- КІНЕЦЬ УНІВЕРСАЛЬНОГО БЛОКУ -->
+    
 </body>
 
 </html>
