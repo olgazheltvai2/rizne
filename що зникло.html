@@ -528,12 +528,11 @@
             return shuffledPool.slice(0, 6);
         }
 
-        // Прибираємо випадковий порядок при рендерингу
+        // Однаковий порядок на всіх пристроях – без випадкового сортування
         function renderEmojis(containerId, emojisList) {
             const container = document.getElementById(containerId);
             if (!container) return;
             container.innerHTML = '';
-            // Без випадкового порядку – виводимо у тому ж порядку, що й у масиві
             const styledEmojis = emojisList.map(emoji => {
                 return `<div class="emoji-item">${emoji}</div>`;
             });
@@ -613,7 +612,7 @@
         }
 
         // ================================================================
-        // FIREBASE СИНХРОНІЗАЦІЯ (використання push для уникнення перезапису)
+        // FIREBASE СИНХРОНІЗАЦІЯ (спрощена, як у зразку)
         // ================================================================
 
         const firebaseConfig = {
@@ -636,54 +635,53 @@
             }
         });
 
-        // ---- Слухач для синхронізації дій (child_added) ----
-        db.ref('chess_action_sync').on('child_added', (snap) => {
+        // ---- Слухач для синхронізації дій (один вузол) ----
+        db.ref('chess_action_sync').on('value', (snap) => {
             const action = snap.val();
-            // Перевіряємо, чи це не власна дія та чи вона новіша за останню оброблену
-            if (action && action.senderId !== myDeviceId && action.time > (window.lastActionTime || 0)) {
-                isRemoteAction = true;
-                window.lastActionTime = action.time;
+            // Якщо дії немає або вона відправлена цим же пристроєм – ігноруємо
+            if (!action || action.senderId === myDeviceId) return;
 
-                switch (action.type) {
-                    case 'flip':
-                        const cardInner = document.getElementById('card-inner');
-                        if (action.flipped) {
-                            cardInner.classList.add('flipped');
-                        } else {
-                            cardInner.classList.remove('flipped');
-                        }
-                        isFlipped = !!action.flipped;
-                        break;
+            isRemoteAction = true;
 
-                    case 'newCard':
-                        if (action.emojis && action.emojis.length > 0) {
-                            setCardData(action.emojis, action.flipped || false);
-                        }
-                        break;
+            switch (action.type) {
+                case 'flip':
+                    const cardInner = document.getElementById('card-inner');
+                    if (action.flipped) {
+                        cardInner.classList.add('flipped');
+                    } else {
+                        cardInner.classList.remove('flipped');
+                    }
+                    isFlipped = !!action.flipped;
+                    break;
 
-                    case 'scoreUpdate':
-                        const player = action.player;
-                        const value = action.value;
-                        if (player && value !== undefined) {
-                            scores[player] = value;
-                            document.getElementById('score' + player).innerText = value;
-                        }
-                        break;
+                case 'newCard':
+                    if (action.emojis && action.emojis.length > 0) {
+                        setCardData(action.emojis, action.flipped || false);
+                    }
+                    break;
 
-                    default:
-                        break;
-                }
+                case 'scoreUpdate':
+                    const player = action.player;
+                    const value = action.value;
+                    if (player && value !== undefined) {
+                        scores[player] = value;
+                        document.getElementById('score' + player).innerText = value;
+                    }
+                    break;
 
-                isRemoteAction = false;
+                default:
+                    break;
             }
+
+            isRemoteAction = false;
         });
 
-        // ---- Відправка дії (push) ----
+        // ---- Відправка дії (set) ----
         function broadcastAction(actionData) {
             if (!isRemoteAction) {
                 actionData.senderId = myDeviceId;
                 actionData.time = Date.now();
-                db.ref('chess_action_sync').push(actionData);
+                db.ref('chess_action_sync').set(actionData);
             }
         }
 
@@ -695,7 +693,7 @@
             const newEmojis = getRandomEmojis();
             setCardData(newEmojis, false);
 
-            // Відправляємо початковий стан
+            // Відправляємо початковий стан, щоб інші пристрої синхронізувалися
             setTimeout(() => {
                 broadcastAction({ type: 'newCard', emojis: currentCardEmojis, flipped: false });
             }, 500);
