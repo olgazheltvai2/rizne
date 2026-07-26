@@ -22,7 +22,7 @@
             align-items: center;
         }
 
-        /* Екран блокування (Невидимий за замовчуванням) */
+        /* Екран блокування */
         #block-overlay { 
             display: none; 
             position: fixed; 
@@ -70,7 +70,7 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* --- Автономна Система динамічних фонів (Theme Manager) --- */
+        /* --- Theme Manager --- */
         #theme-btn {
             position: fixed;
             bottom: 20px;
@@ -181,15 +181,16 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // --- 2. Отримуємо бейджик (ім'я) з посилання ---
+        // --- 2. Отримуємо ім'я та генеруємо вкладку ---
         const urlParams = new URLSearchParams(window.location.search);
         const myName = urlParams.get('user') || ('Гість_' + Math.floor(Math.random() * 1000));
         document.getElementById('user-greeting').innerText = `Привіт, ${myName}!`;
 
-        // --- 3. Надійна система "Хто онлайн" (Радар) ---
-        const myPresenceRef = db.ref('online_users/' + myName);
+        // Генеруємо унікальний номер для цієї конкретної вкладки/пристрою
+        const tabId = Math.random().toString(36).substring(2, 10);
+        const myPresenceRef = db.ref('online_users/' + myName + '/' + tabId);
         
-        // Цей датчик постійно перевіряє стан з'єднання. Якщо вкладка "засне" і прокинеться, він перепідключить учня.
+        // --- 3. Надійна система присутності (Радар) ---
         db.ref('.info/connected').on('value', (snapshot) => {
             if (snapshot.val() === true) {
                 myPresenceRef.onDisconnect().remove(); 
@@ -207,7 +208,7 @@
             }
         });
 
-        // --- 5. Перехід на гру (із передачею бейджика) ---
+        // --- 5. Перехід на гру ---
         db.ref('current_activity').on('value', (snapshot) => {
             const activity = snapshot.val();
             if (activity && activity !== "lobby") {
@@ -215,7 +216,7 @@
                 if (!targetUrl.endsWith('.html')) {
                     targetUrl += '.html';
                 }
-                // Переходимо на гру, причепивши ім'я в кінці, щоб гра теж його знала
+                // Переходимо на гру, причепивши ім'я
                 window.location.href = targetUrl + '?user=' + myName;
             }
         });
@@ -261,10 +262,8 @@
         function createThumbnail(url, index) {
             const div = document.createElement('div');
             div.className = 'theme-thumbnail';
-            
             const img = document.createElement('img');
             img.src = url;
-            
             const span = document.createElement('span');
             span.textContent = `Фон ${index}`;
             
