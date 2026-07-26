@@ -834,26 +834,22 @@
         }
     });
 
-    // ПОВЕРНЕННЯ В ЛОБІ (з надійним імунітетом при старті)
-    let currentDBValue = null;
-    let isInitialSync = true;
+    // ПОВЕРНЕННЯ В ЛОБІ (Захист від "першого хибного спрацьовування")
+    let hasSeenGameActivity = false;
 
     db.ref('current_activity').on('value', (snapshot) => {
         const val = snapshot.val();
         
-        if (isInitialSync) {
-            currentDBValue = val;
-            // Даємо 1 секунду імунітету, щоб Firebase обробив свої подвійні завантаження
-            setTimeout(() => { isInitialSync = false; }, 1000);
-            return;
+        // Якщо база показує, що зараз йде гра, запам'ятовуємо це
+        if (val && val !== 'lobby') {
+            hasSeenGameActivity = true;
         }
 
-        // Переходимо в лобі тільки якщо вчитель РЕАЛЬНО змінив команду на 'lobby'
-        if (val === 'lobby' && val !== currentDBValue) {
+        // Переходимо в лобі ТІЛЬКИ якщо ми до цього зафіксували статус гри.
+        // Це повністю блокує викидання в лобі при прямому відкритті сторінки.
+        if (val === 'lobby' && hasSeenGameActivity) {
             window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html?user=' + encodeURIComponent(myName);
         }
-        
-        currentDBValue = val;
     });
 </script>
 <!-- КІНЕЦЬ УНІВЕРСАЛЬНОГО БЛОКУ -->
