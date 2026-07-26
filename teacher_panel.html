@@ -10,7 +10,7 @@
         body { margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f0f8ff; min-height: 100vh; display: flex; justify-content: center; align-items: center; }
         .main-container { background-color: rgba(255, 255, 255, 0.95); padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); text-align: center; max-width: 600px; width: 90%; }
         h1 { color: #333; margin-bottom: 20px; }
-        h2 { color: #555; font-size: 18px; margin-bottom: 10px; margin-top: 0; }
+        h2 { color: #555; font-size: 18px; margin-bottom: 10px; margin-top: 0; display: flex; justify-content: space-between; align-items: center;}
         .control-group { margin-bottom: 20px; padding: 20px; border: 2px dashed #ccc; border-radius: 10px; background-color: rgba(255, 255, 255, 0.5); }
         button { color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 8px; cursor: pointer; transition: background 0.3s; margin: 5px; font-weight: bold; }
         .btn-lobby { background-color: #2ecc71; width: 100%; }
@@ -20,12 +20,12 @@
         input[type="text"] { padding: 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 8px; width: 60%; margin-right: 10px; }
         .status { margin-top: 20px; font-weight: bold; color: #e74c3c; font-size: 18px; padding: 15px; border-radius: 8px; background-color: rgba(0, 0, 0, 0.05); }
         
-        /* Стилі для списку онлайн учнів */
         .user-row { display: flex; justify-content: space-between; align-items: center; background: white; padding: 10px 15px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .user-name { font-weight: bold; font-size: 18px; display: flex; align-items: center; gap: 10px; }
         .dot { height: 12px; width: 12px; background-color: #2ecc71; border-radius: 50%; display: inline-block; }
         .btn-block { background-color: #e74c3c; padding: 8px 15px; font-size: 14px; }
         .btn-unblock { background-color: #f39c12; padding: 8px 15px; font-size: 14px; }
+        .btn-refresh { background-color: #95a5a6; padding: 6px 12px; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -33,9 +33,11 @@
     <div class="main-container">
         <h1>Вчительська панель</h1>
         
-        <!-- НОВИЙ БЛОК: Хто онлайн -->
         <div class="control-group" style="border-color: #3498db;">
-            <h2>Радар: Хто зараз онлайн 📡</h2>
+            <h2>
+                <span>Радар: Хто онлайн 📡</span>
+                <button class="btn-refresh" onclick="forceRefreshRadar()">🔄 Оновити</button>
+            </h2>
             <div id="online-users-list">Очікування даних...</div>
         </div>
         
@@ -47,7 +49,7 @@
         <div class="control-group">
             <h2>Запустити нову гру</h2>
             <div style="display: flex; justify-content: center; align-items: center;">
-                <input type="text" id="game-input" placeholder="Назва файлу (напр. math_1.html)">
+                <input type="text" id="game-input" placeholder="Назва (напр. math_1.html)">
                 <button class="btn-send" onclick="sendCustomGame()">Відправити</button>
             </div>
         </div>
@@ -81,11 +83,11 @@
             }
         });
 
-        // --- ЛОГІКА РАДАРУ ТА БЛОКУВАННЯ ---
+        // --- ЛОГІКА РАДАРУ ---
         let blockedData = {};
         db.ref('blocked_users').on('value', (snap) => {
             blockedData = snap.val() || {};
-            renderOnlineUsers(); // Оновлюємо список, коли хтось блокується/розблоковується
+            renderOnlineUsers(); 
         });
 
         let onlineData = {};
@@ -109,7 +111,6 @@
                 const div = document.createElement('div');
                 div.className = 'user-row';
                 
-                // Якщо заблокований, міняємо колір крапки на червоний
                 const dotColor = isBlocked ? '#e74c3c' : '#2ecc71';
                 
                 div.innerHTML = `
@@ -124,6 +125,12 @@
 
         function toggleBlock(user, blockStatus) {
             db.ref('blocked_users/' + user).set(blockStatus);
+        }
+
+        function forceRefreshRadar() {
+            db.ref('online_users').remove().then(() => {
+                db.ref('force_refresh').set(Date.now());
+            });
         }
     </script>
 </body>
