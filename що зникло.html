@@ -3,11 +3,8 @@
 <html lang="uk">
 
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Супер-гра на уважність</title>
 
     <!-- Firebase compat -->
@@ -17,185 +14,7 @@
     </script>
 
     <style>
-        /* ===== СИСТЕМА ДИНАМІЧНИХ ФОНІВ (Theme Manager) ===== */
-        /* Кнопка налаштувань (⚙️) — правий нижній кут */
-        #theme-settings-btn {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 9999;
-            width: 56px;
-            height: 56px;
-            border-radius: 50%;
-            background: #ffffff;
-            border: 3px solid #222;
-            box-shadow: 0 6px 0 #222, 0 8px 20px rgba(0, 0, 0, 0.3);
-            font-size: 28px;
-            line-height: 1;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.1s ease;
-            color: #222;
-            user-select: none;
-            font-family: Arial, sans-serif;
-        }
-
-        #theme-settings-btn:active {
-            transform: translate(4px, 4px);
-            box-shadow: 0 2px 0 #222, 0 8px 20px rgba(0, 0, 0, 0.3);
-        }
-
-        /* Затемнення фону (overlay) */
-        #theme-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.6);
-            z-index: 9997;
-            display: none;
-            backdrop-filter: blur(4px);
-        }
-
-        #theme-overlay.active {
-            display: block;
-        }
-
-        /* Модальне вікно — галерея мініатюр */
-        #theme-modal {
-            position: fixed;
-            bottom: 90px;
-            right: 20px;
-            z-index: 9998;
-            background: #fff;
-            border: 4px solid #222;
-            border-radius: 20px;
-            box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.4);
-            padding: 20px 18px 18px 18px;
-            max-width: 420px;
-            width: calc(100% - 60px);
-            max-height: 60vh;
-            overflow-y: auto;
-            display: none;
-            font-family: Arial, sans-serif;
-            box-sizing: border-box;
-        }
-
-        #theme-modal.active {
-            display: block;
-        }
-
-        #theme-modal h3 {
-            margin: 0 0 14px 0;
-            font-size: 20px;
-            color: #222;
-            text-align: center;
-            border-bottom: 3px dashed #ccc;
-            padding-bottom: 10px;
-            letter-spacing: 1px;
-            font-family: Arial, sans-serif;
-        }
-
-        /* Сітка мініатюр */
-        .theme-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-            gap: 12px;
-        }
-
-        .theme-thumb {
-            position: relative;
-            border-radius: 12px;
-            overflow: hidden;
-            border: 3px solid #ccc;
-            cursor: pointer;
-            aspect-ratio: 16 / 10;
-            background: #f0f0f0;
-            transition: all 0.15s ease;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        .theme-thumb:hover {
-            transform: scale(1.04);
-            border-color: #ff6f00;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-        }
-
-        .theme-thumb img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
-
-        .theme-thumb .theme-label {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(0, 0, 0, 0.65);
-            color: #fff;
-            font-size: 11px;
-            font-weight: bold;
-            text-align: center;
-            padding: 4px 0;
-            font-family: Arial, sans-serif;
-            letter-spacing: 0.3px;
-            backdrop-filter: blur(2px);
-        }
-
-        .theme-thumb .check-mark {
-            position: absolute;
-            top: 4px;
-            right: 4px;
-            background: #4caf50;
-            color: #fff;
-            border-radius: 50%;
-            width: 22px;
-            height: 22px;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 2px solid #fff;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-
-        .theme-thumb.active .check-mark {
-            opacity: 1;
-        }
-
-        .theme-thumb.active {
-            border-color: #4caf50;
-            box-shadow: 0 0 0 2px #4caf50, 0 4px 12px rgba(0, 0, 0, 0.25);
-        }
-
-        /* Стилізація скролу */
-        #theme-modal::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        #theme-modal::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 8px;
-        }
-
-        #theme-modal::-webkit-scrollbar-thumb {
-            background: #bbb;
-            border-radius: 8px;
-        }
-
-        #theme-modal::-webkit-scrollbar-thumb:hover {
-            background: #999;
-        }
-
-        /* ===== ОСНОВНІ СТИЛІ ГРИ ===== */
+        /* ===== ОСНОВНІ СТИЛІ ===== */
         /* Шрифт — Arial (згідно з вимогою) */
         body {
             margin: 0;
@@ -213,7 +32,6 @@
             font-family: Arial, sans-serif;
             font-weight: bold;
             user-select: none;
-            transition: background-image 0.4s ease, background-color 0.4s ease;
         }
 
         /* Контейнер для ігрового поля — центрування з напівпрозорим фоном */
@@ -550,16 +368,6 @@
                 bottom: 4px;
                 left: 4px;
             }
-            #theme-modal {
-                max-width: 320px;
-                right: 10px;
-                bottom: 80px;
-                padding: 16px 14px 14px 14px;
-            }
-            .theme-grid {
-                grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
-                gap: 8px;
-            }
         }
 
         @media (max-width: 480px) {
@@ -603,23 +411,8 @@
             #bat-character {
                 width: 70px;
             }
-            #theme-modal {
-                max-width: 280px;
-                right: 6px;
-                bottom: 70px;
-                padding: 12px 10px 10px 10px;
-            }
-            .theme-grid {
-                grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
-                gap: 6px;
-            }
-            .theme-thumb .theme-label {
-                font-size: 9px;
-                padding: 2px 0;
-            }
         }
     </style>
-
 </head>
 
 <body>
@@ -694,25 +487,9 @@
         </div>
     </div>
 
-    <!-- ===== СИСТЕМА ДИНАМІЧНИХ ФОНІВ (HTML) ===== -->
-    <!-- Кнопка налаштувань -->
-    <button id="theme-settings-btn" onclick="toggleThemeModal()" aria-label="Налаштування фону">⚙️</button>
-
-    <!-- Затемнення -->
-    <div id="theme-overlay" onclick="closeThemeModal()"></div>
-
-    <!-- Модальне вікно галереї -->
-    <div id="theme-modal">
-        <h3>🎨 Обери фон</h3>
-        <div class="theme-grid" id="theme-grid">
-            <!-- Мініатюри генеруються скриптом -->
-        </div>
-    </div>
-
-
     <script>
         // ================================================================
-        // 1. ОРИГІНАЛЬНА ЛОГІКА ГРИ (збережена слово в слово, крім шрифту)
+        // 1. ОРИГІНАЛЬНА ЛОГІКА ГРИ (збережена слово в слово)
         // ================================================================
 
         // Рівно 50 емодзі для гри
@@ -891,204 +668,13 @@
         // Запуск гри при завантаженні
         window.onload = function() {
             generateNewCard();
-            // Ініціалізація Theme Manager виконується нижче
-            initThemeManager();
             // Ініціалізація Firebase виконується нижче
             initFirebase();
         };
 
 
         // ================================================================
-        // 2. СИСТЕМА ДИНАМІЧНИХ ФОНІВ (Theme Manager)
-        // ================================================================
-
-        let themeManagerReady = false;
-        const BG_BASE_URL = 'https://olgazheltvai2.github.io/images/backgrounds/';
-        const MAX_BG_CHECK = 1000;
-        let availableThemes = [];
-
-        function initThemeManager() {
-            if (themeManagerReady) return;
-            themeManagerReady = true;
-            loadSavedBackground();
-            scanBackgrounds();
-        }
-
-        // Сканування фонів від 1 до 1000
-        function scanBackgrounds() {
-            const grid = document.getElementById('theme-grid');
-            // Показуємо індикатор завантаження
-            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:#888;font-size:14px;">Завантаження фонів...</div>';
-
-            let foundCount = 0;
-            let checked = 0;
-            const total = MAX_BG_CHECK;
-
-            function checkNext(index) {
-                if (index > total) {
-                    // Завершили перевірку
-                    if (foundCount === 0) {
-                        grid.innerHTML =
-                            '<div style="grid-column:1/-1;text-align:center;padding:20px;color:#999;font-size:14px;">Фонів не знайдено</div>';
-                    }
-                    return;
-                }
-
-                const url = BG_BASE_URL + 'background_' + index + '.webp';
-                const img = new Image();
-                img.onload = function() {
-                    foundCount++;
-                    addThumbnail(url, index);
-                    checkNext(index + 1);
-                };
-                img.onerror = function() {
-                    checkNext(index + 1);
-                };
-                // Таймаут, щоб не зависати на дуже довгих завантаженнях
-                const timeout = setTimeout(() => {
-                    img.src = ''; // перериваємо завантаження
-                    checkNext(index + 1);
-                }, 2000);
-                img.src = url;
-                // Якщо зображення вже завантажилося (з кешу) — onload спрацює синхронно, очищаємо таймаут
-                if (img.complete) {
-                    clearTimeout(timeout);
-                }
-            }
-
-            // Починаємо з 1
-            checkNext(1);
-        }
-
-        // Додавання мініатюри в галерею
-        function addThumbnail(url, index) {
-            const grid = document.getElementById('theme-grid');
-            // Видаляємо повідомлення про завантаження, якщо воно є
-            const placeholder = grid.querySelector('.theme-placeholder');
-            if (placeholder) placeholder.remove();
-
-            const thumb = document.createElement('div');
-            thumb.className = 'theme-thumb';
-            thumb.dataset.url = url;
-
-            const img = document.createElement('img');
-            img.src = url;
-            img.alt = 'Фон ' + index;
-            img.loading = 'lazy';
-
-            const label = document.createElement('div');
-            label.className = 'theme-label';
-            label.textContent = 'Фон ' + index;
-
-            const check = document.createElement('div');
-            check.className = 'check-mark';
-            check.textContent = '✓';
-
-            thumb.appendChild(img);
-            thumb.appendChild(label);
-            thumb.appendChild(check);
-
-            thumb.addEventListener('click', function(e) {
-                e.stopPropagation();
-                setBackground(url);
-                // Позначаємо активну мініатюру
-                document.querySelectorAll('.theme-thumb').forEach(el => el.classList.remove('active'));
-                thumb.classList.add('active');
-                closeThemeModal();
-            });
-
-            grid.appendChild(thumb);
-
-            // Якщо це збережений фон — позначаємо
-            const saved = localStorage.getItem('mySavedGameBg');
-            if (saved === url) {
-                thumb.classList.add('active');
-            }
-        }
-
-        // Встановлення фону
-        function setBackground(url) {
-            document.body.style.backgroundImage = 'url(' + url + ')';
-            document.body.style.backgroundSize = 'cover';
-            document.body.style.backgroundPosition = 'center center';
-            document.body.style.backgroundRepeat = 'no-repeat';
-            // Скидаємо кольори та градієнти, щоб не заважали
-            document.body.style.backgroundColor = 'transparent';
-            document.body.style.backgroundImage = 'url(' + url + ')';
-            document.body.style.backgroundSize = 'cover';
-            document.body.style.backgroundPosition = 'center center';
-            document.body.style.backgroundRepeat = 'no-repeat';
-
-            // Зберігаємо в localStorage
-            localStorage.setItem('mySavedGameBg', url);
-        }
-
-        // Завантаження збереженого фону
-        function loadSavedBackground() {
-            const saved = localStorage.getItem('mySavedGameBg');
-            if (saved) {
-                // Перевіряємо, чи існує файл
-                const img = new Image();
-                img.onload = function() {
-                    setBackground(saved);
-                };
-                img.onerror = function() {
-                    // Якщо файл не існує — ставимо дефолтний
-                    setDefaultBackground();
-                };
-                img.src = saved;
-            } else {
-                setDefaultBackground();
-            }
-        }
-
-        // Дефолтний фон
-        function setDefaultBackground() {
-            const defaultUrl = BG_BASE_URL + 'background_1.webp';
-            const img = new Image();
-            img.onload = function() {
-                setBackground(defaultUrl);
-            };
-            img.onerror = function() {
-                // Якщо навіть дефолтного немає — залишаємо початковий стиль body
-                document.body.style.backgroundImage = '';
-                document.body.style.backgroundColor = '#00bcd4';
-                document.body.style.backgroundImage =
-                    'radial-gradient(#ffeb3b 15%, transparent 16%), radial-gradient(#ffeb3b 15%, transparent 16%)';
-                document.body.style.backgroundSize = '40px 40px';
-                document.body.style.backgroundPosition = '0 0, 20px 20px';
-            };
-            img.src = defaultUrl;
-        }
-
-        // ===== Управління модальним вікном =====
-
-        function toggleThemeModal() {
-            const modal = document.getElementById('theme-modal');
-            const overlay = document.getElementById('theme-overlay');
-            const isActive = modal.classList.contains('active');
-
-            if (isActive) {
-                closeThemeModal();
-            } else {
-                modal.classList.add('active');
-                overlay.classList.add('active');
-            }
-        }
-
-        function closeThemeModal() {
-            document.getElementById('theme-modal').classList.remove('active');
-            document.getElementById('theme-overlay').classList.remove('active');
-        }
-
-        // Закриття по Escape
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') closeThemeModal();
-        });
-
-
-        // ================================================================
-        // 3. ІНТЕГРАЦІЯ FIREBASE (синхронізація та пульт)
+        // 2. ІНТЕГРАЦІЯ FIREBASE (синхронізація та пульт)
         // ================================================================
 
         // Конфігурація Firebase (базова, за потреби замінити на свої дані)
@@ -1228,40 +814,13 @@
                     window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html';
                 }
 
-                // Команда зміни фону з пульта
-                if (cmd.action === 'setBackground' && cmd.url) {
-                    setBackground(cmd.url);
-                    // Оновлюємо активну мініатюру
-                    document.querySelectorAll('.theme-thumb').forEach(el => {
-                        el.classList.toggle('active', el.dataset.url === cmd.url);
-                    });
-                }
+                // Команди, пов'язані з фонами, більше не обробляються
             });
         }
 
-
-        // ================================================================
-        // 4. ДОДАТКОВА ІНІЦІАЛІЗАЦІЯ ПРИ ЗАВАНТАЖЕННІ
-        // ================================================================
-
-        // Функція, яка викликається після повного завантаження сторінки
-        // Вже є window.onload вище, додаємо до неї
-        const originalOnload = window.onload;
-        window.onload = function() {
-            // Викликаємо оригінальну логіку
-            if (typeof originalOnload === 'function') {
-                originalOnload();
-            }
-            // Додаткова ініціалізація Theme Manager (дублюємо для надійності)
-            initThemeManager();
-            // Ініціалізація Firebase
-            initFirebase();
-        };
-
-        // Також запускаємо одразу, якщо DOM вже готовий
+        // Додаткова ініціалізація при завантаженні
         if (document.readyState === 'complete' || document.readyState === 'interactive') {
             setTimeout(function() {
-                initThemeManager();
                 initFirebase();
             }, 100);
         }
