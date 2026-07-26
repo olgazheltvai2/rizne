@@ -181,21 +181,45 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // --- 2. Отримуємо ім'я та генеруємо вкладку ---
+        // --- 2. НАДІЙНЕ збереження імені (Session Storage) ---
         const urlParams = new URLSearchParams(window.location.search);
-        const myName = urlParams.get('user') || ('Гість_' + Math.floor(Math.random() * 1000));
+        let myName = urlParams.get('user');
+
+        if (myName) {
+            // Якщо є ім'я в посиланні, запам'ятовуємо його
+            sessionStorage.setItem('myStudentName', myName); 
+        } else {
+            // Якщо імені немає, шукаємо в пам'яті
+            myName = sessionStorage.getItem('myStudentName'); 
+            if (!myName) {
+                // Якщо і в пам'яті немає, тоді вже генеруємо Гостя
+                myName = 'Гість_' + Math.floor(Math.random() * 1000);
+                sessionStorage.setItem('myStudentName', myName);
+            }
+        }
         document.getElementById('user-greeting').innerText = `Привіт, ${myName}!`;
 
-        // Генеруємо унікальний номер для цієї конкретної вкладки/пристрою
+        // --- 3. Радар: унікальні вкладки та присутність ---
         const tabId = Math.random().toString(36).substring(2, 10);
         const myPresenceRef = db.ref('online_users/' + myName + '/' + tabId);
         
-        // --- 3. Надійна система присутності (Радар) ---
         db.ref('.info/connected').on('value', (snapshot) => {
             if (snapshot.val() === true) {
                 myPresenceRef.onDisconnect().remove(); 
                 myPresenceRef.set(true);               
             }
+        });
+
+        // Сигнал від вчителя: "Оновити список"
+        db.ref('force_refresh').on('value', (snapshot) => {
+            if(snapshot.val()) {
+                myPresenceRef.set(true);
+            }
+        });
+
+        // МИТТЄВА ЗАЧИСТКА при переході на іншу сторінку або закритті
+        window.addEventListener('beforeunload', () => {
+            myPresenceRef.remove();
         });
 
         // --- 4. Слухаємо блокування з пульта ---
@@ -216,8 +240,8 @@
                 if (!targetUrl.endsWith('.html')) {
                     targetUrl += '.html';
                 }
-                // Переходимо на гру, причепивши ім'я
-                window.location.href = targetUrl + '?user=' + myName;
+                // Переходимо на гру (ім'я вже є в пам'яті браузера, тому хвостик не загубиться)
+                window.location.href = targetUrl; 
             }
         });
 
@@ -230,11 +254,8 @@
         let bgFoundCount = 0;
         const maxBgCheck = 50; 
 
-        if (savedBg) {
-            document.body.style.backgroundImage = `url('${savedBg}')`;
-        } else {
-            document.body.style.backgroundImage = `url('${baseUrl}background_1.webp')`;
-        }
+        if (savedBg) { document.body.style.backgroundImage = `url('${savedBg}')`; } 
+        else { document.body.style.backgroundImage = `url('${baseUrl}background_1.webp')`; }
 
         themeBtn.addEventListener('click', () => {
             themeModal.style.display = themeModal.style.display === 'block' ? 'none' : 'block';
@@ -243,7 +264,6 @@
         async function loadBackgrounds() {
             for (let i = 1; i <= maxBgCheck; i++) {
                 let imgUrl = `${baseUrl}background_${i}.webp`;
-                
                 await new Promise((resolve) => {
                     const img = new Image();
                     img.onload = () => {
@@ -254,7 +274,6 @@
                     img.onerror = () => resolve();
                     img.src = imgUrl;
                 });
-                
                 if (i > bgFoundCount + 3) break; 
             }
         }
@@ -266,15 +285,12 @@
             img.src = url;
             const span = document.createElement('span');
             span.textContent = `Фон ${index}`;
-            
             div.appendChild(img);
             div.appendChild(span);
-            
             div.addEventListener('click', () => {
                 document.body.style.backgroundImage = `url('${url}')`;
                 localStorage.setItem('mySavedGameBg', url);
             });
-            
             themeGrid.appendChild(div);
         }
 
