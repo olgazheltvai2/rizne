@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Міні-Шахи: Жуки проти Равликів</title>
+    <!-- Підключення Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
     <style>
         /* Скидання базових налаштувань для чистого відображення */
         * {
@@ -13,24 +16,27 @@
             user-select: none;
         }
 
-        /* Темний насичений фон, щоб уникнути білого кольору */
+        /* Змінено: шрифт Arial, фон для Theme Manager */
         body {
-            background-color: #051a0d; 
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             overflow: hidden;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: Arial, sans-serif;
         }
 
-        /* Головний контейнер гри */
+        /* Головний контейнер гри - Змінено на напівпрозорий, 95vw/95vh для масштабування */
         #game-container {
-            width: 100vw;
-            height: 100vh;
+            width: 95vw;
+            height: 95vh;
             position: relative;
-            background: radial-gradient(circle at 50% 50%, #2b592b 0%, #0a2612 100%);
-            box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
+            background: rgba(10, 38, 18, 0.85); /* Напівпрозорий темний фон */
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.8), 0 10px 30px rgba(0,0,0,0.5);
+            border-radius: 20px;
             overflow: hidden;
         }
 
@@ -302,38 +308,19 @@
             animation: look-around 5s infinite;
         }
 
-    </style>
-
-    <!-- Підключення Firebase та стилів системи -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
-    <style>
-        body {
-            font-family: 'Propysy Bold', sans-serif;
-            margin: 0; padding: 0;
-            background-size: cover; background-position: center; background-attachment: fixed;
-            min-height: 100vh; display: flex; justify-content: center; align-items: center;
-        }
-        .main-container {
-            background-color: rgba(255, 255, 255, 0.9);
-            padding: 40px; border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            text-align: center; max-width: 800px; width: 90%;
-            position: relative; z-index: 1;
-        }
-        /* Theme Manager */
+        /* --- Автономна Система динамічних фонів (Theme Manager) --- */
         #theme-btn { position: fixed; bottom: 20px; right: 20px; z-index: 9999; width: 50px; height: 50px; border-radius: 50%; background-color: white; border: 2px solid #ccc; font-size: 24px; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         #theme-modal { position: fixed; bottom: 80px; right: 20px; z-index: 9998; background: white; border: 1px solid #ccc; border-radius: 10px; padding: 15px; max-height: 60vh; overflow-y: auto; display: none; box-shadow: 0 10px 20px rgba(0,0,0,0.2); width: 320px; }
-        #theme-modal h3 { margin-top: 0; text-align: center; font-size: 18px; }
+        #theme-modal h3 { margin-top: 0; text-align: center; font-size: 18px; color: #333; font-family: Arial, sans-serif; }
         .theme-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
         .theme-thumbnail { position: relative; cursor: pointer; border: 2px solid transparent; border-radius: 8px; overflow: hidden; height: 80px; }
         .theme-thumbnail:hover { border-color: #3498db; }
         .theme-thumbnail img { width: 100%; height: 100%; object-fit: cover; }
-        .theme-thumbnail span { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0, 0, 0, 0.6); color: white; font-size: 12px; text-align: center; padding: 4px 0; }
+        .theme-thumbnail span { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0, 0, 0, 0.6); color: white; font-size: 12px; text-align: center; padding: 4px 0; font-family: Arial, sans-serif; }
+
     </style>
 </head>
 <body>
-    <div class="main-container">
 
 <div id="game-container">
     <div class="bg-pattern"></div>
@@ -419,7 +406,54 @@
     </div>
 </div>
 
+<!-- Кнопка та модальне вікно Theme Manager -->
+<button id="theme-btn">⚙️</button>
+<div id="theme-modal">
+    <h3>Оберіть фон</h3>
+    <div class="theme-grid" id="theme-grid"></div>
+</div>
+
 <script>
+    // --- ІНІЦІАЛІЗАЦІЯ ФАЙРБЕЙЗ ТА СИНХРОНІЗАЦІЯ ДІЙ ---
+    const firebaseConfig = { databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/" };
+    if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+    const db = firebase.database();
+    let isRemoteAction = false;
+
+    // Повернення в лобі
+    db.ref('current_activity').on('value', (snapshot) => {
+        if (snapshot.val() === 'lobby') window.location.href = 'lobby.html';
+    });
+
+    // Слухач дій для синхронізації
+    db.ref('chess_action_sync').on('value', (snap) => {
+        const action = snap.val();
+        if (action && action.time > (window.lastActionTime || 0)) {
+            isRemoteAction = true;
+            window.lastActionTime = action.time;
+            
+            if (action.type === 'click') {
+                handleCellClick(action.r, action.c);
+            } else if (action.type === 'init') {
+                initGame();
+            } else if (action.type === 'info') {
+                toggleInfo(action.show);
+            } else if (action.type === 'jump') {
+                jumpChar();
+            }
+            
+            isRemoteAction = false;
+        }
+    });
+
+    // Відправка дії у базу
+    function broadcastAction(actionData) {
+        if (!isRemoteAction) {
+            actionData.time = Date.now();
+            db.ref('chess_action_sync').set(actionData);
+        }
+    }
+
     // --- АУДІО СИСТЕМА ---
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx;
@@ -457,8 +491,7 @@
         });
     }
     function playBeep(freq) { playTone(freq, 'sine', 0.1); }
-
-    // --- МАЛЮВАННЯ СКАДНИХ SVG ФІГУР ---
+    // --- МАЛЮВАННЯ СКЛАДНИХ SVG ФІГУР ---
     const SVGS = {
         // Пішак Гравець 1 (Червоне Сонечко)
         p1_pawn: `
@@ -590,6 +623,7 @@
 
     // Ініціалізація дошки 4x4
     function initGame() {
+        broadcastAction({ type: 'init' });
         boardEl.innerHTML = '';
         board = [
             [{t: 'pawn', p: 2}, {t: 'king', p: 2}, {t: 'pawn', p: 2}, {t: 'pawn', p: 2}],
@@ -633,6 +667,7 @@
 
     // Обробка кліку по клітинці
     function handleCellClick(r, c) {
+        broadcastAction({ type: 'click', r: r, c: c });
         initAudio();
         const clickedPiece = board[r][c];
 
@@ -776,6 +811,7 @@
     const mouthEl = document.getElementById('char-mouth');
 
     function jumpChar() {
+        broadcastAction({ type: 'jump' });
         charEl.classList.remove('anim-wiggle');
         charEl.classList.add('anim-jump');
         setTimeout(() => {
@@ -814,6 +850,7 @@
 
     // --- UI ЛОГІКА ---
     function toggleInfo(show) {
+        broadcastAction({ type: 'info', show: show });
         playBeep(400);
         const modal = document.getElementById('info-modal');
         if (show) {
@@ -826,69 +863,68 @@
     // Запуск гри при завантаженні сторінки
     window.onload = initGame;
 
-</script>
 
-    </div> <!-- Закриття main-container -->
-    
-    <!-- Theme Manager HTML -->
-    <button id="theme-btn">⚙️</button>
-    <div id="theme-modal">
-        <h3>Оберіть фон</h3>
-        <div class="theme-grid" id="theme-grid"></div>
-    </div>
+    // --- АВТОНОМНА СИСТЕМА ДИНАМІЧНИХ ФОНІВ (THEME MANAGER) ---
+    const themeBtn = document.getElementById('theme-btn');
+    const themeModal = document.getElementById('theme-modal');
+    const themeGrid = document.getElementById('theme-grid');
+    const baseUrl = 'https://olgazheltvai2.github.io/images/backgrounds/';
+    const savedBg = localStorage.getItem('mySavedGameBg');
+    let bgFoundCount = 0;
+    const maxBgCheck = 1000; 
 
-    <!-- Логіка Theme Manager та Firebase -->
-    <script>
-        // Слухач Лобі (Firebase)
-        const firebaseConfig = { databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/" };
-        if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
-        const db = firebase.database();
-        db.ref('current_activity').on('value', (snapshot) => {
-            if (snapshot.val() === 'lobby') window.location.href = 'lobby.html';
-        });
+    if (savedBg) {
+        document.body.style.backgroundImage = `url('${savedBg}')`;
+    } else {
+        document.body.style.backgroundImage = `url('${baseUrl}background_1.webp')`;
+    }
 
-        // Theme Manager
-        const themeBtn = document.getElementById('theme-btn');
-        const themeModal = document.getElementById('theme-modal');
-        const themeGrid = document.getElementById('theme-grid');
-        const baseUrl = 'https://olgazheltvai2.github.io/images/backgrounds/';
-        const savedBg = localStorage.getItem('mySavedGameBg');
-        let bgFoundCount = 0;
-        const maxBgCheck = 50; 
+    themeBtn.addEventListener('click', () => {
+        themeModal.style.display = themeModal.style.display === 'block' ? 'none' : 'block';
+    });
 
-        if (savedBg) document.body.style.backgroundImage = `url('${savedBg}')`;
-        else document.body.style.backgroundImage = `url('${baseUrl}background_1.webp')`;
-
-        themeBtn.addEventListener('click', () => {
-            themeModal.style.display = themeModal.style.display === 'block' ? 'none' : 'block';
-        });
-
-        async function loadBackgrounds() {
-            for (let i = 1; i <= maxBgCheck; i++) {
-                let imgUrl = `${baseUrl}background_${i}.webp`;
-                await new Promise((resolve) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        const div = document.createElement('div');
-                        div.className = 'theme-thumbnail';
-                        const imgEl = document.createElement('img'); imgEl.src = imgUrl;
-                        const span = document.createElement('span'); span.textContent = `Фон ${i}`;
-                        div.appendChild(imgEl); div.appendChild(span);
-                        div.addEventListener('click', () => {
-                            document.body.style.backgroundImage = `url('${imgUrl}')`;
-                            localStorage.setItem('mySavedGameBg', imgUrl);
-                        });
-                        themeGrid.appendChild(div);
-                        bgFoundCount++;
-                        resolve();
-                    };
-                    img.onerror = () => resolve();
-                    img.src = imgUrl;
-                });
-                if (i > bgFoundCount + 3) break;
-            }
+    async function loadBackgrounds() {
+        for (let i = 1; i <= maxBgCheck; i++) {
+            let imgUrl = `${baseUrl}background_${i}.webp`;
+            
+            await new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    createThumbnail(imgUrl, i);
+                    bgFoundCount++;
+                    resolve();
+                };
+                img.onerror = () => resolve(); 
+                img.src = imgUrl;
+            });
+            
+            // Якщо файли відсутні 3 рази підряд - припиняємо пошук
+            if (i > bgFoundCount + 3) break; 
         }
-        loadBackgrounds();
-    </script>
+    }
+
+    function createThumbnail(url, index) {
+        const div = document.createElement('div');
+        div.className = 'theme-thumbnail';
+        
+        const img = document.createElement('img');
+        img.src = url;
+        
+        const span = document.createElement('span');
+        span.textContent = `Фон ${index}`;
+        
+        div.appendChild(img);
+        div.appendChild(span);
+        
+        div.addEventListener('click', () => {
+            document.body.style.backgroundImage = `url('${url}')`;
+            localStorage.setItem('mySavedGameBg', url);
+        });
+        
+        themeGrid.appendChild(div);
+    }
+
+    loadBackgrounds();
+</script>
 </body>
 </html>
