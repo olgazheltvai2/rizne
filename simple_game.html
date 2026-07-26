@@ -9,7 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
     <style>
         body {
-            font-family: 'Propysy Bold', sans-serif;
+            font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
             height: 100vh;
@@ -36,6 +36,12 @@
         h1 {
             color: #333;
             margin-bottom: 20px;
+            font-family: Arial, sans-serif;
+        }
+
+        p {
+            font-family: Arial, sans-serif;
+            color: #555;
         }
 
         .score-box {
@@ -43,6 +49,7 @@
             font-weight: bold;
             color: #e74c3c;
             margin: 20px 0;
+            font-family: Arial, sans-serif;
         }
 
         .click-btn {
@@ -55,7 +62,7 @@
             cursor: pointer;
             transition: transform 0.1s, background-color 0.3s;
             box-shadow: 0 5px 15px rgba(46, 204, 113, 0.4);
-            font-family: 'Propysy Bold', sans-serif;
+            font-family: Arial, sans-serif;
         }
 
         .click-btn:active {
@@ -75,18 +82,89 @@
             border-radius: 8px;
             cursor: pointer;
             margin-top: 30px;
-            font-family: 'Propysy Bold', sans-serif;
+            font-family: Arial, sans-serif;
         }
 
         /* --- Theme Manager CSS --- */
-        #theme-btn { position: fixed; bottom: 20px; right: 20px; z-index: 9999; width: 50px; height: 50px; border-radius: 50%; background-color: white; border: 2px solid #ccc; font-size: 24px; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        #theme-modal { position: fixed; bottom: 80px; right: 20px; z-index: 9998; background: white; border: 1px solid #ccc; border-radius: 10px; padding: 15px; max-height: 60vh; overflow-y: auto; display: none; box-shadow: 0 10px 20px rgba(0,0,0,0.2); width: 320px; }
-        #theme-modal h3 { margin-top: 0; text-align: center; font-size: 18px; color: #333; font-family: 'Propysy Bold', sans-serif; }
-        .theme-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-        .theme-thumbnail { position: relative; cursor: pointer; border: 2px solid transparent; border-radius: 8px; overflow: hidden; height: 80px; }
-        .theme-thumbnail:hover { border-color: #3498db; }
-        .theme-thumbnail img { width: 100%; height: 100%; object-fit: cover; }
-        .theme-thumbnail span { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0, 0, 0, 0.6); color: white; font-size: 12px; text-align: center; padding: 4px 0; font-family: 'Propysy Bold', sans-serif; }
+        #theme-btn { 
+            position: fixed; 
+            bottom: 20px; 
+            right: 20px; 
+            z-index: 9999; 
+            width: 50px; 
+            height: 50px; 
+            border-radius: 50%; 
+            background-color: white; 
+            border: 2px solid #ccc; 
+            font-size: 24px; 
+            cursor: pointer; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+        }
+        
+        #theme-modal { 
+            position: fixed; 
+            bottom: 80px; 
+            right: 20px; 
+            z-index: 9998; 
+            background: white; 
+            border: 1px solid #ccc; 
+            border-radius: 10px; 
+            padding: 15px; 
+            max-height: 60vh; 
+            overflow-y: auto; 
+            display: none; 
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2); 
+            width: 320px; 
+        }
+        
+        #theme-modal h3 { 
+            margin-top: 0; 
+            text-align: center; 
+            font-size: 18px; 
+            color: #333; 
+            font-family: Arial, sans-serif; 
+        }
+        
+        .theme-grid { 
+            display: grid; 
+            grid-template-columns: repeat(2, 1fr); 
+            gap: 10px; 
+        }
+        
+        .theme-thumbnail { 
+            position: relative; 
+            cursor: pointer; 
+            border: 2px solid transparent; 
+            border-radius: 8px; 
+            overflow: hidden; 
+            height: 80px; 
+        }
+        
+        .theme-thumbnail:hover { 
+            border-color: #3498db; 
+        }
+        
+        .theme-thumbnail img { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+        }
+        
+        .theme-thumbnail span { 
+            position: absolute; 
+            bottom: 0; 
+            left: 0; 
+            right: 0; 
+            background: rgba(0, 0, 0, 0.6); 
+            color: white; 
+            font-size: 12px; 
+            text-align: center; 
+            padding: 4px 0; 
+            font-family: Arial, sans-serif; 
+        }
     </style>
 </head>
 <body>
@@ -115,11 +193,10 @@
         if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
         const db = firebase.database();
 
-        // ВИПРАВЛЕНО: Відносне посилання для лобі. 
-        // Тепер гра шукає lobby.html у тій самій папці, де знаходиться вона сама.
+        // Повернення в лобі за абсолютним посиланням (виправляє помилку 404)
         db.ref('current_activity').on('value', (snapshot) => {
             if (snapshot.val() === 'lobby') {
-                window.location.href = 'lobby.html';
+                window.location.href = 'https://olgazheltvai2.github.io/lobby.html';
             }
         });
 
