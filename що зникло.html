@@ -223,7 +223,6 @@
             box-shadow: 0px 0px 0 #000;
         }
 
-        /* Кнопка переходу в лобі (додаткова) */
         #lobby-btn {
             position: fixed;
             bottom: 20px;
@@ -246,7 +245,6 @@
             transform: scale(1.05);
         }
 
-        /* Індикатор статусу Firebase */
         #firebase-status {
             position: fixed;
             bottom: 20px;
@@ -504,15 +502,12 @@
         </div>
     </div>
 
-    <!-- Додаткова кнопка для переходу в лобі (резерв) -->
     <button id="lobby-btn" onclick="goToLobby()">🏠 Лобі</button>
-
-    <!-- Індикатор статусу Firebase -->
     <div id="firebase-status">⏳ Підключення...</div>
 
     <script>
         // ================================================================
-        // 1. ОРИГІНАЛЬНА ЛОГІКА ГРИ (адаптована для синхронізації через стан)
+        // ОРИГІНАЛЬНА ЛОГІКА ГРИ (без змін)
         // ================================================================
 
         const emojiPool = [
@@ -526,7 +521,6 @@
         let currentCardEmojis = [];
         let isFlipped = false;
         const scores = { 1: 0, 2: 0 };
-        let isLocalUpdate = false; // Флаг, щоб не реагувати на власні зміни стану
 
         const audioCtx = new(window.AudioContext || window.webkitAudioContext)();
 
@@ -582,6 +576,7 @@
 
         function renderEmojis(containerId, emojisList) {
             const container = document.getElementById(containerId);
+            if (!container) return;
             container.innerHTML = '';
             const styledEmojis = emojisList.map(emoji => {
                 const randomOrder = Math.floor(Math.random() * 20);
@@ -590,7 +585,6 @@
             container.innerHTML = styledEmojis.join('');
         }
 
-        // ===== ВСТАНОВЛЕННЯ КАРТКИ (без збереження в Firebase) =====
         function setCardData(emojis, flippedState) {
             currentCardEmojis = emojis || getRandomEmojis();
             renderEmojis('front-face', currentCardEmojis);
@@ -612,45 +606,19 @@
             isFlipped = !!flippedState;
         }
 
-        // ===== ОНОВЛЕННЯ ВСЬОГО СТАНУ (локально + збереження) =====
-        function updateFullState(emojis, flipped, scoresData) {
-            isLocalUpdate = true;
-            setCardData(emojis, flipped);
-            if (scoresData) {
-                scores[1] = scoresData[1] || 0;
-                scores[2] = scoresData[2] || 0;
-                document.getElementById('score1').innerText = scores[1];
-                document.getElementById('score2').innerText = scores[2];
-            }
-            isLocalUpdate = false;
-            // Зберігаємо в Firebase тільки якщо це локальна зміна (не від зовнішнього слухача)
-            if (typeof firebaseDb !== 'undefined' && firebaseDb && !isLocalUpdate) {
-                saveGameState();
-            }
-        }
-
-        // ===== ГЕНЕРАЦІЯ НОВОЇ КАРТКИ (локальна дія) =====
         function generateNewCard() {
             playSound('magic');
             const newEmojis = getRandomEmojis();
-            // Оновлюємо локально
-            isLocalUpdate = true;
             setCardData(newEmojis, false);
-            isLocalUpdate = false;
-            // Анімація кажана
             const bat = document.getElementById('bat-character');
             bat.classList.add('reacting');
             setTimeout(() => bat.classList.remove('reacting'), 500);
-            // Зберігаємо стан у Firebase
             saveGameState();
         }
 
-        // ===== ПЕРЕГОРТАННЯ (локальна дія) =====
         function flipCard() {
             playSound('flip');
-            // Змінюємо стан
             const newFlipped = !isFlipped;
-            isLocalUpdate = true;
             const cardInner = document.getElementById('card-inner');
             if (newFlipped) {
                 cardInner.classList.add('flipped');
@@ -658,9 +626,7 @@
                 cardInner.classList.remove('flipped');
             }
             isFlipped = newFlipped;
-            isLocalUpdate = false;
 
-            // Коміксний ефект
             const actionText = document.getElementById('action-text');
             const texts = ['POOF!', 'ZAP!', 'WHOOSH!', 'BAM!'];
             actionText.innerText = texts[Math.floor(Math.random() * texts.length)];
@@ -674,11 +640,9 @@
             bat.classList.add('reacting');
             setTimeout(() => bat.classList.remove('reacting'), 500);
 
-            // Зберігаємо стан
             saveGameState();
         }
 
-        // ===== ОНОВЛЕННЯ РАХУНКУ (локальна дія) =====
         function updateScore(player, change) {
             playSound('click');
             scores[player] += change;
@@ -693,10 +657,9 @@
         }
 
         // ================================================================
-        // 2. РОБОТА З FIREBASE (збереження / завантаження стану)
+        // FIREBASE СИНХРОНІЗАЦІЯ (спрощена та надійна)
         // ================================================================
 
-        // ------ КОНФІГУРАЦІЯ FIREBASE (ЗАМІНІТЬ НА СВОЮ) ------
         const firebaseConfig = {
             apiKey: "AIzaSyB3VwT7k7Ql5l5l5l5l5l5l5l5l5l5l5",
             authDomain: "example.firebaseapp.com",
@@ -706,45 +669,42 @@
             messagingSenderId: "123456789",
             appId: "1:123456789:web:abcdef123456"
         };
-        // ------------------------------------------------------
 
-        let firebaseApp = null;
         let firebaseDb = null;
-        let deviceId = '';
         let isFirebaseReady = false;
+        let isExternalUpdate = false; // запобігає циклу
 
         function updateStatus(text, isOnline) {
             const el = document.getElementById('firebase-status');
-            el.textContent = text;
-            el.className = isOnline ? 'online' : 'offline';
+            if (el) {
+                el.textContent = text;
+                el.className = isOnline ? 'online' : 'offline';
+            }
         }
 
         function saveGameState() {
-            if (!firebaseDb || !isFirebaseReady) return;
+            if (!firebaseDb || !isFirebaseReady || isExternalUpdate) return;
             const state = {
                 emojis: currentCardEmojis,
                 flipped: isFlipped,
                 scores: { 1: scores[1], 2: scores[2] },
                 timestamp: Date.now()
             };
-            firebaseDb.ref('gameState').set(state).catch(err => {
-                console.warn('Помилка збереження стану:', err);
-            });
+            firebaseDb.ref('gameState').set(state).catch(err => console.warn('Помилка збереження:', err));
         }
 
         function loadGameState() {
             if (!firebaseDb || !isFirebaseReady) {
-                // Якщо Firebase не готовий, запускаємо гру з випадковими даними
+                // Якщо Firebase не готовий, стартуємо з випадковими даними
                 if (!currentCardEmojis || currentCardEmojis.length === 0) {
-                    const newEmojis = getRandomEmojis();
-                    setCardData(newEmojis, false);
+                    setCardData(getRandomEmojis(), false);
                 }
                 return;
             }
             firebaseDb.ref('gameState').once('value').then(snapshot => {
                 const state = snapshot.val();
                 if (state && state.emojis && state.emojis.length > 0) {
-                    // Відновлюємо стан
+                    isExternalUpdate = true;
                     setCardData(state.emojis, state.flipped);
                     if (state.scores) {
                         scores[1] = state.scores[1] || 0;
@@ -752,32 +712,31 @@
                         document.getElementById('score1').innerText = scores[1];
                         document.getElementById('score2').innerText = scores[2];
                     }
+                    isExternalUpdate = false;
                     console.log('Стан відновлено з Firebase');
                 } else {
-                    // Якщо немає даних — створюємо нову картку
+                    // Якщо даних немає, створюємо нові та зберігаємо
                     const newEmojis = getRandomEmojis();
                     setCardData(newEmojis, false);
-                    saveGameState(); // зберігаємо початковий стан
+                    saveGameState();
                 }
             }).catch(err => {
                 console.warn('Помилка завантаження стану:', err);
-                // Якщо помилка — запускаємо гру локально
                 if (!currentCardEmojis || currentCardEmojis.length === 0) {
-                    const newEmojis = getRandomEmojis();
-                    setCardData(newEmojis, false);
+                    setCardData(getRandomEmojis(), false);
                 }
             });
         }
 
-        // ===== СЛУХАЧ ЗМІН СТАНУ (синхронізація) =====
         function listenStateChanges() {
             if (!firebaseDb || !isFirebaseReady) return;
             firebaseDb.ref('gameState').on('value', function(snapshot) {
-                if (isLocalUpdate) return; // ігноруємо власні зміни
+                if (isExternalUpdate) return; // ігноруємо власні зміни
                 const state = snapshot.val();
                 if (!state || !state.emojis || state.emojis.length === 0) return;
 
                 // Оновлюємо гру з отриманого стану
+                isExternalUpdate = true;
                 setCardData(state.emojis, state.flipped);
                 if (state.scores) {
                     scores[1] = state.scores[1] || 0;
@@ -785,11 +744,11 @@
                     document.getElementById('score1').innerText = scores[1];
                     document.getElementById('score2').innerText = scores[2];
                 }
+                isExternalUpdate = false;
                 console.log('Стан оновлено з Firebase (зовнішня зміна)');
             });
         }
 
-        // ===== КОМАНДА ПЕРЕХОДУ В ЛОБІ =====
         function goToLobby() {
             window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html';
         }
@@ -806,47 +765,44 @@
             });
         }
 
-        // ===== ІНІЦІАЛІЗАЦІЯ FIREBASE =====
         function initFirebase() {
             try {
                 if (typeof firebase === 'undefined' || typeof firebase.initializeApp !== 'function') {
                     console.warn('Firebase не завантажено. Синхронізація недоступна.');
                     updateStatus('⚠️ Firebase не завантажено', false);
-                    loadGameState(); // запускаємо гру без синхронізації
+                    // запускаємо гру локально
+                    if (!currentCardEmojis || currentCardEmojis.length === 0) {
+                        setCardData(getRandomEmojis(), false);
+                    }
                     return;
                 }
 
+                let app;
                 if (firebase.apps.length > 0) {
-                    firebaseApp = firebase.apps[0];
+                    app = firebase.apps[0];
                 } else {
-                    firebaseApp = firebase.initializeApp(firebaseConfig);
+                    app = firebase.initializeApp(firebaseConfig);
                 }
-                firebaseDb = firebase.database(firebaseApp);
+                firebaseDb = firebase.database(app);
                 isFirebaseReady = true;
-                deviceId = 'device_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
-
                 updateStatus('✅ Синхронізація активна', true);
 
-                // Слухаємо зміни стану
                 listenStateChanges();
-                // Слухаємо команди з пульта
                 listenForCommands();
-
-                // Завантажуємо стан
                 loadGameState();
 
-                console.log('Firebase ініціалізовано. DeviceId:', deviceId);
-
+                console.log('Firebase ініціалізовано');
             } catch (err) {
                 console.warn('Помилка ініціалізації Firebase:', err.message);
                 updateStatus('❌ Помилка підключення', false);
-                // Запускаємо гру без синхронізації
-                loadGameState();
+                if (!currentCardEmojis || currentCardEmojis.length === 0) {
+                    setCardData(getRandomEmojis(), false);
+                }
             }
         }
 
         // ================================================================
-        // 3. ЗАПУСК ПРИ ЗАВАНТАЖЕННІ
+        // ЗАПУСК
         // ================================================================
 
         window.onload = function() {
