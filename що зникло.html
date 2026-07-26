@@ -606,6 +606,7 @@
             isFlipped = !!flippedState;
         }
 
+        // ===== ОСНОВНІ ФУНКЦІЇ (ВИКЛИКАЮТЬ BROADCAST) =====
         function generateNewCard() {
             playSound('magic');
             const newEmojis = getRandomEmojis();
@@ -613,7 +614,8 @@
             const bat = document.getElementById('bat-character');
             bat.classList.add('reacting');
             setTimeout(() => bat.classList.remove('reacting'), 500);
-            saveGameState();
+            // Відправляємо дію
+            broadcastAction({ type: 'newCard', emojis: currentCardEmojis, flipped: false });
         }
 
         function flipCard() {
@@ -640,7 +642,7 @@
             bat.classList.add('reacting');
             setTimeout(() => bat.classList.remove('reacting'), 500);
 
-            saveGameState();
+            broadcastAction({ type: 'flip', flipped: isFlipped });
         }
 
         function updateScore(player, change) {
@@ -653,13 +655,14 @@
             scoreEl.style.transform = 'scale(1.5)';
             setTimeout(() => { scoreEl.style.transform = 'scale(1)'; }, 150);
 
-            saveGameState();
+            broadcastAction({ type: 'scoreUpdate', player: player, value: scores[player] });
         }
 
         // ================================================================
-        // FIREBASE СИНХРОНІЗАЦІЯ (спрощена та надійна)
+        // FIREBASE СИНХРОНІЗАЦІЯ (як у зразку)
         // ================================================================
 
+        // ------ КОНФІГУРАЦІЯ FIREBASE (ЗАМІНІТЬ НА СВОЮ) ------
         const firebaseConfig = {
             apiKey: "AIzaSyB3VwT7k7Ql5l5l5l5l5l5l5l5l5l5l5",
             authDomain: "example.firebaseapp.com",
@@ -669,10 +672,103 @@
             messagingSenderId: "123456789",
             appId: "1:123456789:web:abcdef123456"
         };
+        // ------------------------------------------------------
 
-        let firebaseDb = null;
-        let isFirebaseReady = false;
-        let isExternalUpdate = false; // запобігає циклу
+        // Ініціалізація Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+
+        // Унікальний ID пристрою
+        const myDeviceId = Math.random().toString(36).substring(2, 10);
+        let isRemoteAction = false; // прапорець, щоб не виконувати власні дії двічі
+        let isInitialized = false; // щоб не дублювати ініціалізацію
+
+        // ---- Слухач для переходу в лобі ----
+        db.ref('current_activity').on('value', (snapshot) => {
+            if (snapshot.val() === 'lobby') {
+                window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html';
+            }
+        });
+
+        // ---- Слухач для синхронізації дій ----
+        db.ref('game_actions').on('value', (snap) => {
+            const action = snap.val();
+            // Якщо дія існує, відправлена іншим пристроєм, і вона новіша за останню
+            if (action && action.senderId !== myDeviceId && action.time > (window.lastActionTime || 0)) {
+                isRemoteAction = true;
+                window.lastActionTime = action.time;
+
+                // Обробка типу дії
+                switch (action.type) {
+                    case 'flip':
+                        // Встановлюємо стан перегортання без запуску звуків та анімацій
+                        const cardInner = document.getElementById('card-inner');
+                        if (action.flipped) {
+                            cardInner.classList.add('flipped');
+                        } else {
+                            cardInner.classList.remove('flipped');
+                        }
+                        isFlipped = !!action.flipped;
+                        break;
+
+                    case 'newCard':
+                        // Встановлюємо нову картку з отриманими емодзі
+                        if (action.emojis && action.emojis.length > 0) {
+                            setCardData(action.emojis, action.flipped || false);
+                        }
+                        break;
+
+                    case 'scoreUpdate':
+                        const player = action.player;
+                        const value = action.value;
+                        if (player && value !== undefined) {
+                            scores[player] = value;
+                            document.getElementById('score' + player).innerText = value;
+                        }
+                        break;
+
+                    default:
+                        break;
+                }
+
+                isRemoteAction = false;
+            }
+        });
+
+        // ---- Відправка дії ----
+        function broadcastAction(actionData) {
+            if (!isRemoteAction) {
+                actionData.senderId = myDeviceId;
+                actionData.time = Date.now();
+                db.ref('game_actions').set(actionData);
+            }
+        }
+
+        // ---- Перехід у лобі (викликається з кнопки) ----
+        function goToLobby() {
+            window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html';
+        }
+
+        // ---- Ініціалізація гри при завантаженні ----
+        function initGame() {
+            if (isInitialized) return;
+            isInitialized = true;
+
+            // Генеруємо початкову картку
+            const newEmojis = getRandomEmojis();
+            setCardData(newEmojis, false);
+
+            // Відправляємо дію, щоб інші пристрої синхронізувалися
+            // Але робимо це з невеликою затримкою, щоб усі встигли підключитися
+            setTimeout(() => {
+                broadcastAction({ type: 'newCard', emojis: currentCardEmojis, flipped: false });
+            }, 500);
+
+            // Оновлюємо статус
+            updateStatus('✅ Синхронізація активна', true);
+        }
 
         function updateStatus(text, isOnline) {
             const el = document.getElementById('firebase-status');
@@ -682,135 +778,24 @@
             }
         }
 
-        function saveGameState() {
-            if (!firebaseDb || !isFirebaseReady || isExternalUpdate) return;
-            const state = {
-                emojis: currentCardEmojis,
-                flipped: isFlipped,
-                scores: { 1: scores[1], 2: scores[2] },
-                timestamp: Date.now()
-            };
-            firebaseDb.ref('gameState').set(state).catch(err => console.warn('Помилка збереження:', err));
-        }
-
-        function loadGameState() {
-            if (!firebaseDb || !isFirebaseReady) {
-                // Якщо Firebase не готовий, стартуємо з випадковими даними
-                if (!currentCardEmojis || currentCardEmojis.length === 0) {
-                    setCardData(getRandomEmojis(), false);
-                }
-                return;
-            }
-            firebaseDb.ref('gameState').once('value').then(snapshot => {
-                const state = snapshot.val();
-                if (state && state.emojis && state.emojis.length > 0) {
-                    isExternalUpdate = true;
-                    setCardData(state.emojis, state.flipped);
-                    if (state.scores) {
-                        scores[1] = state.scores[1] || 0;
-                        scores[2] = state.scores[2] || 0;
-                        document.getElementById('score1').innerText = scores[1];
-                        document.getElementById('score2').innerText = scores[2];
-                    }
-                    isExternalUpdate = false;
-                    console.log('Стан відновлено з Firebase');
-                } else {
-                    // Якщо даних немає, створюємо нові та зберігаємо
-                    const newEmojis = getRandomEmojis();
-                    setCardData(newEmojis, false);
-                    saveGameState();
-                }
-            }).catch(err => {
-                console.warn('Помилка завантаження стану:', err);
-                if (!currentCardEmojis || currentCardEmojis.length === 0) {
-                    setCardData(getRandomEmojis(), false);
-                }
-            });
-        }
-
-        function listenStateChanges() {
-            if (!firebaseDb || !isFirebaseReady) return;
-            firebaseDb.ref('gameState').on('value', function(snapshot) {
-                if (isExternalUpdate) return; // ігноруємо власні зміни
-                const state = snapshot.val();
-                if (!state || !state.emojis || state.emojis.length === 0) return;
-
-                // Оновлюємо гру з отриманого стану
-                isExternalUpdate = true;
-                setCardData(state.emojis, state.flipped);
-                if (state.scores) {
-                    scores[1] = state.scores[1] || 0;
-                    scores[2] = state.scores[2] || 0;
-                    document.getElementById('score1').innerText = scores[1];
-                    document.getElementById('score2').innerText = scores[2];
-                }
-                isExternalUpdate = false;
-                console.log('Стан оновлено з Firebase (зовнішня зміна)');
-            });
-        }
-
-        function goToLobby() {
-            window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html';
-        }
-
-        function listenForCommands() {
-            if (!firebaseDb || !isFirebaseReady) return;
-            const cmdRef = firebaseDb.ref('commands');
-            cmdRef.on('child_added', function(snapshot) {
-                const cmd = snapshot.val();
-                if (!cmd) return;
-                if (cmd.action === 'gotoLobby' || cmd.action === 'lobby') {
-                    goToLobby();
-                }
-            });
-        }
-
-        function initFirebase() {
-            try {
-                if (typeof firebase === 'undefined' || typeof firebase.initializeApp !== 'function') {
-                    console.warn('Firebase не завантажено. Синхронізація недоступна.');
-                    updateStatus('⚠️ Firebase не завантажено', false);
-                    // запускаємо гру локально
-                    if (!currentCardEmojis || currentCardEmojis.length === 0) {
-                        setCardData(getRandomEmojis(), false);
-                    }
-                    return;
-                }
-
-                let app;
-                if (firebase.apps.length > 0) {
-                    app = firebase.apps[0];
-                } else {
-                    app = firebase.initializeApp(firebaseConfig);
-                }
-                firebaseDb = firebase.database(app);
-                isFirebaseReady = true;
-                updateStatus('✅ Синхронізація активна', true);
-
-                listenStateChanges();
-                listenForCommands();
-                loadGameState();
-
-                console.log('Firebase ініціалізовано');
-            } catch (err) {
-                console.warn('Помилка ініціалізації Firebase:', err.message);
-                updateStatus('❌ Помилка підключення', false);
-                if (!currentCardEmojis || currentCardEmojis.length === 0) {
-                    setCardData(getRandomEmojis(), false);
-                }
-            }
-        }
-
-        // ================================================================
-        // ЗАПУСК
-        // ================================================================
-
+        // ---- Запуск ----
         window.onload = function() {
-            initFirebase();
+            // Перевіряємо, чи Firebase готовий
+            if (firebase.apps.length > 0) {
+                initGame();
+            } else {
+                updateStatus('⚠️ Firebase не завантажено', false);
+                // Все одно запускаємо гру локально
+                const newEmojis = getRandomEmojis();
+                setCardData(newEmojis, false);
+            }
         };
 
+        // Якщо DOM вже готовий
         if (document.readyState === 'complete' || document.readyState === 'interactive') {
-            setTimeout(initFirebase, 100);
+            setTimeout(() => {
+                if (firebase.apps.length > 0) initGame();
+            }, 100);
         }
     </script>
 
