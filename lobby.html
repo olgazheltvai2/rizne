@@ -183,7 +183,7 @@
 
         // --- 2. Отримуємо бейджик (ім'я) з посилання ---
         const urlParams = new URLSearchParams(window.location.search);
-        const myName = urlParams.get('user') || 'Гість';
+        const myName = urlParams.get('user') || ('Гість_' + Math.floor(Math.random() * 1000));
         document.getElementById('user-greeting').innerText = `Привіт, ${myName}!`;
 
         // --- 3. Надійна система "Хто онлайн" (Радар) ---
