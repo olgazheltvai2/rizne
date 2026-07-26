@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тестова Вікторина</title>
+    <!-- Підключення Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-color: #f0f8ff;
+        }
+
+        /* Напівпрозорий контейнер по центру */
+        .game-container {
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-family: Arial, sans-serif;
+        }
+
+        .question-text {
+            font-size: 22px;
+            color: #444;
+            margin: 30px 0;
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+        }
+
+        .btn-group {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .choice-btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.3s;
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+            font-family: Arial, sans-serif;
+        }
+
+        .choice-btn:hover {
+            background-color: #2980b9;
+        }
+
+        .choice-btn:active {
+            transform: scale(0.95);
+        }
+
+        #result-msg {
+            margin-top: 25px;
+            font-size: 20px;
+            font-weight: bold;
+            font-family: Arial, sans-serif;
+        }
+
+        /* --- Theme Manager CSS --- */
+        #theme-btn { 
+            position: fixed; 
+            bottom: 20px; 
+            right: 20px; 
+            z-index: 9999; 
+            width: 50px; 
+            height: 50px; 
+            border-radius: 50%; 
+            background-color: white; 
+            border: 2px solid #ccc; 
+            font-size: 24px; 
+            cursor: pointer; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+        }
+        
+        #theme-modal { 
+            position: fixed; 
+            bottom: 80px; 
+            right: 20px; 
+            z-index: 9998; 
+            background: white; 
+            border: 1px solid #ccc; 
+            border-radius: 10px; 
+            padding: 15px; 
+            max-height: 60vh; 
+            overflow-y: auto; 
+            display: none; 
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2); 
+            width: 320px; 
+        }
+        
+        #theme-modal h3 { 
+            margin-top: 0; 
+            text-align: center; 
+            font-size: 18px; 
+            color: #333; 
+            font-family: Arial, sans-serif; 
+        }
+        
+        .theme-grid { 
+            display: grid; 
+            grid-template-columns: repeat(2, 1fr); 
+            gap: 10px; 
+        }
+        
+        .theme-thumbnail { 
+            position: relative; 
+            cursor: pointer; 
+            border: 2px solid transparent; 
+            border-radius: 8px; 
+            overflow: hidden; 
+            height: 80px; 
+        }
+        
+        .theme-thumbnail:hover { 
+            border-color: #3498db; 
+        }
+        
+        .theme-thumbnail img { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+        }
+        
+        .theme-thumbnail span { 
+            position: absolute; 
+            bottom: 0; 
+            left: 0; 
+            right: 0; 
+            background: rgba(0, 0, 0, 0.6); 
+            color: white; 
+            font-size: 12px; 
+            text-align: center; 
+            padding: 4px 0; 
+            font-family: Arial, sans-serif; 
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <h1>Інтерактивна Вікторина</h1>
+        <div class="question-text" id="question-box">Чи сонце встає на сході?</div>
+        
+        <div class="btn-group">
+            <button class="choice-btn" onclick="sendAnswer('Так')">Так</button>
+            <button class="choice-btn" onclick="sendAnswer('Ні')">Ні</button>
+        </div>
+
+        <div id="result-msg"></div>
+    </div>
+
+    <!-- Theme Manager HTML -->
+    <button id="theme-btn">⚙️</button>
+    <div id="theme-modal">
+        <h3>Оберіть фон</h3>
+        <div class="theme-grid" id="theme-grid"></div>
+    </div>
+
+    <script>
+        // --- 1. FIREBASE СИНХРОНІЗАЦІЯ ТА ЛОБІ ---
+        const firebaseConfig = { databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/" };
+        if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+        const db = firebase.database();
+
+        // Залізобетонне повернення в лобі без помилки 404
+        db.ref('current_activity').on('value', (snapshot) => {
+            if (snapshot.val() === 'lobby') {
+                window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html';
+            }
+        });
+
+        // Слухаємо результати відповіді учня на всіх пристроях
+        const resultMsg = document.getElementById('result-msg');
+        db.ref('quiz_answer').on('value', (snapshot) => {
+            const ans = snapshot.val();
+            if (ans === 'Так') {
+                resultMsg.style.color = '#27ae60';
+                resultMsg.innerText = 'Правильно! Сонце встає на сході ☀️';
+            } else if (ans === 'Ні') {
+                resultMsg.style.color = '#e74c3c';
+                resultMsg.innerText = 'Помилка! Сонце встає саме на сході ❌';
+            } else {
+                resultMsg.innerText = '';
+            }
+        });
+
+        function sendAnswer(answer) {
+            db.ref('quiz_answer').set(answer);
+        }
+
+        // --- 2. АВТОНОМНИЙ THEME MANAGER ---
+        const themeBtn = document.getElementById('theme-btn');
+        const themeModal = document.getElementById('theme-modal');
+        const themeGrid = document.getElementById('theme-grid');
+        const baseUrl = 'https://olgazheltvai2.github.io/images/backgrounds/';
+        const savedBg = localStorage.getItem('mySavedGameBg');
+        let bgFoundCount = 0;
+        const maxBgCheck = 1000; 
+
+        if (savedBg) {
+            document.body.style.backgroundImage = `url('${savedBg}')`;
+        } else {
+            document.body.style.backgroundImage = `url('${baseUrl}background_1.webp')`;
+        }
+
+        themeBtn.addEventListener('click', () => {
+            themeModal.style.display = themeModal.style.display === 'block' ? 'none' : 'block';
+        });
+
+        async function loadBackgrounds() {
+            for (let i = 1; i <= maxBgCheck; i++) {
+                let imgUrl = `${baseUrl}background_${i}.webp`;
+                
+                await new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        createThumbnail(imgUrl, i);
+                        bgFoundCount++;
+                        resolve();
+                    };
+                    img.onerror = () => resolve(); 
+                    img.src = imgUrl;
+                });
+                
+                if (i > bgFoundCount + 3) break; 
+            }
+        }
+
+        function createThumbnail(url, index) {
+            const div = document.createElement('div');
+            div.className = 'theme-thumbnail';
+            
+            const img = document.createElement('img');
+            img.src = url;
+            
+            const span = document.createElement('span');
+            span.textContent = `Фон ${index}`;
+            
+            div.appendChild(img);
+            div.appendChild(span);
+            
+            div.addEventListener('click', () => {
+                document.body.style.backgroundImage = `url('${url}')`;
+                localStorage.setItem('mySavedGameBg', url);
+            });
+            
+            themeGrid.appendChild(div);
+        }
+
+        loadBackgrounds();
+    </script>
+</body>
+</html>
