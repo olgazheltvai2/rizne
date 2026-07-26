@@ -85,7 +85,7 @@
             font-family: Arial, sans-serif;
         }
 
-        /* --- Theme Manager CSS --- */
+        /* --- Вимоги до інтерфейсу Theme Manager (HTML/CSS) --- */
         #theme-btn { 
             position: fixed; 
             bottom: 20px; 
@@ -193,10 +193,10 @@
         if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
         const db = firebase.database();
 
-        // Повернення в лобі за абсолютним посиланням (виправляє помилку 404)
+        // Повернення в лобі за абсолютним посиланням (працює з будь-якого репозиторію)
         db.ref('current_activity').on('value', (snapshot) => {
             if (snapshot.val() === 'lobby') {
-                window.location.href = 'https://olgazheltvai2.github.io/lobby.html';
+                window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html';
             }
         });
 
