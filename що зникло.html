@@ -144,7 +144,7 @@
             box-sizing: border-box;
         }
 
-        /* Передня сторона картки - Змінено на темний коміксний фон для максимального контрасту емодзі */
+        /* Передня сторона картки */
         .card-front {
             background-color: #263238; 
             background-image: radial-gradient(#37474f 15%, transparent 16%), radial-gradient(#37474f 15%, transparent 16%);
@@ -152,7 +152,7 @@
             background-position: 0 0, 15px 15px;
         }
 
-        /* Задня сторона картки - Змінено на темний коміксний фон для максимального контрасту емодзі */
+        /* Задня сторона картки */
         .card-back {
             background-color: #263238; 
             background-image: radial-gradient(#37474f 15%, transparent 16%), radial-gradient(#37474f 15%, transparent 16%);
@@ -259,7 +259,7 @@
     <!-- Лічильник на 2 гравця -->
     <div id="scoreboard">
         <div class="player-panel">
-            <input type="text" class="player-name" value="ГРАВЕЦЬ 1" maxlength="12">
+            <input type="text" class="player-name" id="name1" value="ГРАВЕЦЬ 1" maxlength="12" oninput="syncNames()">
             <div class="score-display">
                 <button class="score-btn minus" onclick="updateScore(1, -1)">-</button>
                 <span class="score-value" id="score1">0</span>
@@ -267,7 +267,7 @@
             </div>
         </div>
         <div class="player-panel">
-            <input type="text" class="player-name" value="ГРАВЕЦЬ 2" maxlength="12">
+            <input type="text" class="player-name" id="name2" value="ГРАВЕЦЬ 2" maxlength="12" oninput="syncNames()">
             <div class="score-display">
                 <button class="score-btn minus" onclick="updateScore(2, -1)">-</button>
                 <span class="score-value" id="score2">0</span>
@@ -306,12 +306,8 @@
         <!-- Картка -->
         <div class="card-container" id="card" onclick="flipCard()">
             <div class="card" id="card-inner">
-                <div class="card-face card-front" id="front-face">
-                    <!-- Емодзі генеруються тут -->
-                </div>
-                <div class="card-face card-back" id="back-face">
-                    <!-- Залишок емодзі генерується тут -->
-                </div>
+                <div class="card-face card-front" id="front-face"></div>
+                <div class="card-face card-back" id="back-face"></div>
             </div>
         </div>
         
@@ -322,7 +318,9 @@
     </div>
 
     <script>
-        // Рівно 50 емодзі для гри 
+        // Створення каналу синхронізації між вкладками
+        const gameChannel = new BroadcastChannel('attention_game_channel');
+
         const emojiPool = [
             '🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🍈','🍒',
             '🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥬',
@@ -334,10 +332,8 @@
         let currentCardEmojis = [];
         let isFlipped = false;
         
-        // Аудіо контекст для генерації звуків "на льоту" (без файлів)
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-        // Функція програвання синтезованих звуків
         function playSound(type) {
             if (audioCtx.state === 'suspended') audioCtx.resume();
             
@@ -348,7 +344,6 @@
             gainNode.connect(audioCtx.destination);
             
             if (type === 'flip') {
-                // Звук "вжик" для перегортання
                 oscillator.type = 'sine';
                 oscillator.frequency.setValueAtTime(400, audioCtx.currentTime);
                 oscillator.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.15);
@@ -357,7 +352,6 @@
                 oscillator.start();
                 oscillator.stop(audioCtx.currentTime + 0.15);
             } else if (type === 'click') {
-                // Звук кліку лічильника
                 oscillator.type = 'square';
                 oscillator.frequency.setValueAtTime(600, audioCtx.currentTime);
                 oscillator.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.1);
@@ -366,7 +360,6 @@
                 oscillator.start();
                 oscillator.stop(audioCtx.currentTime + 0.1);
             } else if (type === 'magic') {
-                // Звук появи нової картки
                 oscillator.type = 'triangle';
                 oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
                 oscillator.frequency.linearRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
@@ -378,21 +371,29 @@
             }
         }
 
-        // Логіка оновлення рахунку
         const scores = { 1: 0, 2: 0 };
-        function updateScore(player, change) {
-            playSound('click');
+        
+        function updateScore(player, change, sendToOthers = true) {
+            if (sendToOthers) playSound('click');
             scores[player] += change;
-            if (scores[player] < 0) scores[player] = 0; // Не даємо піти в мінус
+            if (scores[player] < 0) scores[player] = 0;
             document.getElementById('score' + player).innerText = scores[player];
             
-            // Анімація цифри
             const scoreEl = document.getElementById('score' + player);
             scoreEl.style.transform = 'scale(1.5)';
             setTimeout(() => { scoreEl.style.transform = 'scale(1)'; }, 150);
+
+            if (sendToOthers) {
+                gameChannel.postMessage({ type: 'UPDATE_SCORE', player: player, score: scores[player] });
+            }
         }
 
-        // Перемішування масиву (Алгоритм Фішера-Єтса)
+        function syncNames() {
+            const name1 = document.getElementById('name1').value;
+            const name2 = document.getElementById('name2').value;
+            gameChannel.postMessage({ type: 'UPDATE_NAMES', name1: name1, name2: name2 });
+        }
+
         function shuffle(array) {
             let currentIndex = array.length, randomIndex;
             while (currentIndex != 0) {
@@ -403,64 +404,63 @@
             return array;
         }
 
-        // Отримання 6 випадкових унікальних емодзі
         function getRandomEmojis() {
             const shuffledPool = shuffle([...emojiPool]);
             return shuffledPool.slice(0, 6);
         }
 
-        // Рендер емодзі у контейнер
-        function renderEmojis(containerId, emojisList) {
+        function renderEmojis(containerId, emojisList, orders = null) {
             const container = document.getElementById(containerId);
             container.innerHTML = '';
             
-            // Щоб вони хаотично міняли положення, задаємо випадковий order для flexbox
-            const styledEmojis = emojisList.map(emoji => {
-                const randomOrder = Math.floor(Math.random() * 20);
+            const styledEmojis = emojisList.map((emoji, index) => {
+                const randomOrder = orders ? orders[index] : Math.floor(Math.random() * 20);
                 return `<div class="emoji-item" style="order: ${randomOrder};">${emoji}</div>`;
             });
             
             container.innerHTML = styledEmojis.join('');
         }
 
-        // Генерація нової картки (початковий стан)
-        function generateNewCard() {
-            playSound('magic');
+        function generateNewCard(sendToOthers = true) {
+            if (sendToOthers) playSound('magic');
             
             const cardInner = document.getElementById('card-inner');
             if (isFlipped) {
                 cardInner.classList.remove('flipped');
                 isFlipped = false;
-                
-                // Чекаємо завершення анімації перегортання перед зміною вмісту
-                setTimeout(() => {
-                    setupCardData();
-                }, 400); 
+                setTimeout(() => { setupCardData(); }, 400); 
             } else {
                 setupCardData();
             }
             
-            // Анімація реакції кажана на нову картку
             const bat = document.getElementById('bat-character');
             bat.classList.add('reacting');
             setTimeout(() => bat.classList.remove('reacting'), 500);
+
+            if (sendToOthers) {
+                gameChannel.postMessage({ 
+                    type: 'NEW_CARD', 
+                    emojis: currentCardEmojis 
+                });
+            }
         }
 
-        // Підготовка даних для картки
-        function setupCardData() {
-            currentCardEmojis = getRandomEmojis();
+        function setupCardData(specificEmojis = null) {
+            if (specificEmojis) {
+                currentCardEmojis = specificEmojis;
+            } else {
+                currentCardEmojis = getRandomEmojis();
+            }
             renderEmojis('front-face', currentCardEmojis);
             
-            // Одразу готуємо зворотний бік (мінус один елемент + перемішування)
             let backEmojis = [...currentCardEmojis];
             const removeIndex = Math.floor(Math.random() * backEmojis.length);
             backEmojis.splice(removeIndex, 1);
             renderEmojis('back-face', backEmojis);
         }
 
-        // Перегортання картки по кліку (тепер можна перегортати туди-сюди)
-        function flipCard() {
-            playSound('flip');
+        function flipCard(sendToOthers = true) {
+            if (sendToOthers) playSound('flip');
             const cardInner = document.getElementById('card-inner');
             
             if (isFlipped) {
@@ -471,28 +471,53 @@
                 isFlipped = true;
             }
 
-            // Коміксний спецефект при кожному перегортанні
+            if (sendToOthers) {
+                gameChannel.postMessage({ type: 'FLIP_CARD', isFlipped: isFlipped });
+            }
+
             const actionText = document.getElementById('action-text');
             const texts = ['POOF!', 'ZAP!', 'WHOOSH!', 'BAM!'];
             actionText.innerText = texts[Math.floor(Math.random() * texts.length)];
             
-            // Позиціонуємо ефект випадково біля картки
             actionText.style.top = (Math.random() * 40 + 30) + '%';
             actionText.style.left = (Math.random() * 40 + 30) + '%';
             
             actionText.classList.remove('show-bubble');
-            void actionText.offsetWidth; // Тригер reflow для перезапуску анімації
+            void actionText.offsetWidth;
             actionText.classList.add('show-bubble');
 
-            // Радісна реакція персонажа
             const bat = document.getElementById('bat-character');
             bat.classList.add('reacting');
             setTimeout(() => bat.classList.remove('reacting'), 500);
         }
 
-        // Запуск гри при завантаженні
-        window.onload = generateNewCard;
+        // Слухач подій синхронізації від інших вкладок
+        gameChannel.onmessage = function (event) {
+            const data = event.data;
+            if (data.type === 'UPDATE_SCORE') {
+                scores[data.player] = data.score;
+                document.getElementById('score' + data.player).innerText = data.score;
+            } else if (data.type === 'UPDATE_NAMES') {
+                document.getElementById('name1').value = data.name1;
+                document.getElementById('name2').value = data.name2;
+            } else if (data.type === 'NEW_CARD') {
+                setupCardData(data.emojis);
+                if (isFlipped) {
+                    document.getElementById('card-inner').classList.remove('flipped');
+                    isFlipped = false;
+                }
+            } else if (data.type === 'FLIP_CARD') {
+                const cardInner = document.getElementById('card-inner');
+                isFlipped = data.isFlipped;
+                if (isFlipped) {
+                    cardInner.classList.add('flipped');
+                } else {
+                    cardInner.classList.remove('flipped');
+                }
+            }
+        };
 
+        window.onload = () => generateNewCard(false);
     </script>
 </body>
 </html>
