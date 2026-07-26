@@ -525,7 +525,6 @@
             return shuffledPool.slice(0, 6);
         }
 
-        // Однаковий порядок на всіх пристроях – без випадкового сортування
         function renderEmojis(containerId, emojisList) {
             const container = document.getElementById(containerId);
             if (!container) return;
@@ -609,7 +608,7 @@
         }
 
         // ================================================================
-        // FIREBASE СИНХРОНІЗАЦІЯ (спрощена, як у зразку)
+        // FIREBASE СИНХРОНІЗАЦІЯ
         // ================================================================
 
         const firebaseConfig = {
@@ -632,10 +631,9 @@
             }
         });
 
-        // ---- Слухач для синхронізації дій (один вузол) ----
+        // ---- Слухач для синхронізації дій ----
         db.ref('chess_action_sync').on('value', (snap) => {
             const action = snap.val();
-            // Якщо дії немає або вона відправлена цим же пристроєм – ігноруємо
             if (!action || action.senderId === myDeviceId) return;
 
             isRemoteAction = true;
@@ -690,7 +688,6 @@
             const newEmojis = getRandomEmojis();
             setCardData(newEmojis, false);
 
-            // Відправляємо початковий стан, щоб інші пристрої синхронізувалися
             setTimeout(() => {
                 broadcastAction({ type: 'newCard', emojis: currentCardEmojis, flipped: false });
             }, 500);
@@ -701,7 +698,6 @@
             if (firebase.apps.length > 0) {
                 initGame();
             } else {
-                // Локальний запуск, якщо Firebase не завантажився
                 const newEmojis = getRandomEmojis();
                 setCardData(newEmojis, false);
             }
@@ -721,13 +717,16 @@
         <p style="font-size: 24px;">Зараз не твій урок.</p>
     </div>
 
-    <!-- 2. Логіка Firebase -->
+    <!-- 2. Логіка Firebase для радару та блокування -->
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const myName = urlParams.get('user') || ('Гість_' + Math.floor(Math.random() * 1000));
-        const myPresenceRef = db.ref('online_users/' + myName);
+
+        // Генеруємо унікальний номер для вкладки у грі
+        const tabId = Math.random().toString(36).substring(2, 10);
+        const myPresenceRef = db.ref('online_users/' + myName + '/' + tabId);
         
-        // Оновлена логіка: відновлення присутності після втрати з'єднання або переходу вкладки в режим сну
+        // Відновлення присутності після втрати з'єднання
         db.ref('.info/connected').on('value', (snapshot) => {
             if (snapshot.val() === true) {
                 myPresenceRef.onDisconnect().remove();
@@ -735,6 +734,7 @@
             }
         });
 
+        // Слухач блокування
         db.ref('blocked_users/' + myName).on('value', (snapshot) => {
             const overlay = document.getElementById('block-overlay');
             if (snapshot.val() === true) { 
