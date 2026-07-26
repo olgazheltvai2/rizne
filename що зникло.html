@@ -724,8 +724,7 @@
     <!-- 2. Логіка Firebase -->
     <script>
         const urlParams = new URLSearchParams(window.location.search);
-        const myName = urlParams.get('user') || 'Гість';
-
+        const myName = urlParams.get('user') || ('Гість_' + Math.floor(Math.random() * 1000));
         const myPresenceRef = db.ref('online_users/' + myName);
         
         // Оновлена логіка: відновлення присутності після втрати з'єднання або переходу вкладки в режим сну
