@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Супер-гра на уважність</title>
     <style>
-        /* Основні стилі та сюжетний фон у стилі поп-арт (комікс). Жодних білих прямокутників! */
         body {
             margin: 0;
             padding: 0;
@@ -13,18 +12,17 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            background-color: #00bcd4; /* Яскравий блакитний */
+            background-color: #00bcd4;
             background-image: 
                 radial-gradient(#ffeb3b 15%, transparent 16%), 
                 radial-gradient(#ffeb3b 15%, transparent 16%);
             background-size: 40px 40px;
             background-position: 0 0, 20px 20px;
-            font-family: 'Propysy Bold', 'Impact', sans-serif; /* Використання улюбленого жирного шрифту */
+            font-family: 'Propysy Bold', 'Impact', sans-serif;
             font-weight: bold;
             user-select: none;
         }
 
-        /* Контейнер для ігрового поля */
         #game-area {
             flex-grow: 1;
             display: flex;
@@ -33,7 +31,6 @@
             position: relative;
         }
 
-        /* Стилізація лічильника на 2 гравця */
         #scoreboard {
             display: flex;
             justify-content: space-around;
@@ -107,7 +104,6 @@
             text-align: center;
         }
 
-        /* 3D Контейнер для картки */
         .card-container {
             perspective: 1500px;
             width: 600px;
@@ -120,7 +116,7 @@
             width: 100%;
             height: 100%;
             position: relative;
-            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Пружинна анімація коміксу */
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             transform-style: preserve-3d;
         }
 
@@ -144,24 +140,17 @@
             box-sizing: border-box;
         }
 
-        /* Передня сторона картки */
-        .card-front {
+        .card-front, .card-back {
             background-color: #263238; 
             background-image: radial-gradient(#37474f 15%, transparent 16%), radial-gradient(#37474f 15%, transparent 16%);
             background-size: 30px 30px;
             background-position: 0 0, 15px 15px;
         }
 
-        /* Задня сторона картки */
         .card-back {
-            background-color: #263238; 
-            background-image: radial-gradient(#37474f 15%, transparent 16%), radial-gradient(#37474f 15%, transparent 16%);
-            background-size: 30px 30px;
-            background-position: 0 0, 15px 15px;
             transform: rotateY(180deg);
         }
 
-        /* Емодзі на картці */
         .emoji-item {
             font-size: 80px;
             filter: drop-shadow(4px 4px 0px #000);
@@ -172,7 +161,6 @@
             transform: scale(1.2) rotate(10deg);
         }
 
-        /* Кнопка "Нова картка" */
         #new-card-btn {
             position: absolute;
             bottom: 30px;
@@ -197,7 +185,6 @@
             box-shadow: 0px 0px 0 #000;
         }
 
-        /* Інтерактивний персонаж: Кажан у польоті */
         #bat-character {
             position: absolute;
             bottom: 20px;
@@ -215,14 +202,12 @@
             50% { transform: translateY(-20px) rotate(-3deg); }
         }
 
-        /* Анімація крил */
         #left-wing { animation: flapLeft 0.3s ease-in-out infinite alternate; transform-origin: 60% 50%; }
         #right-wing { animation: flapRight 0.3s ease-in-out infinite alternate; transform-origin: 40% 50%; }
         
         @keyframes flapLeft { from { transform: rotate(0deg); } to { transform: rotate(25deg); } }
         @keyframes flapRight { from { transform: rotate(0deg); } to { transform: rotate(-25deg); } }
 
-        /* Анімація реакції персонажа */
         .reacting #bat-eyes { fill: #ffeb3b !important; }
         .reacting { animation: excite 0.5s !important; }
         @keyframes excite {
@@ -231,7 +216,6 @@
             100% { transform: scale(1); }
         }
 
-        /* Елементи коміксного екшену (BOOM, ZAP) */
         .action-bubble {
             position: absolute;
             font-size: 60px;
@@ -253,13 +237,16 @@
             100% { transform: scale(1) rotate(0deg); opacity: 0; }
         }
     </style>
+
+    <!-- Підключення Firebase SDK (Compat версія для зручності роботи) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 </head>
 <body>
 
-    <!-- Лічильник на 2 гравця -->
     <div id="scoreboard">
         <div class="player-panel">
-            <input type="text" class="player-name" id="name1" value="ГРАВЕЦЬ 1" maxlength="12" oninput="syncNames()">
+            <input type="text" class="player-name" id="name1" value="ГРАВЕЦЬ 1" maxlength="12" oninput="syncName(1)">
             <div class="score-display">
                 <button class="score-btn minus" onclick="updateScore(1, -1)">-</button>
                 <span class="score-value" id="score1">0</span>
@@ -267,7 +254,7 @@
             </div>
         </div>
         <div class="player-panel">
-            <input type="text" class="player-name" id="name2" value="ГРАВЕЦЬ 2" maxlength="12" oninput="syncNames()">
+            <input type="text" class="player-name" id="name2" value="ГРАВЕЦЬ 2" maxlength="12" oninput="syncName(2)">
             <div class="score-display">
                 <button class="score-btn minus" onclick="updateScore(2, -1)">-</button>
                 <span class="score-value" id="score2">0</span>
@@ -276,50 +263,44 @@
         </div>
     </div>
 
-    <!-- Ігрова зона -->
     <div id="game-area">
-        <!-- Деталізований SVG персонаж: Кажан у польоті -->
         <svg id="bat-character" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-            <!-- Ліве крило -->
             <path id="left-wing" d="M100,100 Q40,40 10,60 Q30,90 20,130 Q60,110 100,100" fill="#311b92" stroke="#000" stroke-width="4" stroke-linejoin="round"/>
-            <!-- Праве крило -->
             <path id="right-wing" d="M100,100 Q160,40 190,60 Q170,90 180,130 Q140,110 100,100" fill="#311b92" stroke="#000" stroke-width="4" stroke-linejoin="round"/>
-            <!-- Тіло та голова -->
             <ellipse cx="100" cy="110" rx="25" ry="30" fill="#4527a0" stroke="#000" stroke-width="4"/>
             <circle cx="100" cy="85" r="22" fill="#5e35b1" stroke="#000" stroke-width="4"/>
-            <!-- Вуха -->
             <path d="M85,70 L75,40 L95,65 Z" fill="#5e35b1" stroke="#000" stroke-width="3"/>
             <path d="M115,70 L125,40 L105,65 Z" fill="#5e35b1" stroke="#000" stroke-width="3"/>
-            <!-- Очі -->
             <g id="bat-eyes" fill="#fff">
                 <ellipse cx="92" cy="82" rx="6" ry="8" stroke="#000" stroke-width="2"/>
                 <ellipse cx="108" cy="82" rx="6" ry="8" stroke="#000" stroke-width="2"/>
                 <circle cx="92" cy="82" r="2" fill="#000"/>
                 <circle cx="108" cy="82" r="2" fill="#000"/>
             </g>
-            <!-- Рот (ікла) -->
             <path d="M95,95 Q100,100 105,95" fill="none" stroke="#000" stroke-width="2"/>
             <path d="M96,95 L98,102 L100,95" fill="#fff" stroke="#000" stroke-width="1"/>
             <path d="M100,95 L102,102 L104,95" fill="#fff" stroke="#000" stroke-width="1"/>
         </svg>
 
-        <!-- Картка -->
-        <div class="card-container" id="card" onclick="flipCard()">
+        <div class="card-container" id="card" onclick="flipCardRequest()">
             <div class="card" id="card-inner">
                 <div class="card-face card-front" id="front-face"></div>
                 <div class="card-face card-back" id="back-face"></div>
             </div>
         </div>
         
-        <!-- Ефект вибуху для коміксу -->
         <div class="action-bubble" id="action-text">ZAP!</div>
 
-        <button id="new-card-btn" onclick="generateNewCard()">Нова картка</button>
+        <button id="new-card-btn" onclick="generateNewCardRequest()">Нова картка</button>
     </div>
 
     <script>
-        // Створення каналу синхронізації між вкладками
-        const gameChannel = new BroadcastChannel('attention_game_channel');
+        // Ініціалізація Firebase (Замініть на конфігурацію вашого проєкту, якщо потрібно)
+        const firebaseConfig = {
+            databaseURL: "https://attention-game-default-rtdb.firebaseio.com/"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const dbRef = firebase.database().ref('game_room');
 
         const emojiPool = [
             '🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🍈','🍒',
@@ -329,17 +310,13 @@
             '🍟','🍕','🥪','🥙','🌮','🌯','🥗','🥘','🥫','🍝'
         ];
 
-        let currentCardEmojis = [];
         let isFlipped = false;
-        
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
         function playSound(type) {
             if (audioCtx.state === 'suspended') audioCtx.resume();
-            
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
-            
             oscillator.connect(gainNode);
             gainNode.connect(audioCtx.destination);
             
@@ -371,29 +348,6 @@
             }
         }
 
-        const scores = { 1: 0, 2: 0 };
-        
-        function updateScore(player, change, sendToOthers = true) {
-            if (sendToOthers) playSound('click');
-            scores[player] += change;
-            if (scores[player] < 0) scores[player] = 0;
-            document.getElementById('score' + player).innerText = scores[player];
-            
-            const scoreEl = document.getElementById('score' + player);
-            scoreEl.style.transform = 'scale(1.5)';
-            setTimeout(() => { scoreEl.style.transform = 'scale(1)'; }, 150);
-
-            if (sendToOthers) {
-                gameChannel.postMessage({ type: 'UPDATE_SCORE', player: player, score: scores[player] });
-            }
-        }
-
-        function syncNames() {
-            const name1 = document.getElementById('name1').value;
-            const name2 = document.getElementById('name2').value;
-            gameChannel.postMessage({ type: 'UPDATE_NAMES', name1: name1, name2: name2 });
-        }
-
         function shuffle(array) {
             let currentIndex = array.length, randomIndex;
             while (currentIndex != 0) {
@@ -404,120 +358,99 @@
             return array;
         }
 
-        function getRandomEmojis() {
-            const shuffledPool = shuffle([...emojiPool]);
-            return shuffledPool.slice(0, 6);
-        }
-
-        function renderEmojis(containerId, emojisList, orders = null) {
+        function renderEmojis(containerId, emojisList) {
             const container = document.getElementById(containerId);
             container.innerHTML = '';
-            
-            const styledEmojis = emojisList.map((emoji, index) => {
-                const randomOrder = orders ? orders[index] : Math.floor(Math.random() * 20);
+            const styledEmojis = emojisList.map(emoji => {
+                const randomOrder = Math.floor(Math.random() * 20);
                 return `<div class="emoji-item" style="order: ${randomOrder};">${emoji}</div>`;
             });
-            
             container.innerHTML = styledEmojis.join('');
         }
 
-        function generateNewCard(sendToOthers = true) {
-            if (sendToOthers) playSound('magic');
-            
-            const cardInner = document.getElementById('card-inner');
-            if (isFlipped) {
-                cardInner.classList.remove('flipped');
-                isFlipped = false;
-                setTimeout(() => { setupCardData(); }, 400); 
-            } else {
-                setupCardData();
-            }
-            
-            const bat = document.getElementById('bat-character');
-            bat.classList.add('reacting');
-            setTimeout(() => bat.classList.remove('reacting'), 500);
-
-            if (sendToOthers) {
-                gameChannel.postMessage({ 
-                    type: 'NEW_CARD', 
-                    emojis: currentCardEmojis 
-                });
-            }
+        // --- Дії з відправкою у Firebase ---
+        function updateScore(player, change) {
+            dbRef.child('scores/' + player).transaction(currentScore => {
+                let newScore = (currentScore || 0) + change;
+                return newScore < 0 ? 0 : newScore;
+            });
         }
 
-        function setupCardData(specificEmojis = null) {
-            if (specificEmojis) {
-                currentCardEmojis = specificEmojis;
-            } else {
-                currentCardEmojis = getRandomEmojis();
-            }
-            renderEmojis('front-face', currentCardEmojis);
-            
-            let backEmojis = [...currentCardEmojis];
-            const removeIndex = Math.floor(Math.random() * backEmojis.length);
-            backEmojis.splice(removeIndex, 1);
-            renderEmojis('back-face', backEmojis);
+        function syncName(player) {
+            const name = document.getElementById('name' + player).value;
+            dbRef.child('names/name' + player).set(name);
         }
 
-        function flipCard(sendToOthers = true) {
-            if (sendToOthers) playSound('flip');
-            const cardInner = document.getElementById('card-inner');
-            
-            if (isFlipped) {
-                cardInner.classList.remove('flipped');
-                isFlipped = false;
-            } else {
-                cardInner.classList.add('flipped');
-                isFlipped = true;
-            }
-
-            if (sendToOthers) {
-                gameChannel.postMessage({ type: 'FLIP_CARD', isFlipped: isFlipped });
-            }
-
-            const actionText = document.getElementById('action-text');
-            const texts = ['POOF!', 'ZAP!', 'WHOOSH!', 'BAM!'];
-            actionText.innerText = texts[Math.floor(Math.random() * texts.length)];
-            
-            actionText.style.top = (Math.random() * 40 + 30) + '%';
-            actionText.style.left = (Math.random() * 40 + 30) + '%';
-            
-            actionText.classList.remove('show-bubble');
-            void actionText.offsetWidth;
-            actionText.classList.add('show-bubble');
-
-            const bat = document.getElementById('bat-character');
-            bat.classList.add('reacting');
-            setTimeout(() => bat.classList.remove('reacting'), 500);
+        function generateNewCardRequest() {
+            const shuffledPool = shuffle([...emojiPool]);
+            const newEmojis = shuffledPool.slice(0, 6);
+            dbRef.child('card').set({
+                emojis: newEmojis,
+                flipped: false,
+                timestamp: Date.now()
+            });
         }
 
-        // Слухач подій синхронізації від інших вкладок
-        gameChannel.onmessage = function (event) {
-            const data = event.data;
-            if (data.type === 'UPDATE_SCORE') {
-                scores[data.player] = data.score;
-                document.getElementById('score' + data.player).innerText = data.score;
-            } else if (data.type === 'UPDATE_NAMES') {
-                document.getElementById('name1').value = data.name1;
-                document.getElementById('name2').value = data.name2;
-            } else if (data.type === 'NEW_CARD') {
-                setupCardData(data.emojis);
-                if (isFlipped) {
-                    document.getElementById('card-inner').classList.remove('flipped');
-                    isFlipped = false;
+        function flipCardRequest() {
+            dbRef.child('card/flipped').transaction(current => !current);
+        }
+
+        // --- Слухач подій з Firebase (оновлює все на всіх пристроях у реальному часі) ---
+        dbRef.on('value', snapshot => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            // Оновлення рахунку
+            if (data.scores) {
+                document.getElementById('score1').innerText = data.scores[1] || 0;
+                document.getElementById('score2').innerText = data.scores[2] || 0;
+            }
+
+            // Оновлення імен
+            if (data.names) {
+                if (data.names.name1 !== undefined) document.getElementById('name1').value = data.names.name1;
+                if (data.names.name2 !== undefined) document.getElementById('name2').value = data.names.name2;
+            }
+
+            // Оновлення картки та стану перегортання
+            if (data.card) {
+                if (data.card.emojis) {
+                    renderEmojis('front-face', data.card.emojis);
+                    let backEmojis = [...data.card.emojis];
+                    backEmojis.splice(Math.floor(Math.random() * backEmojis.length), 1);
+                    renderEmojis('back-face', backEmojis);
                 }
-            } else if (data.type === 'FLIP_CARD') {
+
                 const cardInner = document.getElementById('card-inner');
-                isFlipped = data.isFlipped;
-                if (isFlipped) {
-                    cardInner.classList.add('flipped');
-                } else {
-                    cardInner.classList.remove('flipped');
+                if (data.card.flipped !== isFlipped) {
+                    isFlipped = data.card.flipped;
+                    if (isFlipped) {
+                        cardInner.classList.add('flipped');
+                        playSound('flip');
+                    } else {
+                        cardInner.classList.remove('flipped');
+                        playSound('flip');
+                    }
+
+                    // Коміксний ефект
+                    const actionText = document.getElementById('action-text');
+                    const texts = ['POOF!', 'ZAP!', 'WHOOSH!', 'BAM!'];
+                    actionText.innerText = texts[Math.floor(Math.random() * texts.length)];
+                    actionText.style.top = (Math.random() * 40 + 30) + '%';
+                    actionText.style.left = (Math.random() * 40 + 30) + '%';
+                    actionText.classList.remove('show-bubble');
+                    void actionText.offsetWidth;
+                    actionText.classList.add('show-bubble');
                 }
             }
-        };
+        });
 
-        window.onload = () => generateNewCard(false);
+        // Генерація початкової картки при першому запуск (якщо в базі порожньо)
+        dbRef.child('card').once('value', snapshot => {
+            if (!snapshot.exists()) {
+                generateNewCardRequest();
+            }
+        });
     </script>
 </body>
 </html>
