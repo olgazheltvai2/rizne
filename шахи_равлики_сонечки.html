@@ -16,26 +16,28 @@
             user-select: none;
         }
 
-        /* Змінено: шрифт Arial, фон для Theme Manager */
+        /* Жорстке центрування та блокування прокрутки */
         body {
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            width: 100vw;
             height: 100vh;
             overflow: hidden;
             font-family: Arial, sans-serif;
+            margin: 0;
         }
 
-        /* Головний контейнер гри - Змінено на напівпрозорий, 95vw/95vh для масштабування */
+        /* Головний контейнер гри - Залізно по центру, напівпрозорий */
         #game-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             width: 95vw;
             height: 95vh;
-            position: relative;
             background: rgba(10, 38, 18, 0.85); /* Напівпрозорий темний фон */
-            box-shadow: inset 0 0 50px rgba(0,0,0,0.8), 0 10px 30px rgba(0,0,0,0.5);
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.8), 0 10px 40px rgba(0,0,0,0.6);
             border-radius: 20px;
             overflow: hidden;
         }
@@ -65,15 +67,15 @@
             background-size: 150px 150px;
         }
 
-        /* Ігрове поле - значно збільшене, адаптивне (90vmin займає майже весь менший вимір екрану) */
+        /* Ігрове поле - значно збільшене, адаптивне */
         #board-wrapper {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 90vmin; /* Максимальний розмір зі збереженням квадратних пропорцій */
+            width: 90vmin; 
             height: 90vmin;
-            max-width: 900px; /* Обмеження для величезних моніторів */
+            max-width: 900px; 
             max-height: 900px;
             z-index: 10;
             background: linear-gradient(135deg, #6b4c2a, #3e2a14);
@@ -154,7 +156,7 @@
             min-width: 150px;
             z-index: 15;
             transition: all 0.3s;
-            pointer-events: none; /* Щоб не перекривав кліки по дошці, якщо екран маленький */
+            pointer-events: none;
         }
 
         .anim-wiggle { animation: wiggle 2.5s infinite ease-in-out; }
@@ -326,12 +328,12 @@
     <div class="bg-pattern"></div>
     <div class="leaves-overlay"></div>
 
-    <!-- UI Панель керування -->
+    <!-- UI Панель керування (Оновлено для синхронізації) -->
     <div class="btn-panel">
-        <div class="circle-btn" id="btn-info" onclick="toggleInfo(true)">
+        <div class="circle-btn" id="btn-info" onclick="broadcastAction({type: 'info', show: true}); toggleInfo(true)">
             <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
         </div>
-        <div class="circle-btn" id="btn-next" onclick="playBeep(600); jumpChar()">
+        <div class="circle-btn" id="btn-next" onclick="broadcastAction({type: 'jump'}); playBeep(600); jumpChar()">
             <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
         </div>
     </div>
@@ -364,11 +366,8 @@
 
             <!-- Обличчя -->
             <g>
-                <!-- Очі (білки) -->
                 <circle cx="85" cy="65" r="13" fill="#fff" stroke="#333" stroke-width="2"/>
                 <circle cx="125" cy="65" r="13" fill="#fff" stroke="#333" stroke-width="2"/>
-                
-                <!-- Зіниці та бліки, що рухаються -->
                 <g class="look-around-anim">
                     <circle cx="85" cy="65" r="6" fill="#111"/>
                     <circle cx="125" cy="65" r="6" fill="#111"/>
@@ -393,7 +392,7 @@
         <div id="board"></div>
     </div>
 
-    <!-- Модалка з правилами -->
+    <!-- Модалка з правилами (Оновлено для синхронізації) -->
     <div id="info-modal">
         <div class="modal-content">
             <h2>Правила Гри</h2>
@@ -401,7 +400,7 @@
             <p>2. <b>Равлики</b> також ходять на 1 клітинку <b>вперед</b>. Б'ють по <b>діагоналі</b>.</p>
             <p>3. <b>Королі</b> (Жовте Сонечко та Равлик з короною) ходять на 1 клітинку в <b>усі сторони</b>.</p>
             <p><i>Мета: зловити Короля супротивника!</i></p>
-            <button class="close-btn" onclick="toggleInfo(false)">ЗРОЗУМІЛО</button>
+            <button class="close-btn" onclick="broadcastAction({type: 'info', show: false}); toggleInfo(false)">ЗРОЗУМІЛО</button>
         </div>
     </div>
 </div>
@@ -414,10 +413,13 @@
 </div>
 
 <script>
-    // --- ІНІЦІАЛІЗАЦІЯ ФАЙРБЕЙЗ ТА СИНХРОНІЗАЦІЯ ДІЙ ---
+    // --- ІНІЦІАЛІЗАЦІЯ ФАЙРБЕЙЗ ТА СИНХРОНІЗАЦІЯ ДІЙ (ВИПРАВЛЕНО) ---
     const firebaseConfig = { databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/" };
     if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
     const db = firebase.database();
+    
+    // Унікальний ID пристрою, щоб не виконувати власні ж команди двічі
+    const myDeviceId = Math.random().toString(36).substring(2, 10);
     let isRemoteAction = false;
 
     // Повернення в лобі
@@ -428,7 +430,8 @@
     // Слухач дій для синхронізації
     db.ref('chess_action_sync').on('value', (snap) => {
         const action = snap.val();
-        if (action && action.time > (window.lastActionTime || 0)) {
+        // Якщо дія існує, і її відправив ХТОСЬ ІНШИЙ, і вона новіша за останню
+        if (action && action.senderId !== myDeviceId && action.time > (window.lastActionTime || 0)) {
             isRemoteAction = true;
             window.lastActionTime = action.time;
             
@@ -449,6 +452,7 @@
     // Відправка дії у базу
     function broadcastAction(actionData) {
         if (!isRemoteAction) {
+            actionData.senderId = myDeviceId;
             actionData.time = Date.now();
             db.ref('chess_action_sync').set(actionData);
         }
