@@ -4,17 +4,151 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Кімната очікування</title>
+    <!-- Підключення Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
     <style>
-        body { margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f0f8ff; min-height: 100vh; display: flex; justify-content: center; align-items: center; }
-        .main-container { background-color: rgba(255, 255, 255, 0.9); padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); text-align: center; max-width: 600px; width: 90%; }
-        h1 { color: #333; font-size: 32px; margin-bottom: 20px; }
-        .loader { border: 8px solid #f3f3f3; border-top: 8px solid #3498db; border-radius: 50%; width: 60px; height: 60px; animation: spin 2s linear infinite; margin: 0 auto 20px auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        /* Стиль для екрану-заглушки */
-        #block-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); color: white; z-index: 99999; justify-content: center; align-items: center; flex-direction: column; }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f0f8ff;
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Екран блокування (Невидимий за замовчуванням) */
+        #block-overlay { 
+            display: none; 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100vw; 
+            height: 100vh; 
+            background: rgba(0,0,0,0.85); 
+            color: white; 
+            z-index: 99999; 
+            justify-content: center; 
+            align-items: center; 
+            flex-direction: column; 
+        }
+
+        /* Напівпрозорий контейнер по центру */
+        .main-container {
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 32px;
+            margin-bottom: 20px;
+        }
+
+        .loader {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #3498db;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 2s linear infinite;
+            margin: 0 auto 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* --- Автономна Система динамічних фонів (Theme Manager) --- */
+        #theme-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: white;
+            border: 2px solid #ccc;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #theme-modal {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            z-index: 9998;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            padding: 15px;
+            max-height: 60vh;
+            overflow-y: auto;
+            display: none;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            width: 320px;
+        }
+
+        #theme-modal h3 {
+            margin-top: 0;
+            text-align: center;
+            font-size: 18px;
+            font-family: Arial, sans-serif;
+        }
+
+        .theme-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .theme-thumbnail {
+            position: relative;
+            cursor: pointer;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            overflow: hidden;
+            height: 80px;
+        }
+
+        .theme-thumbnail:hover {
+            border-color: #3498db;
+        }
+
+        .theme-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .theme-thumbnail span {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            font-size: 12px;
+            text-align: center;
+            padding: 4px 0;
+            font-family: Arial, sans-serif;
+        }
     </style>
 </head>
 <body>
@@ -29,42 +163,123 @@
         <div class="loader"></div>
         <h1>Очікуємо на вчителя...</h1>
         <p>Урок скоро почнеться. Будь ласка, нічого не натискайте.</p>
-        <p style="color: #888; margin-top: 20px;" id="user-greeting"></p>
+        <p style="color: #3498db; margin-top: 20px; font-weight: bold; font-size: 18px;" id="user-greeting"></p>
+    </div>
+
+    <!-- Кнопка та модальне вікно Theme Manager -->
+    <button id="theme-btn">⚙️</button>
+    <div id="theme-modal">
+        <h3>Оберіть фон</h3>
+        <div class="theme-grid" id="theme-grid"></div>
     </div>
 
     <script>
-        const firebaseConfig = { databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/" };
+        // --- 1. Ініціалізація Firebase ---
+        const firebaseConfig = {
+            databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/"
+        };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // 1. Отримуємо бейджик (ім'я) з посилання
+        // --- 2. Отримуємо бейджик (ім'я) з посилання ---
         const urlParams = new URLSearchParams(window.location.search);
         const myName = urlParams.get('user') || 'Гість';
         document.getElementById('user-greeting').innerText = `Привіт, ${myName}!`;
 
-        // 2. Повідомляємо пульт, що ми онлайн (і автоматично видаляємось, якщо закрити вкладку)
+        // --- 3. Надійна система "Хто онлайн" (Радар) ---
         const myPresenceRef = db.ref('online_users/' + myName);
-        myPresenceRef.set(true);
-        myPresenceRef.onDisconnect().remove();
-
-        // 3. Слухаємо, чи не заблокував нас вчитель
-        db.ref('blocked_users/' + myName).on('value', (snapshot) => {
-            const overlay = document.getElementById('block-overlay');
-            if (snapshot.val() === true) { overlay.style.display = 'flex'; } 
-            else { overlay.style.display = 'none'; }
+        
+        // Цей датчик постійно перевіряє стан з'єднання. Якщо вкладка "засне" і прокинеться, він перепідключить учня.
+        db.ref('.info/connected').on('value', (snapshot) => {
+            if (snapshot.val() === true) {
+                myPresenceRef.onDisconnect().remove(); 
+                myPresenceRef.set(true);               
+            }
         });
 
-        // 4. Перехід на гру (із передачею бейджика)
+        // --- 4. Слухаємо блокування з пульта ---
+        db.ref('blocked_users/' + myName).on('value', (snapshot) => {
+            const overlay = document.getElementById('block-overlay');
+            if (snapshot.val() === true) {
+                overlay.style.display = 'flex';
+            } else {
+                overlay.style.display = 'none';
+            }
+        });
+
+        // --- 5. Перехід на гру (із передачею бейджика) ---
         db.ref('current_activity').on('value', (snapshot) => {
             const activity = snapshot.val();
             if (activity && activity !== "lobby") {
                 let targetUrl = activity;
-                if (!targetUrl.endsWith('.html')) { targetUrl += '.html'; }
-                
+                if (!targetUrl.endsWith('.html')) {
+                    targetUrl += '.html';
+                }
                 // Переходимо на гру, причепивши ім'я в кінці, щоб гра теж його знала
                 window.location.href = targetUrl + '?user=' + myName;
             }
         });
+
+        // --- 6. Логіка Theme Manager ---
+        const themeBtn = document.getElementById('theme-btn');
+        const themeModal = document.getElementById('theme-modal');
+        const themeGrid = document.getElementById('theme-grid');
+        const baseUrl = 'https://olgazheltvai2.github.io/images/backgrounds/';
+        const savedBg = localStorage.getItem('mySavedGameBg');
+        let bgFoundCount = 0;
+        const maxBgCheck = 50; 
+
+        if (savedBg) {
+            document.body.style.backgroundImage = `url('${savedBg}')`;
+        } else {
+            document.body.style.backgroundImage = `url('${baseUrl}background_1.webp')`;
+        }
+
+        themeBtn.addEventListener('click', () => {
+            themeModal.style.display = themeModal.style.display === 'block' ? 'none' : 'block';
+        });
+
+        async function loadBackgrounds() {
+            for (let i = 1; i <= maxBgCheck; i++) {
+                let imgUrl = `${baseUrl}background_${i}.webp`;
+                
+                await new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        createThumbnail(imgUrl, i);
+                        bgFoundCount++;
+                        resolve();
+                    };
+                    img.onerror = () => resolve();
+                    img.src = imgUrl;
+                });
+                
+                if (i > bgFoundCount + 3) break; 
+            }
+        }
+
+        function createThumbnail(url, index) {
+            const div = document.createElement('div');
+            div.className = 'theme-thumbnail';
+            
+            const img = document.createElement('img');
+            img.src = url;
+            
+            const span = document.createElement('span');
+            span.textContent = `Фон ${index}`;
+            
+            div.appendChild(img);
+            div.appendChild(span);
+            
+            div.addEventListener('click', () => {
+                document.body.style.backgroundImage = `url('${url}')`;
+                localStorage.setItem('mySavedGameBg', url);
+            });
+            
+            themeGrid.appendChild(div);
+        }
+
+        loadBackgrounds();
     </script>
 </body>
 </html>
