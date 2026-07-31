@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Гра: Знайди потрібну картку</title>
+    
+    <!-- Підключення Firebase (compat) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        * { box-sizing: border-box; font-family: Arial, sans-serif; }
+        
+        body {
+            margin: 0; padding: 0; min-height: 100vh;
+            background-color: #222; background-size: cover;
+            background-position: center; background-attachment: fixed;
+            overflow-x: hidden; transition: background-image 0.5s ease;
+        }
+
+        .game-wrapper {
+            display: flex; flex-direction: column; align-items: center;
+            width: 100%; min-height: 100vh; padding: 20px;
+            background: transparent;
+        }
+
+        #statusMessage {
+            color: white; font-size: 18px; font-weight: bold;
+            text-align: center; margin-bottom: 15px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+        }
+
+        .cards-grid {
+            display: grid; gap: 10px; width: 100%; max-width: 1200px;
+            grid-template-columns: repeat(4, 1fr);
+            margin-bottom: 30px;
+        }
+        @media(min-width: 650px) {
+            .cards-grid { grid-template-columns: repeat(6, 1fr); gap: 12px; }
+        }
+        @media(min-width: 1024px) {
+            .cards-grid { grid-template-columns: repeat(8, 1fr); gap: 15px; }
+        }
+
+        .card {
+            width: 100%; aspect-ratio: 1 / 1;
+            background-size: contain; background-position: center; background-repeat: no-repeat;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 12px; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            border: 3px solid transparent;
+            position: relative; transition: transform 0.3s, filter 0.3s, border 0.3s, background-color 0.3s;
+        }
+        .card:hover { transform: translateY(-5px); border-color: rgba(255,255,255,0.8); }
+        .card.disabled { pointer-events: none; filter: brightness(0.5) grayscale(0.5); }
+
+        body.setting-mode .card {
+            cursor: crosshair;
+            box-shadow: 0 0 15px #ffeb3b;
+            animation: pulseSetting 1s infinite alternate;
+        }
+        @keyframes pulseSetting {
+            to { box-shadow: 0 0 25px #ff9800; border-color: #ffeb3b; }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-10px) rotate(-3deg); }
+            40%, 80% { transform: translateX(10px) rotate(3deg); }
+        }
+        .feedback-negative {
+            animation: shake 0.5s ease-in-out;
+            border-color: #ff3333 !important;
+            box-shadow: 0 0 20px red !important;
+        }
+        .feedback-negative::after {
+            content: '❌'; position: absolute;
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 3rem; text-shadow: 0 0 10px black;
+            pointer-events: none;
+        }
+
+        @keyframes pulseGreen {
+            from { box-shadow: 0 0 20px lime; transform: scale(1.15); }
+            to { box-shadow: 0 0 50px #00ff00; transform: scale(1.25); }
+        }
+        .feedback-positive {
+            border-color: #33ff33 !important;
+            background-color: #ccffcc !important;
+            z-index: 10;
+            animation: pulseGreen 0.8s infinite alternate !important;
+        }
+
+        .confetti-piece {
+            position: fixed; top: -10px; width: 10px; height: 15px; z-index: 9999;
+            animation: fall linear forwards; pointer-events: none;
+        }
+        @keyframes fall {
+            to { transform: translateY(110vh) rotate(720deg); }
+        }
+
+        .teacher-panel {
+            background: rgba(0, 0, 0, 0.6); padding: 15px;
+            border-radius: 10px; display: flex; gap: 15px;
+            align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); 
+            color: white; flex-wrap: wrap; justify-content: center;
+        }
+
+        button.action-btn {
+            background-color: #4CAF50; color: white;
+            border: none; padding: 12px 24px; font-size: 16px;
+            border-radius: 6px; cursor: pointer; font-weight: bold;
+            transition: transform 0.2s, background 0.2s;
+        }
+        button.action-btn:hover { background-color: #45a049; transform: scale(1.05); }
+        button.action-btn.active-mode { background-color: #ff9800; animation: pulseBtn 1s infinite alternate; }
+        @keyframes pulseBtn { to { transform: scale(1.05); background-color: #ffc107; } }
+
+        .theme-btn {
+            position: fixed; bottom: 20px; right: 20px;
+            background: rgba(0, 0, 0, 0.7); color: white;
+            border: none; border-radius: 50%; width: 50px; height: 50px;
+            font-size: 24px; cursor: pointer; z-index: 1000;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5); transition: transform 0.2s;
+        }
+        .theme-btn:hover { transform: rotate(45deg) scale(1.1); }
+        
+        .theme-modal {
+            display: none; position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.8); z-index: 1001;
+            align-items: center; justify-content: center;
+        }
+        .theme-content {
+            background: #222; padding: 20px; border-radius: 12px;
+            width: 90%; max-width: 700px; text-align: center;
+        }
+        .theme-gallery {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px;
+            max-height: 60vh; overflow-y: auto; margin: 20px 0; padding-right: 10px;
+        }
+        .theme-item {
+            position: relative; cursor: pointer; border-radius: 8px; overflow: hidden;
+            aspect-ratio: 16 / 9; background-size: cover; background-position: center;
+            border: 2px solid transparent; transition: transform 0.2s, border 0.2s;
+        }
+        .theme-item:hover { transform: scale(1.05); border-color: white; }
+        .theme-title {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: rgba(0,0,0,0.6); color: white;
+            font-size: 12px; padding: 5px; text-align: center; font-weight: bold;
+        }
+        .close-theme-btn {
+            background: #ff4444; color: white; border: none; padding: 10px 20px;
+            border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold;
+        }
+
+        #block-overlay {
+            display: none; position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.9); z-index: 9999;
+            align-items: center; justify-content: center;
+            color: red; font-size: 32px; font-weight: bold;
+            text-align: center; padding: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-wrapper">
+        <div id="statusMessage"></div>
+        
+        <div class="cards-grid" id="gameBoard"></div>
+
+        <div class="teacher-panel" id="teacherPanel">
+            <button id="setTargetBtn" class="action-btn" onclick="toggleSettingMode()">🎯 Загадати картку</button>
+            <button class="action-btn" style="background-color: #607d8b;" onclick="resetGameAction()">🔄 Скинути дошку</button>
+        </div>
+    </div>
+
+    <!-- Theme Manager -->
+    <button class="theme-btn" onclick="openThemeModal()">⚙️</button>
+    <div class="theme-modal" id="themeModal">
+        <div class="theme-content">
+            <h2 style="color:white; margin-top:0;">Оберіть фон</h2>
+            <div class="theme-gallery" id="themeGallery"></div>
+            <button class="close-theme-btn" onclick="closeThemeModal()">Закрити</button>
+        </div>
+    </div>
+
+    <!-- Універсальний блок контролю -->
+    <div id="block-overlay">Зачекай! Зараз не твій урок.</div>
+
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playQuietSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            const now = audioCtx.currentTime;
+            
+            if (type === 'set') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, now);
+                gainNode.gain.setValueAtTime(0.02, now); 
+                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+                osc.start(now); osc.stop(now + 0.1);
+            } 
+            else if (type === 'win') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(440, now);
+                osc.frequency.exponentialRampToValueAtTime(880, now + 0.3);
+                gainNode.gain.setValueAtTime(0.05, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+                osc.start(now); osc.stop(now + 0.6);
+            } 
+            else if (type === 'error') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.exponentialRampToValueAtTime(80, now + 0.2);
+                gainNode.gain.setValueAtTime(0.03, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+                osc.start(now); osc.stop(now + 0.2);
+            }
+        }
+
+        function createConfetti() {
+            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffa500'];
+            for (let i = 0; i < 70; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti-piece';
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.animationDuration = (Math.random() * 2 + 1.5) + 's';
+                confetti.style.opacity = Math.random() + 0.5;
+                document.body.appendChild(confetti);
+                
+                setTimeout(() => confetti.remove(), 4000);
+            }
+        }
+
+        const firebaseConfig = {
+            databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/",
+            projectId: "lesson-13c44"
+        };
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+        const GAME_ID = "find_card_game_24_local";
+
+        const gameActionRef = db.ref(`${GAME_ID}/game_action`);
+        const gameBoard = document.getElementById('gameBoard');
+        
+        let currentTarget = null;
+        let isGameActive = false;
+        let isSettingMode = false; 
+
+        // ==========================================
+        // СИСТЕМА АВТОКОНВЕРТАЦІЇ В BASE64
+        // ==========================================
+        const imagesRef = db.ref(`${GAME_ID}/saved_base64_images`);
+        let loadedImages = [];
+
+        imagesRef.on('value', snap => {
+            const data = snap.val();
+            if (data && data.length === 24) {
+                loadedImages = data;
+                document.getElementById('statusMessage').innerText = "";
+                renderBoard();
+            } else {
+                document.getElementById('statusMessage').innerText = "Автоматична конвертація картинок у Base64... Не закривайте сторінку.";
+                autoConvertToBase64();
+            }
+        });
+
+        async function autoConvertToBase64() {
+            const base64Array = [];
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const statusDiv = document.getElementById('statusMessage');
+
+            for (let i = 3; i <= 26; i++) {
+                try {
+                    const img = new Image();
+                    img.crossOrigin = 'Anonymous';
+                    const base64 = await new Promise((resolve, reject) => {
+                        img.onload = () => {
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                            ctx.drawImage(img, 0, 0);
+                            resolve(canvas.toDataURL('image/webp', 0.9));
+                        };
+                        img.onerror = () => reject();
+                        img.src = `kartka_${i}.webp`;
+                    });
+                    base64Array.push(base64);
+                } catch (e) {
+                    statusDiv.innerHTML = `<span style="color: #ff6b6b;">Помилка: Не вдалося конвертувати kartka_${i}.webp. Переконайтеся, що всі 24 файли лежать у папці і ви відкрили гру через Live Server.</span>`;
+                    return;
+                }
+            }
+
+            statusDiv.innerText = "Збереження в базу Firebase...";
+            db.ref(`${GAME_ID}/saved_base64_images`).set(base64Array).then(() => {
+                statusDiv.style.color = "#4CAF50";
+                statusDiv.innerText = "Успіх! Усі 24 картки збережено в базу гри. Тепер ви можете безпечно видалити файли з комп'ютера.";
+                setTimeout(() => { statusDiv.innerText = ""; }, 6000);
+            });
+        }
+
+        function renderBoard() {
+            gameBoard.innerHTML = '';
+            for (let i = 0; i < 24; i++) {
+                const card = document.createElement('div');
+                card.className = 'card';
+                // Використовуємо оригінальну нумерацію від 3 до 26 для ID
+                const actualCardNumber = i + 3; 
+                card.id = `card_${actualCardNumber}`;
+                card.style.backgroundImage = `url('${loadedImages[i]}')`;
+                card.onclick = () => handleCardClick(actualCardNumber);
+                gameBoard.appendChild(card);
+            }
+        }
+
+        function sendGameAction(type, data = {}) {
+            gameActionRef.set({
+                senderId: sessionStorage.getItem('tabId'),
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                type: type,
+                ...data
+            });
+        }
+
+        function toggleSettingMode() {
+            const btn = document.getElementById('setTargetBtn');
+            isSettingMode = !isSettingMode;
+            if (isSettingMode) {
+                document.body.classList.add('setting-mode');
+                btn.classList.add('active-mode');
+                btn.innerText = "Скасувати вибір";
+            } else {
+                document.body.classList.remove('setting-mode');
+                btn.classList.remove('active-mode');
+                btn.innerText = "🎯 Загадати картку";
+            }
+        }
+
+        function resetGameAction() {
+            isSettingMode = false;
+            document.body.classList.remove('setting-mode');
+            document.getElementById('setTargetBtn').classList.remove('active-mode');
+            document.getElementById('setTargetBtn').innerText = "🎯 Загадати картку";
+            sendGameAction('RESET_GAME');
+        }
+
+        function handleCardClick(cardNumber) {
+            if (isSettingMode) {
+                isSettingMode = false;
+                document.body.classList.remove('setting-mode');
+                const btn = document.getElementById('setTargetBtn');
+                btn.classList.remove('active-mode');
+                btn.innerText = "🎯 Загадати картку";
+                
+                playQuietSound('set');
+                sendGameAction('START_GAME', { target: cardNumber });
+            } else {
+                if (!isGameActive) return;
+                sendGameAction('CARD_CLICK', { cardId: cardNumber });
+            }
+        }
+
+        let lastTimestamp = 0;
+        gameActionRef.on('value', snap => {
+            const action = snap.val();
+            if (!action || action.timestamp <= lastTimestamp) return;
+            lastTimestamp = action.timestamp;
+            
+            if (action.type === 'START_GAME') {
+                currentTarget = action.target;
+                isGameActive = true;
+                const allCards = document.querySelectorAll('.card');
+                allCards.forEach(c => {
+                    c.classList.remove('feedback-negative', 'feedback-positive', 'disabled');
+                    void c.offsetWidth; 
+                });
+            }
+            else if (action.type === 'RESET_GAME') {
+                currentTarget = null;
+                isGameActive = false;
+                const allCards = document.querySelectorAll('.card');
+                allCards.forEach(c => {
+                    c.classList.remove('feedback-negative', 'feedback-positive', 'disabled');
+                    void c.offsetWidth;
+                });
+            }
+            else if (action.type === 'CARD_CLICK') {
+                const cardElement = document.getElementById(`card_${action.cardId}`);
+                if (!cardElement) return;
+
+                if (action.cardId === currentTarget) {
+                    playQuietSound('win');
+                    createConfetti();
+                    cardElement.classList.add('feedback-positive');
+                    isGameActive = false; 
+                    document.querySelectorAll('.card').forEach(c => {
+                        if (c.id !== `card_${action.cardId}`) c.classList.add('disabled');
+                    });
+                } else {
+                    playQuietSound('error');
+                    cardElement.classList.remove('feedback-negative');
+                    void cardElement.offsetWidth; 
+                    cardElement.classList.add('feedback-negative');
+                    cardElement.classList.add('disabled');
+                }
+            }
+        });
+
+        // УНІВЕРСАЛЬНИЙ БЛОК КОНТРОЛЮ
+        const urlParams = new URLSearchParams(window.location.search);
+        let myName = urlParams.get('user') || sessionStorage.getItem('userName');
+        if (!myName) {
+            myName = "Гість_" + Math.floor(Math.random() * 1000);
+        }
+        sessionStorage.setItem('userName', myName);
+        
+        let tabId = sessionStorage.getItem('tabId');
+        if (!tabId) {
+            tabId = 'tab_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+            sessionStorage.setItem('tabId', tabId);
+        }
+
+        const myRef = db.ref(`online_users/${myName}/${tabId}`);
+        const connectedRef = db.ref('.info/connected');
+        connectedRef.on('value', (snap) => {
+            if (snap.val() === true) {
+                myRef.set(true);
+                myRef.onDisconnect().remove();
+            }
+        });
+        window.addEventListener('beforeunload', () => { myRef.remove(); });
+
+        db.ref(`blocked_users/${myName}`).on('value', snap => {
+            document.getElementById('block-overlay').style.display = snap.val() ? 'flex' : 'none';
+        });
+
+        let isFirstLoadRefresh = true;
+        db.ref('force_refresh').on('value', snap => {
+            if (!isFirstLoadRefresh && snap.val() === true) {
+                location.reload();
+            }
+            isFirstLoadRefresh = false;
+        });
+
+        let immunity = true;
+        setTimeout(() => { immunity = false; }, 2000);
+        db.ref('current_activity').on('value', snap => {
+            if (!immunity && snap.val() === 'lobby') {
+                window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html?user=' + encodeURIComponent(myName);
+            }
+        });
+
+        // THEME MANAGER
+        const themeRef = db.ref(`${GAME_ID}/game_theme`);
+        const maxBackgroundsToCheck = 1000;
+        let themesLoaded = false;
+
+        themeRef.on('value', snap => {
+            const bgUrl = snap.val();
+            if (bgUrl) {
+                document.body.style.backgroundImage = `url('${bgUrl}')`;
+                localStorage.setItem('mySavedGameBg', bgUrl);
+            } else {
+                const savedBg = localStorage.getItem('mySavedGameBg');
+                if (savedBg) document.body.style.backgroundImage = `url('${savedBg}')`;
+            }
+        });
+
+        function openThemeModal() {
+            document.getElementById('themeModal').style.display = 'flex';
+            if (!themesLoaded) { loadThemes(); themesLoaded = true; }
+        }
+        function closeThemeModal() { document.getElementById('themeModal').style.display = 'none'; }
+        
+        async function loadThemes() {
+            const gallery = document.getElementById('themeGallery');
+            gallery.innerHTML = '';
+            for (let i = 1; i <= maxBackgroundsToCheck; i++) {
+                const url = `https://olgazheltvai2.github.io/images/backgrounds/background_${i}.webp`;
+                const img = new Image();
+                img.onload = () => {
+                    const item = document.createElement('div');
+                    item.className = 'theme-item';
+                    item.style.backgroundImage = `url('${url}')`;
+                    item.onclick = () => selectTheme(url);
+                    const title = document.createElement('div');
+                    title.className = 'theme-title'; title.innerText = `Фон ${i}`;
+                    item.appendChild(title); gallery.appendChild(item);
+                };
+                img.onerror = () => { if (i > 15) i = maxBackgroundsToCheck; };
+                img.src = url;
+            }
+        }
+        function selectTheme(url) { themeRef.set(url); closeThemeModal(); }
+    </script>
+</body>
+</html>
