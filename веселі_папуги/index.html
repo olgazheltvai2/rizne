@@ -461,11 +461,11 @@
 
         // ВІДПРАВКА ДІЙ ТА СИНХРОНІЗАЦІЯ СТАНУ
         function sendAction(type, data) {
-            // Оновлюємо унікальну гілку стану саме для цієї гри
-            db.ref('memory_kartka_state').set(localGameState);
+            // Оновлюємо унікальну гілку стану. Змінено на _v3 для чистого старту без багів.
+            db.ref('memory_kartka_state_v3').set(localGameState);
             
             // Відправляємо дію для миттєвої синхронізації
-            db.ref('memory_kartka_action').set({
+            db.ref('memory_kartka_action_v3').set({
                 senderId: tabId,
                 timestamp: firebase.database.ServerValue.TIMESTAMP,
                 type: type,
@@ -474,7 +474,7 @@
         }
 
         // Слухаємо дії інших гравців
-        db.ref('memory_kartka_action').on('value', snap => {
+        db.ref('memory_kartka_action_v3').on('value', snap => {
             const action = snap.val();
             if (!action || action.senderId === tabId) return; // Запобігаємо зацикленню
             
@@ -488,10 +488,13 @@
                 if(localGameState && localGameState.deck && localGameState.deck.length > 0) {
                     localGameState.deck.shift();
                 }
-                if (localGameState && !localGameState.players[action.data.playerName]) {
-                    localGameState.players[action.data.playerName] = [];
-                }
-                if(localGameState) {
+                if (localGameState) {
+                    // Запобіжник від видалення порожнього об'єкта Firebase
+                    if (!localGameState.players) localGameState.players = {}; 
+                    
+                    if (!localGameState.players[action.data.playerName]) {
+                        localGameState.players[action.data.playerName] = [];
+                    }
                     localGameState.players[action.data.playerName].push(action.data.card);
                 }
             } else if (action.type === 'SKIP_KARTKA') {
@@ -504,9 +507,10 @@
         });
 
         // Завантаження стану при старті
-        db.ref('memory_kartka_state').once('value', snap => {
+        db.ref('memory_kartka_state_v3').once('value', snap => {
             const state = snap.val();
-            if (state && state.memoryCards) { 
+            // Додано сувору перевірку (state.memoryCards.length === 16), щоб захиститися від старих нескінченних масивів
+            if (state && state.memoryCards && state.memoryCards.length === 16) { 
                 localGameState = state;
                 document.getElementById('setup-screen').style.display = 'none';
                 document.getElementById('game-container').style.display = 'flex';
@@ -522,7 +526,7 @@
             const kartkaCount = parseInt(document.getElementById('kartka-count').value) || 15;
 
             let memoryCards = [];
-            // Завжди беремо 8 пар (16 карток)
+            // Завжди беремо 8 пар (рівно 16 карток)
             for(let i = 1; i <= 8; i++) {
                 memoryCards.push({ id: `m_${i}_1`, pairId: i, flipped: false, image: `memory_${i}.webp` });
                 memoryCards.push({ id: `m_${i}_2`, pairId: i, flipped: false, image: `memory_${i}.webp` });
@@ -540,7 +544,7 @@
             localGameState = {
                 memoryCards: memoryCards,
                 deck: deck,
-                players: {}
+                players: {} // Спочатку порожній, Firebase його видалить, але ми відновимо його в функціях
             };
 
             document.getElementById('setup-screen').style.display = 'none';
@@ -552,7 +556,7 @@
 
         function resetGame() {
             if(confirm("Ви впевнені, що хочете скинути гру і почати заново?")) {
-                db.ref('memory_kartka_state').remove();
+                db.ref('memory_kartka_state_v3').remove();
                 location.reload();
             }
         }
@@ -569,6 +573,11 @@
             
             if (!localGameState.deck || localGameState.deck.length === 0) return;
 
+            // ВАЖЛИВО: Відновлюємо об'єкт players, якщо Firebase його видалив (коли він був порожнім)
+            if (!localGameState.players) {
+                localGameState.players = {};
+            }
+
             const card = localGameState.deck.shift();
             if (!localGameState.players[playerName]) {
                 localGameState.players[playerName] = [];
@@ -581,6 +590,7 @@
 
         function skipKartka() {
             if (!localGameState.deck || localGameState.deck.length === 0) return;
+            
             const card = localGameState.deck.shift();
             localGameState.deck.push(card);
             
