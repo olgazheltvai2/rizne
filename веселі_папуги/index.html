@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory та Kartka Game</title>
+    
+    <!-- Підключення Firebase (compat) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <style>
+        /* Базові налаштування */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-color: #333; /* Заглушка, поки тема не завантажиться */
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        /* Прозорі контейнери для гри */
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            min-height: 100vh;
+            box-sizing: border-box;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .main-area {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 30px;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex: 1;
+        }
+
+        /* Меморі поле */
+        .memory-board {
+            flex: 1;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            min-width: 300px;
+        }
+
+        /* 3D Картки Меморі */
+        .memory-card {
+            width: 12vw;
+            max-width: 120px;
+            min-width: 70px;
+            aspect-ratio: 3/4;
+            perspective: 1000px;
+            cursor: pointer;
+        }
+
+        .memory-inner {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+
+        .memory-card.flipped .memory-inner {
+            transform: rotateY(180deg);
+        }
+
+        .memory-front, .memory-back {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            backface-visibility: hidden;
+            border-radius: 10px;
+            box-shadow: 2px 4px 10px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* Сорочка картки */
+        .memory-front {
+            background-color: #2c3e50;
+            background-image: repeating-linear-gradient(45deg, #2c3e50 0, #2c3e50 10px, #34495e 10px, #34495e 20px);
+        }
+
+        /* Лицьова сторона картки */
+        .memory-back {
+            transform: rotateY(180deg);
+            background-color: #fff;
+        }
+
+        /* Зона Kartka */
+        .kartka-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            min-width: 250px;
+        }
+
+        .current-kartka {
+            width: 18vw;
+            max-width: 200px;
+            min-width: 120px;
+            aspect-ratio: 3/4;
+            background-size: cover;
+            background-position: center;
+            border-radius: 10px;
+            box-shadow: 2px 4px 10px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            background-color: #fff;
+        }
+
+        .kartka-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+        }
+
+        select, button {
+            font-family: Arial, sans-serif;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .skip-btn {
+            background-color: #f39c12;
+        }
+        .skip-btn:hover {
+            background-color: #e67e22;
+        }
+
+        /* Колекції гравців */
+        .players-collections {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            width: 100%;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.3);
+        }
+
+        .player-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 15px;
+            min-width: 150px;
+        }
+
+        .player-name {
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+        }
+
+        .collected-cards {
+            display: flex;
+            flex-wrap: wrap;
+            gap: -10px; /* Накладання карток */
+            justify-content: center;
+        }
+
+        .collected-card {
+            width: 60px;
+            aspect-ratio: 3/4;
+            background-size: cover;
+            background-position: center;
+            border-radius: 5px;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+            border: 1px solid #fff;
+            margin-right: -20px; /* Ефект віяла/стопки */
+        }
+        .collected-card:last-child {
+            margin-right: 0;
+        }
+
+        /* Екран налаштувань гри */
+        #setup-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.6);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(5px);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 10;
+        }
+
+        .secret-input {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255,255,255,0.5);
+            color: transparent !important;
+            text-shadow: 0 0 0 transparent;
+            padding: 10px;
+            border-radius: 5px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .secret-input::selection {
+            color: transparent;
+            background: transparent;
+        }
+        .secret-input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        /* Theme Manager */
+        #theme-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background-color: rgba(0,0,0,0.7);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            transition: 0.3s;
+        }
+        #theme-btn:hover {
+            transform: scale(1.1);
+        }
+        #theme-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            max-width: 600px;
+            max-height: 60vh;
+            background: rgba(30, 30, 30, 0.95);
+            border: 2px solid #555;
+            border-radius: 15px;
+            z-index: 1001;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            flex-direction: column;
+        }
+        #theme-modal-close {
+            align-self: flex-end;
+            cursor: pointer;
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        #theme-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 15px;
+            overflow-y: auto;
+            max-height: calc(60vh - 60px);
+            padding-right: 10px;
+        }
+        .theme-thumb {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background-size: cover;
+            background-position: center;
+            border-radius: 8px;
+            cursor: pointer;
+            position: relative;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            transition: 0.2s;
+        }
+        .theme-thumb:hover {
+            transform: scale(1.05);
+            border: 2px solid #4CAF50;
+        }
+        .theme-thumb span {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            text-align: center;
+            font-size: 12px;
+            padding: 4px 0;
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
+
+        /* Універсальний блок контролю */
+        #block-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 999999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        #block-overlay h1 {
+            color: red;
+            font-size: 40px;
+            text-align: center;
+            font-family: Arial, sans-serif;
+            text-transform: uppercase;
+        }
+
+        /* Адаптивність */
+        @media (max-width: 768px) {
+            .main-area {
+                flex-direction: column;
+                align-items: center;
+            }
+            .kartka-area {
+                width: 100%;
+                border-top: 1px solid rgba(255,255,255,0.2);
+                padding-top: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Екран налаштувань (для першого запуску) -->
+    <div id="setup-screen">
+        <h3 style="margin:0; text-align:center;">Налаштування гри</h3>
+        <label>Кількість пар Memory:</label>
+        <input type="number" id="mem-count" class="secret-input" placeholder="Введіть число" value="10">
+        <label>Кількість карток Kartka:</label>
+        <input type="number" id="kartka-count" class="secret-input" placeholder="Введіть число" value="15">
+        <button onclick="startGame()">Розпочати гру</button>
+    </div>
+
+    <!-- Основний контейнер гри -->
+    <div class="game-container" id="game-container" style="display: none;">
+        <div class="main-area">
+            <!-- Поле для меморі -->
+            <div class="memory-board" id="memory-board">
+                <!-- Картки будуть згенеровані тут -->
+            </div>
+
+            <!-- Зона окремої картки (kartka) -->
+            <div class="kartka-area" id="kartka-area">
+                <div id="current-kartka" class="current-kartka" style="display:none;"></div>
+                <div class="kartka-controls" id="kartka-controls" style="display:none;">
+                    <select id="player-select">
+                        <option value="">-- Оберіть гравця --</option>
+                    </select>
+                    <button onclick="giveKartka()">Віддати гравцю</button>
+                    <button class="skip-btn" onclick="skipKartka()">Змінити картку (вниз колоди)</button>
+                </div>
+                <h3 id="empty-deck-msg" style="display:none; text-align:center;">Колода порожня!</h3>
+            </div>
+        </div>
+
+        <!-- Зона колекцій гравців -->
+        <div class="players-collections" id="players-collections">
+            <!-- Тут будуть відображатися здобутки гравців -->
+        </div>
+    </div>
+
+    <!-- Theme Manager -->
+    <div id="theme-btn" onclick="openThemeModal()">⚙️</div>
+    <div id="theme-modal">
+        <div id="theme-modal-close" onclick="closeThemeModal()">✖</div>
+        <div id="theme-grid"></div>
+    </div>
+
+
+    <script>
+        // ІНІЦІАЛІЗАЦІЯ FIREBASE
+        const firebaseConfig = {
+            databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/",
+            projectId: "lesson-13c44"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // СТАН ГРИ (Локальна копія)
+        let localGameState = null;
+
+        // ВІДПРАВКА ДІЙ ТА СИНХРОНІЗАЦІЯ СТАНУ
+        function sendAction(type, data) {
+            // Оновлюємо гілку стану для нових підключень
+            db.ref('game_state').set(localGameState);
+            
+            // Відправляємо дію для миттєвої синхронізації та анімацій
+            db.ref('game_action').set({
+                senderId: tabId,
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                type: type,
+                data: data
+            });
+        }
+
+        // Слухаємо дії інших гравців
+        db.ref('game_action').on('value', snap => {
+            const action = snap.val();
+            if (!action || action.senderId === tabId) return; // Уникаємо зациклення (isRemoteAction)
+            
+            if (action.type === 'START_GAME') {
+                localGameState = action.data;
+            } else if (action.type === 'FLIP_MEMORY') {
+                localGameState.memoryCards[action.data.index].flipped = action.data.flipped;
+            } else if (action.type === 'GIVE_KARTKA') {
+                if(localGameState.deck.length > 0) {
+                    localGameState.deck.shift();
+                }
+                if (!localGameState.players[action.data.playerName]) {
+                    localGameState.players[action.data.playerName] = [];
+                }
+                localGameState.players[action.data.playerName].push(action.data.card);
+            } else if (action.type === 'SKIP_KARTKA') {
+                if(localGameState.deck.length > 0) {
+                    let card = localGameState.deck.shift();
+                    localGameState.deck.push(card);
+                }
+            }
+            renderGame();
+        });
+
+        // Завантаження стану при старті
+        db.ref('game_state').once('value', snap => {
+            const state = snap.val();
+            if (state) {
+                localGameState = state;
+                document.getElementById('setup-screen').style.display = 'none';
+                document.getElementById('game-container').style.display = 'flex';
+                renderGame();
+            }
+        });
+
+        // ЛОГІКА ГРИ
+        function startGame() {
+            const memCount = parseInt(document.getElementById('mem-count').value);
+            const kartkaCount = parseInt(document.getElementById('kartka-count').value);
+            
+            if(!memCount || !kartkaCount) return;
+
+            let memoryCards = [];
+            for(let i = 1; i <= memCount; i++) {
+                memoryCards.push({ id: `m_${i}_1`, pairId: i, flipped: false, image: `memory_${i}.webp` });
+                memoryCards.push({ id: `m_${i}_2`, pairId: i, flipped: false, image: `memory_${i}.webp` });
+            }
+            // Перемішування
+            memoryCards.sort(() => Math.random() - 0.5);
+
+            let deck = [];
+            for(let i = 1; i <= kartkaCount; i++) {
+                deck.push({ id: `k_${i}`, image: `kartka_${i}.webp` });
+            }
+            // Перемішування колоди
+            deck.sort(() => Math.random() - 0.5);
+
+            localGameState = {
+                memoryCards: memoryCards,
+                deck: deck,
+                players: {}
+            };
+
+            document.getElementById('setup-screen').style.display = 'none';
+            document.getElementById('game-container').style.display = 'flex';
+
+            sendAction('START_GAME', localGameState);
+            renderGame();
+        }
+
+        function toggleMemory(index) {
+            localGameState.memoryCards[index].flipped = !localGameState.memoryCards[index].flipped;
+            sendAction('FLIP_MEMORY', { index: index, flipped: localGameState.memoryCards[index].flipped });
+            renderGame();
+        }
+
+        function giveKartka() {
+            const select = document.getElementById('player-select');
+            const playerName = select.value;
+            if (!playerName || localGameState.deck.length === 0) return;
+
+            const card = localGameState.deck.shift();
+            if (!localGameState.players[playerName]) {
+                localGameState.players[playerName] = [];
+            }
+            localGameState.players[playerName].push(card);
+
+            sendAction('GIVE_KARTKA', { playerName: playerName, card: card });
+            renderGame();
+        }
+
+        function skipKartka() {
+            if (localGameState.deck.length === 0) return;
+            const card = localGameState.deck.shift();
+            localGameState.deck.push(card);
+            
+            sendAction('SKIP_KARTKA', {});
+            renderGame();
+        }
+
+        // РЕНДЕР ІНТЕРФЕЙСУ
+        function renderGame() {
+            if (!localGameState) return;
+
+            // Рендер Меморі
+            const board = document.getElementById('memory-board');
+            board.innerHTML = '';
+            localGameState.memoryCards.forEach((card, index) => {
+                const cardDiv = document.createElement('div');
+                cardDiv.className = 'memory-card' + (card.flipped ? ' flipped' : '');
+                cardDiv.onclick = () => toggleMemory(index);
+                
+                const inner = document.createElement('div');
+                inner.className = 'memory-inner';
+
+                const front = document.createElement('div');
+                front.className = 'memory-front';
+
+                const back = document.createElement('div');
+                back.className = 'memory-back';
+                back.style.backgroundImage = `url('./${card.image}')`;
+
+                inner.appendChild(front);
+                inner.appendChild(back);
+                cardDiv.appendChild(inner);
+                board.appendChild(cardDiv);
+            });
+
+            // Рендер Kartka
+            const currKartkaDiv = document.getElementById('current-kartka');
+            const controls = document.getElementById('kartka-controls');
+            const emptyMsg = document.getElementById('empty-deck-msg');
+
+            if (localGameState.deck.length > 0) {
+                const currentCard = localGameState.deck[0];
+                currKartkaDiv.style.display = 'block';
+                currKartkaDiv.style.backgroundImage = `url('./${currentCard.image}')`;
+                controls.style.display = 'flex';
+                emptyMsg.style.display = 'none';
+            } else {
+                currKartkaDiv.style.display = 'none';
+                controls.style.display = 'none';
+                emptyMsg.style.display = 'block';
+            }
+
+            // Рендер Колекцій
+            const collections = document.getElementById('players-collections');
+            collections.innerHTML = '';
+            for (const [pName, cards] of Object.entries(localGameState.players)) {
+                if (cards.length === 0) continue;
+
+                const box = document.createElement('div');
+                box.className = 'player-box';
+
+                const title = document.createElement('div');
+                title.className = 'player-name';
+                title.textContent = pName;
+
+                const cardsDiv = document.createElement('div');
+                cardsDiv.className = 'collected-cards';
+
+                cards.forEach(c => {
+                    const cDiv = document.createElement('div');
+                    cDiv.className = 'collected-card';
+                    cDiv.style.backgroundImage = `url('./${c.image}')`;
+                    cardsDiv.appendChild(cDiv);
+                });
+
+                box.appendChild(title);
+                box.appendChild(cardsDiv);
+                collections.appendChild(box);
+            }
+        }
+
+        // Оновлення списку гравців у Dropdown (Слухач Радару)
+        db.ref('online_users').on('value', snap => {
+            const users = snap.val() || {};
+            const select = document.getElementById('player-select');
+            const currentVal = select.value;
+            
+            select.innerHTML = '<option value="">-- Оберіть гравця --</option>';
+            Object.keys(users).forEach(u => {
+                let opt = document.createElement('option');
+                opt.value = u;
+                opt.textContent = u;
+                select.appendChild(opt);
+            });
+            
+            if (users[currentVal]) select.value = currentVal;
+        });
+
+        // СИСТЕМА ДИНАМІЧНИХ ФОНІВ (Theme Manager)
+        function openThemeModal() {
+            document.getElementById('theme-modal').style.display = 'flex';
+        }
+        function closeThemeModal() {
+            document.getElementById('theme-modal').style.display = 'none';
+        }
+
+        async function loadThemes() {
+            const grid = document.getElementById('theme-grid');
+            let errorCount = 0;
+            for(let i = 1; i <= 1000; i++) {
+                if(errorCount >= 5) break; // Зупиняємось, якщо фони закінчились
+                await new Promise(resolve => {
+                    let url = `https://olgazheltvai2.github.io/images/backgrounds/background_${i}.webp`;
+                    let img = new Image();
+                    img.onload = () => {
+                        errorCount = 0;
+                        let thumb = document.createElement('div');
+                        thumb.className = 'theme-thumb';
+                        thumb.style.backgroundImage = `url('${url}')`;
+                        thumb.innerHTML = `<span>Фон ${i}</span>`;
+                        thumb.onclick = () => {
+                            db.ref('game_theme').set(url);
+                            closeThemeModal();
+                        };
+                        grid.appendChild(thumb);
+                        resolve();
+                    };
+                    img.onerror = () => {
+                        errorCount++;
+                        resolve();
+                    };
+                    img.src = url;
+                });
+            }
+        }
+        loadThemes();
+
+        // Синхронізація фону
+        db.ref('game_theme').on('value', snap => {
+            let url = snap.val();
+            if(url) {
+                document.body.style.backgroundImage = `url('${url}')`;
+                localStorage.setItem('mySavedGameBg', url);
+            }
+        });
+        
+        let savedBg = localStorage.getItem('mySavedGameBg');
+        if (savedBg) {
+            document.body.style.backgroundImage = `url('${savedBg}')`;
+        }
+    </script>
+
+    <!-- УНІВЕРСАЛЬНИЙ БЛОК КОНТРОЛЮ (Ідентифікація, Радар, Блокування) -->
+    <div id="block-overlay">
+        <h1>Зачекай! Зараз не твій урок.</h1>
+    </div>
+
+    <script>
+        // 1. Отримання та збереження імені
+        let myName = new URLSearchParams(window.location.search).get('user');
+        if (myName) {
+            sessionStorage.setItem('myName', myName);
+        } else {
+            myName = sessionStorage.getItem('myName');
+            if (!myName) {
+                myName = "Гість_" + Math.floor(Math.random() * 1000);
+                sessionStorage.setItem('myName', myName);
+            }
+        }
+
+        // 2. Радар та унікальні вкладки
+        const tabId = Math.random().toString(36).substr(2, 9);
+        const userRef = db.ref(`online_users/${myName}/${tabId}`);
+
+        db.ref('.info/connected').on('value', snap => {
+            if (snap.val() === true) {
+                userRef.set(true);
+                userRef.onDisconnect().remove();
+            }
+        });
+
+        window.addEventListener('beforeunload', () => {
+            userRef.remove();
+        });
+
+        // 3. Блокування користувача
+        db.ref(`blocked_users/${myName}`).on('value', snap => {
+            if (snap.val() === true) {
+                document.getElementById('block-overlay').style.display = 'flex';
+            } else {
+                document.getElementById('block-overlay').style.display = 'none';
+            }
+        });
+
+        // Оновлення списку (перепідключення)
+        db.ref('force_refresh').on('value', snap => {
+            if (snap.val() === true) {
+                location.reload();
+            }
+        });
+
+        // 4. Повернення в Лобі (з імунітетом 1 сек)
+        const appStartTime = Date.now();
+        db.ref('current_activity').on('value', snap => {
+            const timePassed = Date.now() - appStartTime;
+            if (timePassed < 1000) return; // Імунітет при старті
+
+            if (snap.val() === 'lobby') {
+                window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html?user=' + encodeURIComponent(myName);
+            }
+        });
+    </script>
+</body>
+</html>
