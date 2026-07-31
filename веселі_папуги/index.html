@@ -55,12 +55,12 @@
             min-width: 300px;
         }
 
-        /* 3D Картки Меморі (Альбомний формат 16:9) */
+        /* 3D Картки Меморі (Вертикальний формат 3:4) */
         .memory-card {
-            width: 15vw;
-            max-width: 160px;
-            min-width: 90px;
-            aspect-ratio: 16/9;
+            width: 12vw;
+            max-width: 120px;
+            min-width: 70px;
+            aspect-ratio: 3/4;
             perspective: 1000px;
             cursor: pointer;
         }
@@ -82,11 +82,10 @@
             height: 100%;
             position: absolute;
             backface-visibility: hidden;
-            border-radius: 12px;
+            border-radius: 10px;
             box-shadow: 4px 4px 12px rgba(0,0,0,0.7), inset 2px 2px 5px rgba(255,255,255,0.3);
             border: 1px solid rgba(255, 255, 255, 0.7);
-            background-size: cover;
-            background-position: center;
+            background-color: #fff;
         }
 
         /* Сорочка картки */
@@ -95,10 +94,12 @@
             background-image: repeating-linear-gradient(45deg, #2c3e50 0, #2c3e50 15px, #34495e 15px, #34495e 30px);
         }
 
-        /* Лицьова сторона картки */
+        /* Лицьова сторона картки (щоб не обрізало) */
         .memory-back {
             transform: rotateY(180deg);
-            background-color: #fff;
+            background-size: 100% 100%; /* Вписуємо зображення цілком */
+            background-position: center;
+            background-repeat: no-repeat;
         }
 
         /* Зона Kartka */
@@ -111,12 +112,13 @@
         }
 
         .current-kartka {
-            width: 20vw;
-            max-width: 220px;
-            min-width: 140px;
-            aspect-ratio: 16/9;
-            background-size: cover;
+            width: 18vw;
+            max-width: 200px;
+            min-width: 120px;
+            aspect-ratio: 3/4; /* Вертикальний формат */
+            background-size: 100% 100%; /* Без обрізання */
             background-position: center;
+            background-repeat: no-repeat;
             border-radius: 12px;
             box-shadow: 5px 5px 15px rgba(0,0,0,0.8), inset 2px 2px 5px rgba(255,255,255,0.3);
             border: 1px solid rgba(255, 255, 255, 0.7);
@@ -131,22 +133,15 @@
             max-width: 250px;
         }
 
-        select, input[type="text"], button {
+        button {
             font-family: Arial, sans-serif;
-            padding: 10px;
+            padding: 12px;
             border-radius: 8px;
             border: none;
             font-size: 16px;
             box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
             box-sizing: border-box;
             width: 100%;
-        }
-
-        input[type="text"] {
-            border: 1px solid #ccc;
-        }
-
-        button {
             background-color: #4CAF50;
             color: white;
             font-weight: bold;
@@ -184,7 +179,7 @@
             background: rgba(0, 0, 0, 0.4);
             padding: 15px;
             border-radius: 15px;
-            min-width: 180px;
+            min-width: 150px;
         }
 
         .player-name {
@@ -196,19 +191,21 @@
         .collected-cards {
             display: flex;
             flex-wrap: wrap;
-            gap: -20px; /* Накладання карток */
+            gap: -15px; /* Накладання карток */
             justify-content: center;
         }
 
         .collected-card {
-            width: 90px;
-            aspect-ratio: 16/9;
-            background-size: cover;
+            width: 70px;
+            aspect-ratio: 3/4; /* Вертикальний формат */
+            background-size: 100% 100%;
             background-position: center;
+            background-repeat: no-repeat;
+            background-color: #fff;
             border-radius: 8px;
             box-shadow: 3px 3px 8px rgba(0,0,0,0.6);
             border: 1px solid rgba(255,255,255,0.6);
-            margin-right: -30px; /* Ефект віяла/стопки */
+            margin-right: -25px; /* Ефект віяла/стопки */
             position: relative;
         }
         .collected-card:last-child {
@@ -232,6 +229,7 @@
             width: 80%;
             max-width: 350px;
             box-sizing: border-box;
+            text-align: center;
         }
 
         .secret-input {
@@ -243,6 +241,7 @@
             border-radius: 5px;
             width: 100%;
             box-sizing: border-box;
+            font-size: 16px;
         }
         .secret-input::selection {
             color: transparent;
@@ -383,9 +382,6 @@
             .kartka-controls {
                 max-width: 100%;
             }
-            .collected-card {
-                width: 70px;
-            }
         }
     </style>
 </head>
@@ -393,10 +389,10 @@
 
     <!-- Екран налаштувань (для першого запуску) -->
     <div id="setup-screen">
-        <h3 style="margin:0; text-align:center;">Налаштування гри</h3>
-        <label>Кількість пар Memory (за замовчуванням 10):</label>
-        <input type="number" id="mem-count" class="secret-input" placeholder="Введіть число" value="10">
-        <label>Кількість карток Kartka (за замовчуванням 15):</label>
+        <h3 style="margin:0;">Налаштування гри</h3>
+        <p style="margin:5px 0 15px; font-size:14px; color:#ccc;">Меморі завжди генерує 16 карток на полі (8 пар).</p>
+        
+        <label style="text-align:left;">Кількість карток Kartka (за замовчуванням 15):</label>
         <input type="number" id="kartka-count" class="secret-input" placeholder="Введіть число" value="15">
         <button onclick="startGame()">Розпочати гру</button>
     </div>
@@ -413,14 +409,8 @@
             <div class="kartka-area" id="kartka-area">
                 <div id="current-kartka" class="current-kartka" style="display:none;"></div>
                 <div class="kartka-controls" id="kartka-controls" style="display:none;">
-                    
-                    <!-- Вибір імені гравця (Dropdown або ручний ввід) -->
-                    <select id="player-select">
-                        <option value="">-- Оберіть гравця з радару --</option>
-                    </select>
-                    <input type="text" id="custom-player-input" placeholder="Або впишіть ім'я вручну">
-                    
-                    <button onclick="giveKartka()">Віддати гравцю</button>
+                    <!-- Кнопка автоматично присвоює картку тому, хто її натиснув -->
+                    <button onclick="takeKartka()">Взяти картку</button>
                     <button class="skip-btn" onclick="skipKartka()">Змінити картку (вниз колоди)</button>
                 </div>
                 <h3 id="empty-deck-msg" style="display:none; text-align:center;">Колода порожня!</h3>
@@ -494,7 +484,7 @@
                 if(localGameState && localGameState.memoryCards) {
                     localGameState.memoryCards[action.data.index].flipped = action.data.flipped;
                 }
-            } else if (action.type === 'GIVE_KARTKA') {
+            } else if (action.type === 'TAKE_KARTKA') {
                 if(localGameState && localGameState.deck && localGameState.deck.length > 0) {
                     localGameState.deck.shift();
                 }
@@ -516,13 +506,12 @@
         // Завантаження стану при старті
         db.ref('memory_kartka_state').once('value', snap => {
             const state = snap.val();
-            if (state && state.memoryCards) { // Перевіряємо, чи це дійсно стан від цієї гри
+            if (state && state.memoryCards) { 
                 localGameState = state;
                 document.getElementById('setup-screen').style.display = 'none';
                 document.getElementById('game-container').style.display = 'flex';
                 renderGame();
             } else {
-                // Якщо стану немає або він пошкоджений, показуємо меню налаштувань
                 document.getElementById('setup-screen').style.display = 'flex';
                 document.getElementById('game-container').style.display = 'none';
             }
@@ -530,11 +519,11 @@
 
         // ЛОГІКА ГРИ
         function startGame() {
-            const memCount = parseInt(document.getElementById('mem-count').value) || 10;
             const kartkaCount = parseInt(document.getElementById('kartka-count').value) || 15;
 
             let memoryCards = [];
-            for(let i = 1; i <= memCount; i++) {
+            // Завжди беремо 8 пар (16 карток)
+            for(let i = 1; i <= 8; i++) {
                 memoryCards.push({ id: `m_${i}_1`, pairId: i, flipped: false, image: `memory_${i}.webp` });
                 memoryCards.push({ id: `m_${i}_2`, pairId: i, flipped: false, image: `memory_${i}.webp` });
             }
@@ -574,17 +563,9 @@
             renderGame();
         }
 
-        function giveKartka() {
-            const select = document.getElementById('player-select');
-            const customInput = document.getElementById('custom-player-input');
-            
-            // Пріоритет: спочатку введене руками ім'я, потім вибране з радару
-            const playerName = customInput.value.trim() || select.value;
-            
-            if (!playerName) {
-                alert("Будь ласка, оберіть гравця з радару або введіть ім'я вручну.");
-                return;
-            }
+        function takeKartka() {
+            // Гравець визначається автоматично за параметром URL (ім'я в сесії)
+            const playerName = myName;
             
             if (!localGameState.deck || localGameState.deck.length === 0) return;
 
@@ -594,11 +575,7 @@
             }
             localGameState.players[playerName].push(card);
 
-            // Очищаємо поля вводу після успішної видачі
-            customInput.value = '';
-            select.value = '';
-
-            sendAction('GIVE_KARTKA', { playerName: playerName, card: card });
+            sendAction('TAKE_KARTKA', { playerName: playerName, card: card });
             renderGame();
         }
 
@@ -632,7 +609,6 @@
 
                     const back = document.createElement('div');
                     back.className = 'memory-back';
-                    // Прямий шлях до картинки у тій самій папці
                     back.style.backgroundImage = `url('${card.image}')`;
 
                     inner.appendChild(front);
@@ -690,24 +666,6 @@
             }
         }
 
-        // Оновлення списку гравців у Dropdown (Слухач Радару)
-        db.ref('online_users').on('value', snap => {
-            const users = snap.val() || {};
-            const select = document.getElementById('player-select');
-            if(!select) return;
-            const currentVal = select.value;
-            
-            select.innerHTML = '<option value="">-- Оберіть гравця з радару --</option>';
-            Object.keys(users).forEach(u => {
-                let opt = document.createElement('option');
-                opt.value = u;
-                opt.textContent = u;
-                select.appendChild(opt);
-            });
-            
-            if (users[currentVal]) select.value = currentVal;
-        });
-
         // СИСТЕМА ДИНАМІЧНИХ ФОНІВ (Theme Manager)
         function openThemeModal() {
             document.getElementById('theme-modal').style.display = 'flex';
@@ -747,7 +705,7 @@
         }
         loadThemes();
 
-        // Синхронізація фону (спільна для всіх ігор)
+        // Синхронізація фону
         db.ref('game_theme').on('value', snap => {
             let url = snap.val();
             if(url) {
