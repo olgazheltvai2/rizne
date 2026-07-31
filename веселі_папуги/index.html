@@ -55,12 +55,12 @@
             min-width: 300px;
         }
 
-        /* 3D Картки Меморі */
+        /* 3D Картки Меморі (Альбомний формат 16:9) */
         .memory-card {
-            width: 12vw;
-            max-width: 120px;
-            min-width: 70px;
-            aspect-ratio: 3/4;
+            width: 15vw;
+            max-width: 160px;
+            min-width: 90px;
+            aspect-ratio: 16/9;
             perspective: 1000px;
             cursor: pointer;
         }
@@ -69,7 +69,7 @@
             width: 100%;
             height: 100%;
             position: relative;
-            transition: transform 0.6s;
+            transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
             transform-style: preserve-3d;
         }
 
@@ -82,9 +82,9 @@
             height: 100%;
             position: absolute;
             backface-visibility: hidden;
-            border-radius: 10px;
-            box-shadow: 2px 4px 10px rgba(0,0,0,0.5);
-            border: 1px solid rgba(255, 255, 255, 0.8);
+            border-radius: 12px; /* Скруглені края */
+            box-shadow: 4px 4px 12px rgba(0,0,0,0.7), inset 2px 2px 5px rgba(255,255,255,0.3); /* Об'ємність */
+            border: 1px solid rgba(255, 255, 255, 0.7); /* Тонка рамка */
             background-size: cover;
             background-position: center;
         }
@@ -92,7 +92,7 @@
         /* Сорочка картки */
         .memory-front {
             background-color: #2c3e50;
-            background-image: repeating-linear-gradient(45deg, #2c3e50 0, #2c3e50 10px, #34495e 10px, #34495e 20px);
+            background-image: repeating-linear-gradient(45deg, #2c3e50 0, #2c3e50 15px, #34495e 15px, #34495e 30px);
         }
 
         /* Лицьова сторона картки */
@@ -111,15 +111,15 @@
         }
 
         .current-kartka {
-            width: 18vw;
-            max-width: 200px;
-            min-width: 120px;
-            aspect-ratio: 3/4;
+            width: 20vw;
+            max-width: 220px;
+            min-width: 140px;
+            aspect-ratio: 16/9;
             background-size: cover;
             background-position: center;
-            border-radius: 10px;
-            box-shadow: 2px 4px 10px rgba(0,0,0,0.5);
-            border: 1px solid rgba(255, 255, 255, 0.8);
+            border-radius: 12px;
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.8), inset 2px 2px 5px rgba(255,255,255,0.3);
+            border: 1px solid rgba(255, 255, 255, 0.7);
             background-color: #fff;
         }
 
@@ -128,22 +128,29 @@
             flex-direction: column;
             gap: 10px;
             width: 100%;
+            max-width: 250px;
         }
 
-        select, button {
+        select, input[type="text"], button {
             font-family: Arial, sans-serif;
             padding: 10px;
             border-radius: 8px;
             border: none;
             font-size: 16px;
-            cursor: pointer;
             box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+            box-sizing: border-box;
+            width: 100%;
+        }
+
+        input[type="text"] {
+            border: 1px solid #ccc;
         }
 
         button {
             background-color: #4CAF50;
             color: white;
             font-weight: bold;
+            cursor: pointer;
             transition: 0.2s;
         }
 
@@ -174,10 +181,10 @@
             flex-direction: column;
             align-items: center;
             gap: 10px;
-            background: rgba(0, 0, 0, 0.2);
+            background: rgba(0, 0, 0, 0.4);
             padding: 15px;
             border-radius: 15px;
-            min-width: 150px;
+            min-width: 180px;
         }
 
         .player-name {
@@ -189,19 +196,20 @@
         .collected-cards {
             display: flex;
             flex-wrap: wrap;
-            gap: -10px; /* Накладання карток */
+            gap: -20px; /* Накладання карток */
             justify-content: center;
         }
 
         .collected-card {
-            width: 60px;
-            aspect-ratio: 3/4;
+            width: 90px;
+            aspect-ratio: 16/9;
             background-size: cover;
             background-position: center;
-            border-radius: 5px;
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
-            border: 1px solid #fff;
-            margin-right: -20px; /* Ефект віяла/стопки */
+            border-radius: 8px;
+            box-shadow: 3px 3px 8px rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.6);
+            margin-right: -30px; /* Ефект віяла/стопки */
+            position: relative;
         }
         .collected-card:last-child {
             margin-right: 0;
@@ -213,7 +221,7 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.6);
+            background: rgba(0, 0, 0, 0.7);
             padding: 30px;
             border-radius: 15px;
             backdrop-filter: blur(5px);
@@ -221,6 +229,9 @@
             flex-direction: column;
             gap: 15px;
             z-index: 10;
+            width: 80%;
+            max-width: 350px;
+            box-sizing: border-box;
         }
 
         .secret-input {
@@ -270,7 +281,7 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 80%;
+            width: 90%;
             max-width: 600px;
             max-height: 60vh;
             background: rgba(30, 30, 30, 0.95);
@@ -353,8 +364,14 @@
             }
             .kartka-area {
                 width: 100%;
-                border-top: 1px solid rgba(255,255,255,0.2);
+                border-top: 1px solid rgba(255,255,255,0.3);
                 padding-top: 20px;
+            }
+            .kartka-controls {
+                max-width: 100%;
+            }
+            .collected-card {
+                width: 70px;
             }
         }
     </style>
@@ -383,9 +400,13 @@
             <div class="kartka-area" id="kartka-area">
                 <div id="current-kartka" class="current-kartka" style="display:none;"></div>
                 <div class="kartka-controls" id="kartka-controls" style="display:none;">
+                    
+                    <!-- Вибір імені гравця (Dropdown або ручний ввід) -->
                     <select id="player-select">
-                        <option value="">-- Оберіть гравця --</option>
+                        <option value="">-- Оберіть гравця з радару --</option>
                     </select>
+                    <input type="text" id="custom-player-input" placeholder="Або впишіть ім'я вручну">
+                    
                     <button onclick="giveKartka()">Віддати гравцю</button>
                     <button class="skip-btn" onclick="skipKartka()">Змінити картку (вниз колоди)</button>
                 </div>
@@ -406,8 +427,20 @@
         <div id="theme-grid"></div>
     </div>
 
-
     <script>
+        // Ініціалізація базових ідентифікаторів (винесено наверх, щоб уникнути помилок ReferenceError)
+        let myName = new URLSearchParams(window.location.search).get('user');
+        if (myName) {
+            sessionStorage.setItem('myName', myName);
+        } else {
+            myName = sessionStorage.getItem('myName');
+            if (!myName) {
+                myName = "Гість_" + Math.floor(Math.random() * 1000);
+                sessionStorage.setItem('myName', myName);
+            }
+        }
+        const tabId = Math.random().toString(36).substr(2, 9);
+
         // ІНІЦІАЛІЗАЦІЯ FIREBASE
         const firebaseConfig = {
             databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/",
@@ -424,7 +457,7 @@
             // Оновлюємо гілку стану для нових підключень
             db.ref('game_state').set(localGameState);
             
-            // Відправляємо дію для миттєвої синхронізації та анімацій
+            // Відправляємо дію для миттєвої синхронізації
             db.ref('game_action').set({
                 senderId: tabId,
                 timestamp: firebase.database.ServerValue.TIMESTAMP,
@@ -436,14 +469,14 @@
         // Слухаємо дії інших гравців
         db.ref('game_action').on('value', snap => {
             const action = snap.val();
-            if (!action || action.senderId === tabId) return; // Уникаємо зациклення (isRemoteAction)
+            if (!action || action.senderId === tabId) return; // Запобігаємо зацикленню
             
             if (action.type === 'START_GAME') {
                 localGameState = action.data;
             } else if (action.type === 'FLIP_MEMORY') {
                 localGameState.memoryCards[action.data.index].flipped = action.data.flipped;
             } else if (action.type === 'GIVE_KARTKA') {
-                if(localGameState.deck.length > 0) {
+                if(localGameState.deck && localGameState.deck.length > 0) {
                     localGameState.deck.shift();
                 }
                 if (!localGameState.players[action.data.playerName]) {
@@ -451,7 +484,7 @@
                 }
                 localGameState.players[action.data.playerName].push(action.data.card);
             } else if (action.type === 'SKIP_KARTKA') {
-                if(localGameState.deck.length > 0) {
+                if(localGameState.deck && localGameState.deck.length > 0) {
                     let card = localGameState.deck.shift();
                     localGameState.deck.push(card);
                 }
@@ -513,14 +546,27 @@
 
         function giveKartka() {
             const select = document.getElementById('player-select');
-            const playerName = select.value;
-            if (!playerName || localGameState.deck.length === 0) return;
+            const customInput = document.getElementById('custom-player-input');
+            
+            // Пріоритет: спочатку введене руками ім'я, потім вибране з радару
+            const playerName = customInput.value.trim() || select.value;
+            
+            if (!playerName) {
+                alert("Будь ласка, оберіть гравця з радару або введіть ім'я вручну.");
+                return;
+            }
+            
+            if (localGameState.deck.length === 0) return;
 
             const card = localGameState.deck.shift();
             if (!localGameState.players[playerName]) {
                 localGameState.players[playerName] = [];
             }
             localGameState.players[playerName].push(card);
+
+            // Очищаємо поля вводу після успішної видачі
+            customInput.value = '';
+            select.value = '';
 
             sendAction('GIVE_KARTKA', { playerName: playerName, card: card });
             renderGame();
@@ -542,33 +588,35 @@
             // Рендер Меморі
             const board = document.getElementById('memory-board');
             board.innerHTML = '';
-            localGameState.memoryCards.forEach((card, index) => {
-                const cardDiv = document.createElement('div');
-                cardDiv.className = 'memory-card' + (card.flipped ? ' flipped' : '');
-                cardDiv.onclick = () => toggleMemory(index);
-                
-                const inner = document.createElement('div');
-                inner.className = 'memory-inner';
+            if (localGameState.memoryCards) {
+                localGameState.memoryCards.forEach((card, index) => {
+                    const cardDiv = document.createElement('div');
+                    cardDiv.className = 'memory-card' + (card.flipped ? ' flipped' : '');
+                    cardDiv.onclick = () => toggleMemory(index);
+                    
+                    const inner = document.createElement('div');
+                    inner.className = 'memory-inner';
 
-                const front = document.createElement('div');
-                front.className = 'memory-front';
+                    const front = document.createElement('div');
+                    front.className = 'memory-front';
 
-                const back = document.createElement('div');
-                back.className = 'memory-back';
-                back.style.backgroundImage = `url('./${card.image}')`;
+                    const back = document.createElement('div');
+                    back.className = 'memory-back';
+                    back.style.backgroundImage = `url('./${card.image}')`;
 
-                inner.appendChild(front);
-                inner.appendChild(back);
-                cardDiv.appendChild(inner);
-                board.appendChild(cardDiv);
-            });
+                    inner.appendChild(front);
+                    inner.appendChild(back);
+                    cardDiv.appendChild(inner);
+                    board.appendChild(cardDiv);
+                });
+            }
 
             // Рендер Kartka
             const currKartkaDiv = document.getElementById('current-kartka');
             const controls = document.getElementById('kartka-controls');
             const emptyMsg = document.getElementById('empty-deck-msg');
 
-            if (localGameState.deck.length > 0) {
+            if (localGameState.deck && localGameState.deck.length > 0) {
                 const currentCard = localGameState.deck[0];
                 currKartkaDiv.style.display = 'block';
                 currKartkaDiv.style.backgroundImage = `url('./${currentCard.image}')`;
@@ -583,29 +631,31 @@
             // Рендер Колекцій
             const collections = document.getElementById('players-collections');
             collections.innerHTML = '';
-            for (const [pName, cards] of Object.entries(localGameState.players)) {
-                if (cards.length === 0) continue;
+            if (localGameState.players) {
+                for (const [pName, cards] of Object.entries(localGameState.players)) {
+                    if (cards.length === 0) continue;
 
-                const box = document.createElement('div');
-                box.className = 'player-box';
+                    const box = document.createElement('div');
+                    box.className = 'player-box';
 
-                const title = document.createElement('div');
-                title.className = 'player-name';
-                title.textContent = pName;
+                    const title = document.createElement('div');
+                    title.className = 'player-name';
+                    title.textContent = pName;
 
-                const cardsDiv = document.createElement('div');
-                cardsDiv.className = 'collected-cards';
+                    const cardsDiv = document.createElement('div');
+                    cardsDiv.className = 'collected-cards';
 
-                cards.forEach(c => {
-                    const cDiv = document.createElement('div');
-                    cDiv.className = 'collected-card';
-                    cDiv.style.backgroundImage = `url('./${c.image}')`;
-                    cardsDiv.appendChild(cDiv);
-                });
+                    cards.forEach(c => {
+                        const cDiv = document.createElement('div');
+                        cDiv.className = 'collected-card';
+                        cDiv.style.backgroundImage = `url('./${c.image}')`;
+                        cardsDiv.appendChild(cDiv);
+                    });
 
-                box.appendChild(title);
-                box.appendChild(cardsDiv);
-                collections.appendChild(box);
+                    box.appendChild(title);
+                    box.appendChild(cardsDiv);
+                    collections.appendChild(box);
+                }
             }
         }
 
@@ -615,7 +665,7 @@
             const select = document.getElementById('player-select');
             const currentVal = select.value;
             
-            select.innerHTML = '<option value="">-- Оберіть гравця --</option>';
+            select.innerHTML = '<option value="">-- Оберіть гравця з радару --</option>';
             Object.keys(users).forEach(u => {
                 let opt = document.createElement('option');
                 opt.value = u;
@@ -638,7 +688,7 @@
             const grid = document.getElementById('theme-grid');
             let errorCount = 0;
             for(let i = 1; i <= 1000; i++) {
-                if(errorCount >= 5) break; // Зупиняємось, якщо фони закінчились
+                if(errorCount >= 5) break; 
                 await new Promise(resolve => {
                     let url = `https://olgazheltvai2.github.io/images/backgrounds/background_${i}.webp`;
                     let img = new Image();
@@ -686,20 +736,7 @@
     </div>
 
     <script>
-        // 1. Отримання та збереження імені
-        let myName = new URLSearchParams(window.location.search).get('user');
-        if (myName) {
-            sessionStorage.setItem('myName', myName);
-        } else {
-            myName = sessionStorage.getItem('myName');
-            if (!myName) {
-                myName = "Гість_" + Math.floor(Math.random() * 1000);
-                sessionStorage.setItem('myName', myName);
-            }
-        }
-
-        // 2. Радар та унікальні вкладки
-        const tabId = Math.random().toString(36).substr(2, 9);
+        // myName та tabId вже ініціалізовані на початку скрипта
         const userRef = db.ref(`online_users/${myName}/${tabId}`);
 
         db.ref('.info/connected').on('value', snap => {
@@ -713,7 +750,7 @@
             userRef.remove();
         });
 
-        // 3. Блокування користувача
+        // Блокування користувача
         db.ref(`blocked_users/${myName}`).on('value', snap => {
             if (snap.val() === true) {
                 document.getElementById('block-overlay').style.display = 'flex';
@@ -729,7 +766,7 @@
             }
         });
 
-        // 4. Повернення в Лобі (з імунітетом 1 сек)
+        // Повернення в Лобі (з імунітетом 1 сек)
         const appStartTime = Date.now();
         db.ref('current_activity').on('value', snap => {
             const timePassed = Date.now() - appStartTime;
