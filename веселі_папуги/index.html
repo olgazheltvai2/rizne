@@ -82,9 +82,9 @@
             height: 100%;
             position: absolute;
             backface-visibility: hidden;
-            border-radius: 12px; /* Скруглені края */
-            box-shadow: 4px 4px 12px rgba(0,0,0,0.7), inset 2px 2px 5px rgba(255,255,255,0.3); /* Об'ємність */
-            border: 1px solid rgba(255, 255, 255, 0.7); /* Тонка рамка */
+            border-radius: 12px;
+            box-shadow: 4px 4px 12px rgba(0,0,0,0.7), inset 2px 2px 5px rgba(255,255,255,0.3);
+            border: 1px solid rgba(255, 255, 255, 0.7);
             background-size: cover;
             background-position: center;
         }
@@ -253,11 +253,17 @@
             border-color: #4CAF50;
         }
 
-        /* Theme Manager */
-        #theme-btn {
+        /* Управління (Теми та Скидання) */
+        .controls-wrapper {
             position: fixed;
             bottom: 20px;
             right: 20px;
+            display: flex;
+            gap: 15px;
+            z-index: 1000;
+        }
+
+        .circle-btn {
             width: 50px;
             height: 50px;
             background-color: rgba(0,0,0,0.7);
@@ -268,13 +274,20 @@
             align-items: center;
             font-size: 24px;
             cursor: pointer;
-            z-index: 1000;
             box-shadow: 0 4px 10px rgba(0,0,0,0.5);
             transition: 0.3s;
         }
-        #theme-btn:hover {
+        .circle-btn:hover {
             transform: scale(1.1);
+            background-color: rgba(0,0,0,0.9);
         }
+        #reset-btn {
+            background-color: rgba(220, 53, 69, 0.7);
+        }
+        #reset-btn:hover {
+            background-color: rgba(220, 53, 69, 1);
+        }
+
         #theme-modal {
             display: none;
             position: fixed;
@@ -381,9 +394,9 @@
     <!-- Екран налаштувань (для першого запуску) -->
     <div id="setup-screen">
         <h3 style="margin:0; text-align:center;">Налаштування гри</h3>
-        <label>Кількість пар Memory:</label>
+        <label>Кількість пар Memory (за замовчуванням 10):</label>
         <input type="number" id="mem-count" class="secret-input" placeholder="Введіть число" value="10">
-        <label>Кількість карток Kartka:</label>
+        <label>Кількість карток Kartka (за замовчуванням 15):</label>
         <input type="number" id="kartka-count" class="secret-input" placeholder="Введіть число" value="15">
         <button onclick="startGame()">Розпочати гру</button>
     </div>
@@ -420,15 +433,19 @@
         </div>
     </div>
 
-    <!-- Theme Manager -->
-    <div id="theme-btn" onclick="openThemeModal()">⚙️</div>
+    <!-- Theme Manager та Кнопка Скидання -->
+    <div class="controls-wrapper">
+        <div id="reset-btn" class="circle-btn" onclick="resetGame()" title="Почати нову гру (Скинути)">🔄</div>
+        <div id="theme-btn" class="circle-btn" onclick="openThemeModal()" title="Змінити фон">⚙️</div>
+    </div>
+
     <div id="theme-modal">
         <div id="theme-modal-close" onclick="closeThemeModal()">✖</div>
         <div id="theme-grid"></div>
     </div>
 
     <script>
-        // Ініціалізація базових ідентифікаторів (винесено наверх, щоб уникнути помилок ReferenceError)
+        // Ініціалізація базових ідентифікаторів
         let myName = new URLSearchParams(window.location.search).get('user');
         if (myName) {
             sessionStorage.setItem('myName', myName);
@@ -454,11 +471,11 @@
 
         // ВІДПРАВКА ДІЙ ТА СИНХРОНІЗАЦІЯ СТАНУ
         function sendAction(type, data) {
-            // Оновлюємо гілку стану для нових підключень
-            db.ref('game_state').set(localGameState);
+            // Оновлюємо унікальну гілку стану саме для цієї гри
+            db.ref('memory_kartka_state').set(localGameState);
             
             // Відправляємо дію для миттєвої синхронізації
-            db.ref('game_action').set({
+            db.ref('memory_kartka_action').set({
                 senderId: tabId,
                 timestamp: firebase.database.ServerValue.TIMESTAMP,
                 type: type,
@@ -467,24 +484,28 @@
         }
 
         // Слухаємо дії інших гравців
-        db.ref('game_action').on('value', snap => {
+        db.ref('memory_kartka_action').on('value', snap => {
             const action = snap.val();
             if (!action || action.senderId === tabId) return; // Запобігаємо зацикленню
             
             if (action.type === 'START_GAME') {
                 localGameState = action.data;
             } else if (action.type === 'FLIP_MEMORY') {
-                localGameState.memoryCards[action.data.index].flipped = action.data.flipped;
+                if(localGameState && localGameState.memoryCards) {
+                    localGameState.memoryCards[action.data.index].flipped = action.data.flipped;
+                }
             } else if (action.type === 'GIVE_KARTKA') {
-                if(localGameState.deck && localGameState.deck.length > 0) {
+                if(localGameState && localGameState.deck && localGameState.deck.length > 0) {
                     localGameState.deck.shift();
                 }
-                if (!localGameState.players[action.data.playerName]) {
+                if (localGameState && !localGameState.players[action.data.playerName]) {
                     localGameState.players[action.data.playerName] = [];
                 }
-                localGameState.players[action.data.playerName].push(action.data.card);
+                if(localGameState) {
+                    localGameState.players[action.data.playerName].push(action.data.card);
+                }
             } else if (action.type === 'SKIP_KARTKA') {
-                if(localGameState.deck && localGameState.deck.length > 0) {
+                if(localGameState && localGameState.deck && localGameState.deck.length > 0) {
                     let card = localGameState.deck.shift();
                     localGameState.deck.push(card);
                 }
@@ -493,22 +514,24 @@
         });
 
         // Завантаження стану при старті
-        db.ref('game_state').once('value', snap => {
+        db.ref('memory_kartka_state').once('value', snap => {
             const state = snap.val();
-            if (state) {
+            if (state && state.memoryCards) { // Перевіряємо, чи це дійсно стан від цієї гри
                 localGameState = state;
                 document.getElementById('setup-screen').style.display = 'none';
                 document.getElementById('game-container').style.display = 'flex';
                 renderGame();
+            } else {
+                // Якщо стану немає або він пошкоджений, показуємо меню налаштувань
+                document.getElementById('setup-screen').style.display = 'flex';
+                document.getElementById('game-container').style.display = 'none';
             }
         });
 
         // ЛОГІКА ГРИ
         function startGame() {
-            const memCount = parseInt(document.getElementById('mem-count').value);
-            const kartkaCount = parseInt(document.getElementById('kartka-count').value);
-            
-            if(!memCount || !kartkaCount) return;
+            const memCount = parseInt(document.getElementById('mem-count').value) || 10;
+            const kartkaCount = parseInt(document.getElementById('kartka-count').value) || 15;
 
             let memoryCards = [];
             for(let i = 1; i <= memCount; i++) {
@@ -538,6 +561,13 @@
             renderGame();
         }
 
+        function resetGame() {
+            if(confirm("Ви впевнені, що хочете скинути гру і почати заново?")) {
+                db.ref('memory_kartka_state').remove();
+                location.reload();
+            }
+        }
+
         function toggleMemory(index) {
             localGameState.memoryCards[index].flipped = !localGameState.memoryCards[index].flipped;
             sendAction('FLIP_MEMORY', { index: index, flipped: localGameState.memoryCards[index].flipped });
@@ -556,7 +586,7 @@
                 return;
             }
             
-            if (localGameState.deck.length === 0) return;
+            if (!localGameState.deck || localGameState.deck.length === 0) return;
 
             const card = localGameState.deck.shift();
             if (!localGameState.players[playerName]) {
@@ -573,7 +603,7 @@
         }
 
         function skipKartka() {
-            if (localGameState.deck.length === 0) return;
+            if (!localGameState.deck || localGameState.deck.length === 0) return;
             const card = localGameState.deck.shift();
             localGameState.deck.push(card);
             
@@ -602,7 +632,8 @@
 
                     const back = document.createElement('div');
                     back.className = 'memory-back';
-                    back.style.backgroundImage = `url('./${card.image}')`;
+                    // Прямий шлях до картинки у тій самій папці
+                    back.style.backgroundImage = `url('${card.image}')`;
 
                     inner.appendChild(front);
                     inner.appendChild(back);
@@ -619,7 +650,7 @@
             if (localGameState.deck && localGameState.deck.length > 0) {
                 const currentCard = localGameState.deck[0];
                 currKartkaDiv.style.display = 'block';
-                currKartkaDiv.style.backgroundImage = `url('./${currentCard.image}')`;
+                currKartkaDiv.style.backgroundImage = `url('${currentCard.image}')`;
                 controls.style.display = 'flex';
                 emptyMsg.style.display = 'none';
             } else {
@@ -648,7 +679,7 @@
                     cards.forEach(c => {
                         const cDiv = document.createElement('div');
                         cDiv.className = 'collected-card';
-                        cDiv.style.backgroundImage = `url('./${c.image}')`;
+                        cDiv.style.backgroundImage = `url('${c.image}')`;
                         cardsDiv.appendChild(cDiv);
                     });
 
@@ -663,6 +694,7 @@
         db.ref('online_users').on('value', snap => {
             const users = snap.val() || {};
             const select = document.getElementById('player-select');
+            if(!select) return;
             const currentVal = select.value;
             
             select.innerHTML = '<option value="">-- Оберіть гравця з радару --</option>';
@@ -715,7 +747,7 @@
         }
         loadThemes();
 
-        // Синхронізація фону
+        // Синхронізація фону (спільна для всіх ігор)
         db.ref('game_theme').on('value', snap => {
             let url = snap.val();
             if(url) {
