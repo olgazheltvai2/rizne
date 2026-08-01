@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Збери Тваринку - Всі Частини</title>
+    
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+    <!-- Confetti Library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <style>
+        /* Базові стилі */
+        * { box-sizing: border-box; font-family: Arial, sans-serif; }
+        body {
+            margin: 0; padding: 0; min-height: 100vh;
+            background-color: #222; background-size: cover; background-position: center; background-attachment: fixed;
+            color: #fff; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+            display: flex; flex-direction: column; align-items: center;
+            overflow-x: hidden;
+        }
+
+        /* Ігровий контейнер - прозорий */
+        #game-container {
+            width: 100%; max-width: 1200px; padding: 5px 10px;
+            display: flex; flex-direction: column; align-items: center; gap: 10px;
+            background: transparent;
+        }
+
+        /* Компактна верхня панель */
+        .top-panel {
+            display: flex; flex-direction: row; justify-content: center; align-items: center;
+            width: 100%; gap: 20px; background: rgba(0,0,0,0.4); padding: 5px 15px; border-radius: 10px;
+            flex-wrap: wrap;
+        }
+
+        .status-info {
+            display: flex; gap: 20px; align-items: center; font-size: 1.1rem; font-weight: bold;
+        }
+        .status-info span.hl { color: #00ff00; }
+        .status-info span.hl-yellow { color: #ffd700; }
+
+        .task-box {
+            display: flex; flex-direction: row; align-items: center; gap: 10px;
+        }
+        .task-box p { margin: 0; font-size: 1.1rem; font-weight: bold; color: #00ff00; text-transform: uppercase;}
+        .task-img {
+            width: 60px; height: 60px; object-fit: contain; border-radius: 8px;
+            filter: drop-shadow(0 0 5px rgba(0, 255, 0, 0.8));
+            background: rgba(255,255,255,0.1);
+        }
+
+        /* Ігрове поле - Впритул */
+        .board {
+            display: flex; flex-direction: column; gap: 0px; /* Прибрано gap */
+            width: 100%; align-items: center; position: relative; padding: 5px 0;
+        }
+
+        .row-wrapper {
+            display: flex; align-items: center; width: 100%; justify-content: center; gap: 5px;
+            margin: -2px 0; /* Легке перекриття для візуального злиття карток */
+            z-index: 1;
+        }
+
+        .nav-btn {
+            background: rgba(0, 0, 0, 0.6); color: white; border: 2px solid #fff; border-radius: 8px;
+            width: 40px; height: 50px; font-size: 1.5rem; font-weight: bold; cursor: pointer;
+            transition: all 0.2s; display: flex; justify-content: center; align-items: center;
+            text-shadow: none; flex-shrink: 0; z-index: 10;
+        }
+        .nav-btn:hover:not(:disabled) { background: #ffd700; color: #000; border-color: #ffd700; box-shadow: 0 0 10px #ffd700;}
+        .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .cards-viewport {
+            display: flex; gap: 0px; /* Картки впритул */
+            justify-content: center; align-items: center;
+            flex-wrap: nowrap; overflow: visible;
+        }
+
+        .card-slot {
+            width: 9vw; max-width: 110px; min-width: 45px; aspect-ratio: 1;
+            display: flex; justify-content: center; align-items: center;
+            transition: transform 0.3s;
+            position: relative;
+        }
+        .card-slot img {
+            width: 100%; height: 100%; object-fit: cover; /* Заповнення без пробілів */
+            filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.8));
+        }
+
+        /* Цільова колонка (приціл) */
+        .card-slot.target {
+            z-index: 5; position: relative; transform: scale(1.05);
+        }
+        /* Світіння для зібраної частини */
+        .card-slot.target.matched {
+            box-shadow: 0 0 15px 5px #00ff00 inset, 0 0 10px #00ff00;
+            animation: pulse-glow 1s infinite alternate;
+        }
+        
+        @keyframes pulse-glow {
+            from { box-shadow: 0 0 15px 5px rgba(0,255,0,0.6) inset, 0 0 10px rgba(0,255,0,0.6); }
+            to { box-shadow: 0 0 25px 10px rgba(0,255,0,0.9) inset, 0 0 20px rgba(0,255,0,0.9); }
+        }
+
+        /* Нижня панель */
+        .bottom-panel {
+            display: flex; flex-direction: column; width: 100%; align-items: center; gap: 10px;
+        }
+        
+        .action-btn {
+            padding: 10px 30px; font-size: 1.2rem; font-weight: bold; border-radius: 25px; border: none;
+            background: #ff4500; color: white; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+            text-transform: uppercase; transition: transform 0.1s;
+        }
+        .action-btn:active { transform: scale(0.95); }
+        .action-btn:disabled { background: #555; cursor: not-allowed; }
+
+        .scores {
+            width: 100%; background: rgba(0,0,0,0.4); padding: 5px 10px; border-radius: 10px;
+        }
+        .scores h3 { margin: 0 0 5px 0; color: #ffd700; text-align: center; font-size: 1rem;}
+        .score-list { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+        .score-item { font-size: 1rem; font-weight: bold; background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.3);}
+
+        /* Анімаційний фідбек (замість alert) */
+        #feedback-overlay {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 3rem; font-weight: bold; color: #fff; 
+            text-shadow: 0 0 20px #00ff00, 0 0 10px #00cc00, 2px 2px 0px #000;
+            opacity: 0; pointer-events: none; z-index: 200; text-align: center;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        #feedback-overlay.show { opacity: 1; transform: translate(-50%, -60%); }
+        #feedback-overlay.victory { text-shadow: 0 0 20px #ffd700, 0 0 10px #ff8c00, 2px 2px 0px #000; font-size: 4rem; color: #fff;}
+
+        /* Theme Manager UI */
+        #theme-btn {
+            position: fixed; bottom: 20px; right: 20px; width: 50px; height: 50px;
+            background: rgba(0, 0, 0, 0.7); color: white; font-size: 24px; border: 2px solid white;
+            border-radius: 50%; cursor: pointer; z-index: 100; text-shadow: none; display: flex; justify-content: center; align-items: center;
+        }
+        #theme-modal {
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(30, 30, 30, 0.95); padding: 20px; border-radius: 10px; z-index: 101;
+            width: 90%; max-width: 600px; box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+        #theme-modal h2 { margin-top: 0; text-align: center; }
+        .theme-gallery {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px;
+            max-height: 60vh; overflow-y: auto; padding: 10px;
+        }
+        .theme-item {
+            position: relative; width: 100%; padding-bottom: 75%; cursor: pointer;
+            border: 2px solid transparent; border-radius: 8px; overflow: hidden; background-size: cover; background-position: center;
+        }
+        .theme-item:hover { border-color: white; }
+        .theme-item span {
+            position: absolute; bottom: 0; width: 100%; background: rgba(0,0,0,0.6);
+            color: white; text-align: center; font-size: 12px; padding: 4px 0; text-shadow: none;
+        }
+        #close-theme {
+            display: block; margin: 15px auto 0; padding: 8px 20px; background: #ff4444;
+            color: white; border: none; border-radius: 5px; cursor: pointer; text-shadow: none; font-weight: bold;
+        }
+
+        /* Екран блокування */
+        #block-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9); z-index: 9999; justify-content: center; align-items: center;
+            color: red; font-size: 3rem; font-weight: bold; text-align: center; padding: 20px;
+        }
+
+        @media (max-width: 600px) {
+            .nav-btn { width: 30px; height: 40px; font-size: 1rem; }
+            .card-slot { width: 12vw; min-width: 35px; }
+            .status-info { font-size: 0.9rem; gap: 10px; flex-wrap: wrap; justify-content: center;}
+            .task-img { width: 45px; height: 45px; }
+            #feedback-overlay { font-size: 2rem; }
+            #feedback-overlay.victory { font-size: 2.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div class="top-panel">
+            <div class="status-info">
+                <div>Хід: <span id="current-turn-display" class="hl">Завантаження...</span></div>
+                <div>Рухів: <span id="moves-left-display" class="hl-yellow">3</span>/3</div>
+            </div>
+            <div class="task-box">
+                <p>Завдання:</p>
+                <img id="current-task-img" class="task-img" src="" alt="Завдання" style="display:none;">
+            </div>
+        </div>
+
+        <div class="board">
+            <div class="row-wrapper">
+                <button class="nav-btn" onclick="moveRow('head', -1)">&#10094;</button>
+                <div class="cards-viewport" id="viewport-head"></div>
+                <button class="nav-btn" onclick="moveRow('head', 1)">&#10095;</button>
+            </div>
+            
+            <div class="row-wrapper">
+                <button class="nav-btn" onclick="moveRow('belly', -1)">&#10094;</button>
+                <div class="cards-viewport" id="viewport-belly"></div>
+                <button class="nav-btn" onclick="moveRow('belly', 1)">&#10095;</button>
+            </div>
+            
+            <div class="row-wrapper">
+                <button class="nav-btn" onclick="moveRow('legs', -1)">&#10094;</button>
+                <div class="cards-viewport" id="viewport-legs"></div>
+                <button class="nav-btn" onclick="moveRow('legs', 1)">&#10095;</button>
+            </div>
+        </div>
+
+        <div class="bottom-panel">
+            <button class="action-btn" id="btn-end-turn" onclick="endTurn()" disabled>Завершити хід</button>
+            <button class="action-btn" id="btn-start-game" onclick="startGame()" style="background:#00cc00; display:none;">Почати гру</button>
+            
+            <div class="scores">
+                <h3>Зібрані тваринки (до 10 для перемоги)</h3>
+                <div class="score-list" id="score-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Анімований фідбек -->
+    <div id="feedback-overlay"></div>
+
+    <!-- Theme Manager UI -->
+    <button id="theme-btn">⚙️</button>
+    <div id="theme-modal">
+        <h2>Оберіть фон</h2>
+        <div class="theme-gallery" id="theme-gallery"></div>
+        <button id="close-theme">Закрити</button>
+    </div>
+
+    <!-- УНІВЕРСАЛЬНИЙ БЛОК КОНТРОЛЮ -->
+    <div id="block-overlay">Зачекай! Зараз не твій урок.</div>
+
+    <script>
+        // --- 1. ІНІЦІАЛІЗАЦІЯ ТА КОНТРОЛЬ ДОСТУПУ ---
+        const urlParams = new URLSearchParams(window.location.search);
+        let myName = urlParams.get('user');
+        
+        if (myName) {
+            sessionStorage.setItem('gameUserName', myName);
+        } else {
+            myName = sessionStorage.getItem('gameUserName');
+            if (!myName) {
+                myName = 'Гість_' + Math.floor(Math.random() * 1000);
+                sessionStorage.setItem('gameUserName', myName);
+            }
+        }
+
+        const firebaseConfig = { databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Радар
+        const tabId = Math.random().toString(36).substr(2, 9);
+        const onlineRef = db.ref(`online_users/${myName}/${tabId}`);
+        const connectedRef = db.ref('.info/connected');
+
+        connectedRef.on('value', (snap) => {
+            if (snap.val() === true) {
+                onlineRef.set(true);
+                onlineRef.onDisconnect().remove();
+            }
+        });
+        window.addEventListener('beforeunload', () => { onlineRef.remove(); });
+
+        // Блокування
+        db.ref(`blocked_users/${myName}`).on('value', (snap) => {
+            document.getElementById('block-overlay').style.display = snap.val() ? 'flex' : 'none';
+        });
+
+        // Захист від миттєвого перезавантаження старими даними (Імунітет)
+        let isInitialLoad = true;
+        setTimeout(() => { isInitialLoad = false; }, 2000);
+
+        // Оновлення
+        let initialRefreshLoad = true;
+        db.ref('force_refresh').on('value', (snap) => {
+            if (initialRefreshLoad) { initialRefreshLoad = false; return; }
+            if (snap.val() === true) {
+                setTimeout(() => window.location.reload(), Math.random() * 1000);
+            }
+        });
+
+        // Повернення в лобі (з імунітетом)
+        db.ref('current_activity').on('value', (snap) => {
+            if (!isInitialLoad && snap.val() === 'lobby') {
+                window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html?user=' + encodeURIComponent(myName);
+            }
+        });
+
+
+        // --- 2. СИСТЕМА ДИНАМІЧНИХ ФОНІВ (THEME MANAGER) ---
+        const savedBg = localStorage.getItem('mySavedGameBg');
+        if (savedBg) document.body.style.backgroundImage = `url('${savedBg}')`;
+
+        db.ref('game_theme').on('value', (snap) => {
+            const url = snap.val();
+            if (url) {
+                document.body.style.backgroundImage = `url('${url}')`;
+                localStorage.setItem('mySavedGameBg', url);
+            }
+        });
+
+        document.getElementById('theme-btn').onclick = () => {
+            document.getElementById('theme-modal').style.display = 'block';
+            loadThemesAsync();
+        };
+        document.getElementById('close-theme').onclick = () => {
+            document.getElementById('theme-modal').style.display = 'none';
+        };
+
+        let themesLoaded = false;
+        function loadThemesAsync() {
+            if (themesLoaded) return;
+            const gallery = document.getElementById('theme-gallery');
+            gallery.innerHTML = '';
+            const baseUrl = 'https://olgazheltvai2.github.io/images/backgrounds/';
+            
+            let i = 1;
+            let consecutiveFails = 0;
+            const checkNextImage = () => {
+                if (i > 1000 || consecutiveFails > 10) { themesLoaded = true; return; }
+                
+                const url = `${baseUrl}background_${i}.webp`;
+                const img = new Image();
+                img.onload = () => {
+                    consecutiveFails = 0;
+                    const div = document.createElement('div');
+                    div.className = 'theme-item';
+                    div.style.backgroundImage = `url('${url}')`;
+                    div.innerHTML = `<span>Фон ${i}</span>`;
+                    div.onclick = () => {
+                        db.ref('game_theme').set(url);
+                        document.getElementById('theme-modal').style.display = 'none';
+                    };
+                    gallery.appendChild(div);
+                    i++;
+                    checkNextImage();
+                };
+                img.onerror = () => {
+                    consecutiveFails++;
+                    i++;
+                    checkNextImage();
+                };
+                img.src = url;
+            };
+            checkNextImage();
+        }
+
+
+        // --- 3. ІГРОВА ЛОГІКА ТА ДАНІ ---
+        const animalData = {
+            dog: { head: 5, belly: 4, legs: 3, body: 11 },
+            pig: { head: 2, belly: 7, legs: 12, body: 17 },
+            turtle: { head: 10, belly: 9, legs: 8, body: 12 },
+            monkey: { head: 11, belly: 6, legs: 1, body: 18 },
+            frog: { head: 15, belly: 14, legs: 13, body: 13 },
+            horse: { head: 16, belly: 21, legs: 26, body: 20 },
+            cat: { head: 17, belly: 22, legs: 27, body: 19 },
+            chicken: { head: 20, belly: 19, legs: 18, body: 14 },
+            dragon: { head: 25, belly: 24, legs: 23, body: 15 },
+            cow: { head: 30, belly: 29, legs: 28, body: 16 }
+        };
+
+        const allHeads = Object.values(animalData).map(a => a.head);
+        const allBellies = Object.values(animalData).map(a => a.belly);
+        const allLegs = Object.values(animalData).map(a => a.legs);
+        const allBodies = Object.values(animalData).map(a => a.body);
+
+        const TARGET_INDEX = 4; // Індекс центральної колонки (з 10 елементів)
+
+        let gameState = {
+            players: [],
+            currentPlayerIndex: 0,
+            movesLeft: 3,
+            rows: { head: [], belly: [], legs: [] },
+            tasks: {}, 
+            availableTasks: [],
+            scores: {}, 
+            gameStarted: false,
+            winner: null
+        };
+
+        let lastActionId = null;
+        let localMatchHighlight = false; // Для світіння
+
+        function shuffle(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex != 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        function showFeedback(message, type = 'success') {
+            const overlay = document.getElementById('feedback-overlay');
+            overlay.innerText = message;
+            overlay.className = ''; 
+            if (type === 'victory') overlay.classList.add('victory');
+            overlay.classList.add('show');
+            
+            setTimeout(() => {
+                overlay.classList.remove('show');
+            }, 3000);
+
+            if (type === 'success') {
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            } else if (type === 'victory') {
+                const duration = 3000;
+                const end = Date.now() + duration;
+                (function frame() {
+                    confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#ffd700', '#ff8c00'] });
+                    confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#ffd700', '#ff8c00'] });
+                    if (Date.now() < end) requestAnimationFrame(frame);
+                }());
+            }
+        }
+
+
+        // --- 4. FIREBASE СИНХРОНІЗАЦІЯ СТАНУ ТА ДІЙ ---
+        db.ref('game_action').on('value', (snap) => {
+            const action = snap.val();
+            if (!action || action.actionId === lastActionId) return; // Відкидаємо свої ж дії та старі
+            if (action.senderId === myName) return; 
+            
+            lastActionId = action.actionId;
+            
+            if (action.type === 'STATE_UPDATE' || action.type === 'MATCH_FOUND') {
+                gameState = action.state;
+                if (action.type === 'MATCH_FOUND') {
+                    showFeedback(`${action.senderId} збирає тваринку!`, 'success');
+                    triggerMatchHighlight();
+                }
+                if (gameState.winner) showFeedback(`${gameState.winner} перемагає!`, 'victory');
+                render();
+            } else if (action.type === 'MOVE_ROW') {
+                performRowMoveLocally(action.rowType, action.direction);
+                gameState.movesLeft = action.movesLeft;
+                render();
+            } else if (action.type === 'END_TURN') {
+                gameState.currentPlayerIndex = action.nextPlayerIndex;
+                gameState.movesLeft = 3;
+                render();
+            } else if (action.type === 'JOIN_PLAYER') {
+                if (!gameState.players.includes(action.newPlayer)) {
+                    gameState.players.push(action.newPlayer);
+                    gameState.scores[action.newPlayer] = 0;
+                    if (gameState.availableTasks.length > 0) {
+                        gameState.tasks[action.newPlayer] = gameState.availableTasks.pop();
+                    }
+                    render();
+                }
+            }
+        });
+
+        function initGameSync() {
+            db.ref('game_action').once('value', (snap) => {
+                const action = snap.val();
+                if (!action || !action.state || !action.state.gameStarted) {
+                    document.getElementById('btn-start-game').style.display = 'block';
+                    gameState.players = [myName];
+                    gameState.scores[myName] = 0;
+                    render();
+                } else {
+                    gameState = action.state;
+                    if (!gameState.players.includes(myName)) {
+                        syncAction('JOIN_PLAYER', { newPlayer: myName });
+                        gameState.players.push(myName);
+                        gameState.scores[myName] = 0;
+                        if(gameState.availableTasks.length > 0) {
+                            gameState.tasks[myName] = gameState.availableTasks.pop();
+                        }
+                    }
+                    render();
+                }
+            });
+        }
+
+        function startGame() {
+            gameState.rows.head = shuffle([...allHeads]);
+            gameState.rows.belly = shuffle([...allBellies]);
+            gameState.rows.legs = shuffle([...allLegs]);
+            
+            gameState.availableTasks = shuffle([...allBodies]);
+            gameState.players.forEach(p => {
+                gameState.tasks[p] = gameState.availableTasks.pop();
+            });
+            
+            gameState.gameStarted = true;
+            gameState.currentPlayerIndex = 0;
+            gameState.movesLeft = 3;
+            gameState.winner = null;
+            document.getElementById('btn-start-game').style.display = 'none';
+            syncState();
+        }
+
+        function syncState() {
+            const actionId = Date.now() + '_' + Math.random();
+            lastActionId = actionId;
+            db.ref('game_action').set({
+                actionId: actionId,
+                type: 'STATE_UPDATE',
+                senderId: myName,
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                state: gameState
+            });
+            render();
+        }
+
+        function syncAction(type, data) {
+            const actionId = Date.now() + '_' + Math.random();
+            lastActionId = actionId;
+            db.ref('game_action').set({
+                actionId: actionId,
+                type: type,
+                senderId: myName,
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                ...data
+            });
+        }
+
+
+        // --- 5. МЕХАНІКА ГРИ ---
+        function isMyTurn() {
+            return gameState.gameStarted && gameState.players[gameState.currentPlayerIndex] === myName && !gameState.winner;
+        }
+
+        function getTargetParts(bodyId) {
+            for (const key in animalData) {
+                if (animalData[key].body === bodyId) return animalData[key];
+            }
+            return null;
+        }
+
+        function moveRow(rowType, direction) {
+            if (!isMyTurn() || gameState.movesLeft <= 0) return;
+
+            performRowMoveLocally(rowType, direction);
+            gameState.movesLeft--;
+
+            syncAction('MOVE_ROW', { rowType: rowType, direction: direction, movesLeft: gameState.movesLeft });
+            
+            render();
+            checkMatch();
+        }
+
+        function performRowMoveLocally(rowType, direction) {
+            const arr = gameState.rows[rowType];
+            if (direction === -1) {
+                arr.push(arr.shift()); // Вліво
+            } else {
+                arr.unshift(arr.pop()); // Вправо
+            }
+        }
+
+        function checkMatch() {
+            const myTaskBody = gameState.tasks[myName];
+            if (!myTaskBody) return;
+            
+            const target = getTargetParts(myTaskBody);
+            
+            if (gameState.rows.head[TARGET_INDEX] === target.head &&
+                gameState.rows.belly[TARGET_INDEX] === target.belly &&
+                gameState.rows.legs[TARGET_INDEX] === target.legs) {
+                
+                gameState.scores[myName] = (gameState.scores[myName] || 0) + 1;
+                triggerMatchHighlight();
+                
+                if (gameState.scores[myName] >= 10) {
+                    gameState.winner = myName;
+                    showFeedback('Ти перемагаєш!', 'victory');
+                } else {
+                    showFeedback('Тваринку зібрано!', 'success');
+                    if (gameState.availableTasks.length > 0) {
+                        gameState.tasks[myName] = gameState.availableTasks.pop();
+                    } else {
+                        gameState.availableTasks = shuffle([...allBodies]);
+                        gameState.tasks[myName] = gameState.availableTasks.pop();
+                    }
+                    gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+                    gameState.movesLeft = 3;
+                }
+                
+                syncAction('MATCH_FOUND', { state: gameState });
+                render();
+            } else if (gameState.movesLeft === 0) {
+                setTimeout(() => endTurn(), 800); 
+            }
+        }
+
+        function triggerMatchHighlight() {
+            localMatchHighlight = true;
+            render();
+            setTimeout(() => {
+                localMatchHighlight = false;
+                render();
+            }, 1500);
+        }
+
+        function endTurn() {
+            if (!isMyTurn()) return;
+            gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+            gameState.movesLeft = 3;
+            syncAction('END_TURN', { nextPlayerIndex: gameState.currentPlayerIndex });
+            render();
+        }
+
+
+        // --- 6. ВІДОБРАЖЕННЯ (RENDER) ---
+        function renderRow(rowType, containerId) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            const arr = gameState.rows[rowType];
+            if (!arr || arr.length === 0) return;
+
+            arr.forEach((partId, index) => {
+                const slot = document.createElement('div');
+                slot.className = 'card-slot';
+                if (index === TARGET_INDEX) {
+                    slot.classList.add('target');
+                    if (localMatchHighlight) slot.classList.add('matched');
+                }
+
+                const img = document.createElement('img');
+                img.src = `частина_${partId}.webp`;
+                img.onerror = () => { img.src = `частина_${partId}.png`; }; 
+                slot.appendChild(img);
+                container.appendChild(slot);
+            });
+        }
+
+        function render() {
+            if (!gameState.gameStarted) return;
+
+            const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+            document.getElementById('current-turn-display').innerText = currentPlayer || 'Очікування...';
+            document.getElementById('moves-left-display').innerText = gameState.movesLeft;
+
+            const myTask = gameState.tasks[myName];
+            if (myTask) {
+                const taskImg = document.getElementById('current-task-img');
+                taskImg.src = `тіло_${myTask}.webp`;
+                taskImg.onerror = () => { taskImg.src = `тіло_${myTask}.png`; };
+                taskImg.style.display = 'block';
+            }
+
+            renderRow('head', 'viewport-head');
+            renderRow('belly', 'viewport-belly');
+            renderRow('legs', 'viewport-legs');
+
+            const myTurn = isMyTurn();
+            const navButtons = document.querySelectorAll('.nav-btn');
+            navButtons.forEach(btn => { btn.disabled = !myTurn || gameState.movesLeft <= 0; });
+            document.getElementById('btn-end-turn').disabled = !myTurn;
+
+            const scoreList = document.getElementById('score-list');
+            scoreList.innerHTML = '';
+            for (const [player, score] of Object.entries(gameState.scores)) {
+                const div = document.createElement('div');
+                div.className = 'score-item';
+                div.innerText = `${player}: ${score}`;
+                if (player === myName) div.style.color = '#00ff00';
+                scoreList.appendChild(div);
+            }
+            
+            if (gameState.winner) {
+                document.getElementById('current-turn-display').innerHTML = `<span style="color:red">ГРУ ЗАВЕРШЕНО! Переміг: ${gameState.winner}</span>`;
+            }
+        }
+
+        initGameSync();
+    </script>
+</body>
+</html>
