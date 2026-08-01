@@ -573,7 +573,7 @@
         }
 
         function startGame() {
-            forceRestart(); // Використовуємо ідентичну логіку для старту
+            forceRestart(); 
         }
 
         function syncState(eventType, extraPayload = {}) {
@@ -639,6 +639,7 @@
         function moveRow(rowType, direction) {
             if (!isMyTurn() || gameState.movesLeft <= 0 || isProcessingMove) return;
             isProcessingMove = true;
+            render(); // Оновлюємо UI, щоб заблокувати кнопки візуально
 
             performRowMoveLocally(rowType, direction);
             gameState.movesLeft--;
@@ -665,7 +666,10 @@
                     gameState.movesLeft = 3;
                 }
                 syncState('MATCH_FOUND', { matchIndex: matchIndex });
-                setTimeout(() => { isProcessingMove = false; }, 300);
+                setTimeout(() => { 
+                    isProcessingMove = false; 
+                    render(); // Гарантоване оновлення кнопок
+                }, 300);
             } else {
                 // ЗБІГУ НЕМАЄ
                 if (gameState.movesLeft <= 0) {
@@ -677,10 +681,14 @@
                             syncState('STATE_UPDATE');
                         }
                         isProcessingMove = false;
+                        render(); // Гарантоване оновлення кнопок
                     }, 1000);
                 } else {
                     syncState('STATE_UPDATE');
-                    setTimeout(() => { isProcessingMove = false; }, 300);
+                    setTimeout(() => { 
+                        isProcessingMove = false; 
+                        render(); // Гарантоване оновлення кнопок
+                    }, 300);
                 }
             }
         }
@@ -688,12 +696,16 @@
         function endTurn() {
             if (!isMyTurn() || isProcessingMove) return;
             isProcessingMove = true; 
+            render(); // Блокуємо кнопку одразу після кліку
             
             gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
             gameState.movesLeft = 3;
             syncState('STATE_UPDATE');
             
-            setTimeout(() => { isProcessingMove = false; }, 500);
+            setTimeout(() => { 
+                isProcessingMove = false; 
+                render(); // Розблоковуємо кнопки
+            }, 500);
         }
 
         function triggerMatchHighlight(index) {
