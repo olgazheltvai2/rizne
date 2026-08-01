@@ -54,7 +54,7 @@
 
         /* Ігрове поле - Впритул */
         .board {
-            display: flex; flex-direction: column; gap: 0px; /* Прибрано gap */
+            display: flex; flex-direction: column; gap: 0px; 
             width: 100%; align-items: center; position: relative; padding: 5px 0;
         }
 
@@ -74,11 +74,12 @@
         .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
         .cards-viewport {
-            display: flex; gap: 0px; /* Картки впритул */
+            display: flex; gap: 0px; 
             justify-content: center; align-items: center;
             flex-wrap: nowrap; overflow: visible;
         }
 
+        /* КАРТКИ - Строго однаковий розмір */
         .card-slot {
             width: 9vw; max-width: 110px; min-width: 45px; aspect-ratio: 1;
             display: flex; justify-content: center; align-items: center;
@@ -86,13 +87,18 @@
             position: relative;
         }
         .card-slot img {
-            width: 100%; height: 100%; object-fit: cover; /* Заповнення без пробілів */
+            width: 100%; height: 100%; object-fit: contain; /* Запобігає обрізанню чи розтягуванню */
             filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.8));
         }
 
-        /* Цільова колонка (приціл) */
+        /* Цільова колонка (приціл) - БЕЗ ЗБІЛЬШЕННЯ МАСШТАБУ */
         .card-slot.target {
-            z-index: 5; position: relative; transform: scale(1.05);
+            z-index: 5; position: relative; 
+        }
+        .card-slot.target::after {
+            content: ''; position: absolute; inset: 0;
+            border: 2px dashed rgba(0, 255, 0, 0.4);
+            border-radius: 8px; pointer-events: none;
         }
         /* Світіння для зібраної частини */
         .card-slot.target.matched {
@@ -125,7 +131,7 @@
         .score-list { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
         .score-item { font-size: 1rem; font-weight: bold; background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.3);}
 
-        /* Анімаційний фідбек (замість alert) */
+        /* Анімаційний фідбек */
         #feedback-overlay {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
             font-size: 3rem; font-weight: bold; color: #fff; 
@@ -394,6 +400,7 @@
 
         let lastActionId = null;
         let localMatchHighlight = false; // Для світіння
+        let isEndingTurn = false; // Захист від подвійного кліку
 
         function shuffle(array) {
             let currentIndex = array.length, randomIndex;
@@ -455,13 +462,19 @@
                 gameState.movesLeft = 3;
                 render();
             } else if (action.type === 'JOIN_PLAYER') {
-                if (!gameState.players.includes(action.newPlayer)) {
-                    gameState.players.push(action.newPlayer);
-                    gameState.scores[action.newPlayer] = 0;
-                    if (gameState.availableTasks.length > 0) {
-                        gameState.tasks[action.newPlayer] = gameState.availableTasks.pop();
+                // Хост (перший гравець) опрацьовує підключення нових гравців і роздає їм завдання
+                if (gameState.players[0] === myName) {
+                    if (!gameState.players.includes(action.newPlayer)) {
+                        gameState.players.push(action.newPlayer);
+                        gameState.scores[action.newPlayer] = 0;
+                        if (gameState.availableTasks.length > 0) {
+                            gameState.tasks[action.newPlayer] = gameState.availableTasks.pop();
+                        } else {
+                            gameState.availableTasks = shuffle([...allBodies]);
+                            gameState.tasks[action.newPlayer] = gameState.availableTasks.pop();
+                        }
+                        syncState(); // Розіслати всім оновлений стан (з новим гравцем і його завданням)
                     }
-                    render();
                 }
             }
         });
@@ -477,14 +490,11 @@
                 } else {
                     gameState = action.state;
                     if (!gameState.players.includes(myName)) {
+                        // Відправляємо запит на приєднання, хост нас додасть і розішле STATE_UPDATE
                         syncAction('JOIN_PLAYER', { newPlayer: myName });
-                        gameState.players.push(myName);
-                        gameState.scores[myName] = 0;
-                        if(gameState.availableTasks.length > 0) {
-                            gameState.tasks[myName] = gameState.availableTasks.pop();
-                        }
+                    } else {
+                        render();
                     }
-                    render();
                 }
             });
         }
@@ -546,7 +556,7 @@
         }
 
         function moveRow(rowType, direction) {
-            if (!isMyTurn() || gameState.movesLeft <= 0) return;
+            if (!isMyTurn() || gameState.movesLeft <= 0 || isEndingTurn) return;
 
             performRowMoveLocally(rowType, direction);
             gameState.movesLeft--;
@@ -568,7 +578,10 @@
 
         function checkMatch() {
             const myTaskBody = gameState.tasks[myName];
-            if (!myTaskBody) return;
+            if (!myTaskBody) {
+                if (gameState.movesLeft <= 0) setTimeout(() => endTurn(), 800);
+                return;
+            }
             
             const target = getTargetParts(myTaskBody);
             
@@ -596,7 +609,7 @@
                 
                 syncAction('MATCH_FOUND', { state: gameState });
                 render();
-            } else if (gameState.movesLeft === 0) {
+            } else if (gameState.movesLeft <= 0) {
                 setTimeout(() => endTurn(), 800); 
             }
         }
@@ -611,11 +624,15 @@
         }
 
         function endTurn() {
-            if (!isMyTurn()) return;
+            if (!isMyTurn() || isEndingTurn) return;
+            isEndingTurn = true; // Блокуємо повторні виклики
+            
             gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
             gameState.movesLeft = 3;
             syncAction('END_TURN', { nextPlayerIndex: gameState.currentPlayerIndex });
             render();
+            
+            setTimeout(() => { isEndingTurn = false; }, 500);
         }
 
 
@@ -663,8 +680,8 @@
 
             const myTurn = isMyTurn();
             const navButtons = document.querySelectorAll('.nav-btn');
-            navButtons.forEach(btn => { btn.disabled = !myTurn || gameState.movesLeft <= 0; });
-            document.getElementById('btn-end-turn').disabled = !myTurn;
+            navButtons.forEach(btn => { btn.disabled = !myTurn || gameState.movesLeft <= 0 || isEndingTurn; });
+            document.getElementById('btn-end-turn').disabled = !myTurn || isEndingTurn;
 
             const scoreList = document.getElementById('score-list');
             scoreList.innerHTML = '';
