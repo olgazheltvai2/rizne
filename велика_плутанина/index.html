@@ -394,7 +394,6 @@
         let lastActionId = null;
         let localMatchHighlight = false; 
         let matchHighlightIndex = -1;
-        let isProcessingMove = false; 
 
         // ЗАХИСТ СТАНУ (Відновлення масивів після Firebase)
         function normalizeState(state) {
@@ -579,14 +578,19 @@
         function syncState(eventType, extraPayload = {}) {
             const actionId = Date.now() + '_' + Math.random();
             lastActionId = actionId;
+            
+            // Захист від падіння Firebase (очищуємо всі undefined значення)
+            const cleanState = JSON.parse(JSON.stringify(gameState));
+            
             db.ref('game_action').set({
                 actionId: actionId,
                 type: eventType,
                 senderId: myName,
                 timestamp: firebase.database.ServerValue.TIMESTAMP,
-                state: gameState,
+                state: cleanState,
                 ...extraPayload
-            });
+            }).catch(e => console.error("Помилка збереження даних: ", e));
+            
             render();
         }
 
@@ -637,12 +641,12 @@
         }
 
         function moveRow(rowType, direction) {
-            if (!isMyTurn() || gameState.movesLeft <= 0 || isProcessingMove) return;
-            isProcessingMove = true;
-            render(); // Оновлюємо UI, щоб заблокувати кнопки візуально
+            // Безпечний перемикач, який не блокує виконання при нормальних умовах
+            if (!isMyTurn() || gameState.movesLeft <= 0) return;
 
             performRowMoveLocally(rowType, direction);
             gameState.movesLeft--;
+            render(); // Миттєве оновлення екрану локально
 
             const matchIndex = checkMatchLogic(myName);
 
@@ -666,46 +670,30 @@
                     gameState.movesLeft = 3;
                 }
                 syncState('MATCH_FOUND', { matchIndex: matchIndex });
-                setTimeout(() => { 
-                    isProcessingMove = false; 
-                    render(); // Гарантоване оновлення кнопок
-                }, 300);
             } else {
                 // ЗБІГУ НЕМАЄ
                 if (gameState.movesLeft <= 0) {
                     syncState('STATE_UPDATE'); 
                     setTimeout(() => {
+                        // Повторна перевірка перед передачею ходу, щоб уникнути подвійного пропускання
                         if (isMyTurn() && gameState.movesLeft <= 0) {
                             gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
                             gameState.movesLeft = 3;
                             syncState('STATE_UPDATE');
                         }
-                        isProcessingMove = false;
-                        render(); // Гарантоване оновлення кнопок
-                    }, 1000);
+                    }, 1000); // Даємо 1 секунду подивитись на результат
                 } else {
                     syncState('STATE_UPDATE');
-                    setTimeout(() => { 
-                        isProcessingMove = false; 
-                        render(); // Гарантоване оновлення кнопок
-                    }, 300);
                 }
             }
         }
 
         function endTurn() {
-            if (!isMyTurn() || isProcessingMove) return;
-            isProcessingMove = true; 
-            render(); // Блокуємо кнопку одразу після кліку
+            if (!isMyTurn()) return;
             
             gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
             gameState.movesLeft = 3;
             syncState('STATE_UPDATE');
-            
-            setTimeout(() => { 
-                isProcessingMove = false; 
-                render(); // Розблоковуємо кнопки
-            }, 500);
         }
 
         function triggerMatchHighlight(index) {
@@ -765,8 +753,8 @@
 
             const myTurn = isMyTurn();
             const navButtons = document.querySelectorAll('.nav-btn');
-            navButtons.forEach(btn => { btn.disabled = !myTurn || gameState.movesLeft <= 0 || isProcessingMove; });
-            document.getElementById('btn-end-turn').disabled = !myTurn || isProcessingMove;
+            navButtons.forEach(btn => { btn.disabled = !myTurn || gameState.movesLeft <= 0; });
+            document.getElementById('btn-end-turn').disabled = !myTurn;
 
             const scoreList = document.getElementById('score-list');
             scoreList.innerHTML = '';
