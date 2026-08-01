@@ -91,21 +91,14 @@
             width: 100%; height: 100%; object-fit: contain; 
             filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.8));
         }
-
-        /* Цільова колонка (приціл) - Чітка рамка */
-        .card-slot.target {
-            z-index: 5; position: relative; 
-        }
-        .card-slot.target::after {
-            content: ''; position: absolute; inset: 0;
-            border: 3px solid rgba(0, 255, 0, 0.6);
-            border-radius: 8px; pointer-events: none;
-            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3) inset;
-        }
         
-        /* Світіння для зібраної частини */
-        .card-slot.target.matched::after {
-            border-color: #00ff00;
+        /* Світіння для зібраної частини (В будь-якому місці) */
+        .card-slot.matched { z-index: 5; position: relative; }
+        .card-slot.matched::after {
+            content: ''; position: absolute; inset: 0;
+            border: 3px solid #00ff00;
+            border-radius: 8px; pointer-events: none;
+            box-shadow: 0 0 15px 5px rgba(0,255,0,0.6) inset, 0 0 10px rgba(0,255,0,0.6);
             animation: pulse-glow 1s infinite alternate;
         }
         
@@ -130,9 +123,6 @@
         }
         .action-btn:active:not(:disabled) { transform: scale(0.95); }
         .action-btn:disabled { background: #555 !important; cursor: not-allowed; opacity: 0.6; }
-        
-        .btn-restart { background: #cc0000; }
-        .btn-restart:hover { background: #ff0000; }
 
         .scores {
             width: 100%; background: rgba(0,0,0,0.6); padding: 10px 15px; border-radius: 15px;
@@ -140,6 +130,17 @@
         .scores h3 { margin: 0 0 10px 0; color: #ffd700; text-align: center; font-size: 1.1rem;}
         .score-list { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }
         .score-item { font-size: 1.1rem; font-weight: bold; background: rgba(255,255,255,0.15); padding: 8px 20px; border-radius: 25px; border: 1px solid rgba(255,255,255,0.4);}
+
+        /* Кнопка Рестарт (Малопомітна у кутку) */
+        .btn-restart-corner {
+            position: fixed; top: 10px; left: 10px;
+            background: rgba(0, 0, 0, 0.4); color: #888; border: 1px solid #555;
+            border-radius: 8px; width: 35px; height: 35px; font-size: 1.2rem;
+            cursor: pointer; z-index: 100; transition: 0.2s;
+            display: flex; justify-content: center; align-items: center;
+            text-shadow: none; padding: 0;
+        }
+        .btn-restart-corner:hover { background: rgba(255, 0, 0, 0.7); color: #fff; border-color: #ff0000; }
 
         /* Theme Manager UI */
         #theme-btn {
@@ -189,6 +190,8 @@
 </head>
 <body>
 
+    <button class="btn-restart-corner" onclick="forceRestart()" title="Почати заново">🔄</button>
+
     <div id="game-container">
         <div class="top-panel">
             <div class="status-info">
@@ -224,7 +227,7 @@
         <div class="bottom-panel">
             <div class="action-buttons">
                 <button class="action-btn" id="btn-end-turn" onclick="endTurn()" disabled>Завершити хід</button>
-                <button class="action-btn btn-restart" onclick="forceRestart()">Почати заново</button>
+                <button class="action-btn" id="btn-start-game" onclick="startGame()" style="background:#00cc00; display:none;">Почати гру</button>
             </div>
             
             <div class="scores">
@@ -376,8 +379,6 @@
         const allLegs = Object.values(animalData).map(a => a.legs);
         const allBodies = Object.values(animalData).map(a => a.body);
 
-        const TARGET_INDEX = 4; // Індекс центральної колонки (п'ята зліва)
-
         let gameState = {
             players: [],
             currentPlayerIndex: 0,
@@ -392,6 +393,8 @@
 
         let lastActionId = null;
         let localMatchHighlight = false; 
+        let matchHighlightIndex = -1;
+        let isProcessingMove = false; 
 
         // ЗАХИСТ СТАНУ (Відновлення масивів після Firebase)
         function normalizeState(state) {
@@ -475,7 +478,7 @@
         db.ref('game_action').on('value', (snap) => {
             const action = snap.val();
             if (!action || action.actionId === lastActionId) return; 
-            if (action.senderId === myName) return; // Ігноруємо відлуння власних дій
+            if (action.senderId === myName) return; 
             
             lastActionId = action.actionId;
             
@@ -499,7 +502,8 @@
 
                 if (action.type === 'MATCH_FOUND') {
                     showFeedback('success');
-                    triggerMatchHighlight();
+                    // Визначаємо індекс для світіння для інших гравців
+                    triggerMatchHighlight(action.matchIndex !== undefined ? action.matchIndex : -1);
                 }
                 if (gameState.winner && !oldWinner) showFeedback('victory');
                 render();
@@ -510,10 +514,12 @@
             db.ref('game_action').once('value', (snap) => {
                 const action = snap.val();
                 if (!action || !action.state || !action.state.gameStarted) {
-                    // Порожня або не розпочата гра - стартуємо самі
-                    forceRestart();
+                    document.getElementById('btn-start-game').style.display = 'block';
+                    gameState = normalizeState({});
+                    gameState.players = [myName];
+                    gameState.scores[myName] = 0;
+                    render();
                 } else {
-                    // Гра йде - приєднуємось
                     gameState = normalizeState(action.state);
                     
                     if (!gameState.players.includes(myName) || !gameState.tasks[myName]) {
@@ -560,12 +566,17 @@
                 gameState.currentPlayerIndex = 0;
                 gameState.movesLeft = 3;
                 gameState.winner = null;
+                document.getElementById('btn-start-game').style.display = 'none';
                 
                 syncState('STATE_UPDATE');
             }
         }
 
-        function syncState(eventType) {
+        function startGame() {
+            forceRestart(); // Використовуємо ідентичну логіку для старту
+        }
+
+        function syncState(eventType, extraPayload = {}) {
             const actionId = Date.now() + '_' + Math.random();
             lastActionId = actionId;
             db.ref('game_action').set({
@@ -573,7 +584,8 @@
                 type: eventType,
                 senderId: myName,
                 timestamp: firebase.database.ServerValue.TIMESTAMP,
-                state: gameState
+                state: gameState,
+                ...extraPayload
             });
             render();
         }
@@ -604,33 +616,39 @@
             }
         }
 
-        // Залізна перевірка збігу з примусовим Number()
-        function checkMatchLogic() {
-            const myTaskBody = gameState.tasks[myName];
-            if (!myTaskBody) return false;
+        // Перевірка збігу у БУДЬ-ЯКОМУ місці (повертає індекс колонки, де знайдено збіг, або -1)
+        function checkMatchLogic(playerName) {
+            const taskBody = gameState.tasks[playerName];
+            if (!taskBody) return -1;
             
-            const target = getTargetParts(myTaskBody);
-            if (!target) return false;
+            const target = getTargetParts(taskBody);
+            if (!target) return -1;
 
-            if (gameState.rows.head && gameState.rows.head.length > TARGET_INDEX &&
-                Number(gameState.rows.head[TARGET_INDEX]) === Number(target.head) &&
-                Number(gameState.rows.belly[TARGET_INDEX]) === Number(target.belly) &&
-                Number(gameState.rows.legs[TARGET_INDEX]) === Number(target.legs)) {
-                return true;
+            if (gameState.rows.head && gameState.rows.belly && gameState.rows.legs) {
+                for (let i = 0; i < gameState.rows.head.length; i++) {
+                    if (Number(gameState.rows.head[i]) === Number(target.head) &&
+                        Number(gameState.rows.belly[i]) === Number(target.belly) &&
+                        Number(gameState.rows.legs[i]) === Number(target.legs)) {
+                        return i; // Знайдено збіг у стовпчику "i"
+                    }
+                }
             }
-            return false;
+            return -1;
         }
 
         function moveRow(rowType, direction) {
-            if (!isMyTurn() || gameState.movesLeft <= 0) return;
+            if (!isMyTurn() || gameState.movesLeft <= 0 || isProcessingMove) return;
+            isProcessingMove = true;
 
             performRowMoveLocally(rowType, direction);
             gameState.movesLeft--;
 
-            if (checkMatchLogic()) {
+            const matchIndex = checkMatchLogic(myName);
+
+            if (matchIndex !== -1) {
                 // ЗБІГ ЗНАЙДЕНО - Одразу зараховуємо і передаємо хід
                 gameState.scores[myName] = (gameState.scores[myName] || 0) + 1;
-                triggerMatchHighlight();
+                triggerMatchHighlight(matchIndex);
                 
                 if (gameState.scores[myName] >= 10) {
                     gameState.winner = myName;
@@ -646,11 +664,11 @@
                     gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
                     gameState.movesLeft = 3;
                 }
-                syncState('MATCH_FOUND');
+                syncState('MATCH_FOUND', { matchIndex: matchIndex });
+                setTimeout(() => { isProcessingMove = false; }, 300);
             } else {
                 // ЗБІГУ НЕМАЄ
                 if (gameState.movesLeft <= 0) {
-                    // Якщо ходів 0, показуємо рух всім, а через секунду передаємо хід
                     syncState('STATE_UPDATE'); 
                     setTimeout(() => {
                         if (isMyTurn() && gameState.movesLeft <= 0) {
@@ -658,25 +676,33 @@
                             gameState.movesLeft = 3;
                             syncState('STATE_UPDATE');
                         }
+                        isProcessingMove = false;
                     }, 1000);
                 } else {
                     syncState('STATE_UPDATE');
+                    setTimeout(() => { isProcessingMove = false; }, 300);
                 }
             }
         }
 
         function endTurn() {
-            if (!isMyTurn()) return;
+            if (!isMyTurn() || isProcessingMove) return;
+            isProcessingMove = true; 
+            
             gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
             gameState.movesLeft = 3;
             syncState('STATE_UPDATE');
+            
+            setTimeout(() => { isProcessingMove = false; }, 500);
         }
 
-        function triggerMatchHighlight() {
+        function triggerMatchHighlight(index) {
             localMatchHighlight = true;
+            matchHighlightIndex = index;
             render();
             setTimeout(() => {
                 localMatchHighlight = false;
+                matchHighlightIndex = -1;
                 render();
             }, 1500);
         }
@@ -693,21 +719,9 @@
                 const slot = document.createElement('div');
                 slot.className = 'card-slot';
                 
-                // Виділення цільової колонки та додавання вказівника
-                if (index === TARGET_INDEX) {
-                    slot.classList.add('target');
-                    if (localMatchHighlight) slot.classList.add('matched');
-                    
-                    if (rowType === 'head') {
-                        const arrow = document.createElement('div');
-                        arrow.innerText = '▼';
-                        arrow.style.position = 'absolute';
-                        arrow.style.top = '-28px';
-                        arrow.style.color = '#00ff00';
-                        arrow.style.fontSize = '24px';
-                        arrow.style.textShadow = '0 0 5px black';
-                        slot.appendChild(arrow);
-                    }
+                // Підсвічуємо конкретну колонку, де знайдено збіг
+                if (localMatchHighlight && index === matchHighlightIndex) {
+                    slot.classList.add('matched');
                 }
 
                 const img = document.createElement('img');
@@ -739,8 +753,8 @@
 
             const myTurn = isMyTurn();
             const navButtons = document.querySelectorAll('.nav-btn');
-            navButtons.forEach(btn => { btn.disabled = !myTurn || gameState.movesLeft <= 0; });
-            document.getElementById('btn-end-turn').disabled = !myTurn;
+            navButtons.forEach(btn => { btn.disabled = !myTurn || gameState.movesLeft <= 0 || isProcessingMove; });
+            document.getElementById('btn-end-turn').disabled = !myTurn || isProcessingMove;
 
             const scoreList = document.getElementById('score-list');
             scoreList.innerHTML = '';
