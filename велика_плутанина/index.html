@@ -379,9 +379,9 @@
 
         let lastActionId = null;
         let localMatchHighlight = false; 
-        let isEndingTurn = false; 
+        let isProcessingMove = false; 
 
-        // ЗАХИСТ СТАНУ (Щоб Firebase не видаляв пусті масиви)
+        // ЗАХИСТ СТАНУ (Нормалізація даних, щоб Firebase не ламав пусті масиви)
         function normalizeState(state) {
             if (!state) return state;
             if (!state.rows) state.rows = { head: [], belly: [], legs: [] };
@@ -457,7 +457,7 @@
         }
 
 
-        // --- 4. ПОВНА FIREBASE СИНХРОНІЗАЦІЯ (Абсолютний захист від десинхрону) ---
+        // --- 4. ПОВНА FIREBASE СИНХРОНІЗАЦІЯ (БЕЗ ДВОЙНИХ ЗАПИСІВ) ---
         db.ref('game_action').on('value', (snap) => {
             const action = snap.val();
             if (!action || action.actionId === lastActionId) return; 
@@ -468,20 +468,6 @@
             if (action.type === 'STATE_UPDATE' || action.type === 'MATCH_FOUND') {
                 let oldWinner = gameState.winner;
                 gameState = normalizeState(action.state);
-                
-                // АВТО-ДОЄДНАННЯ ТА ВИПРАВЛЕННЯ ЗАВДАНЬ
-                if (gameState.gameStarted && !gameState.players.includes(myName)) {
-                    gameState.players.push(myName);
-                    gameState.scores[myName] = 0;
-                    if (gameState.availableTasks.length > 0) {
-                        gameState.tasks[myName] = gameState.availableTasks.pop();
-                    } else {
-                        gameState.availableTasks = shuffle([...allBodies]);
-                        gameState.tasks[myName] = gameState.availableTasks.pop();
-                    }
-                    syncState('STATE_UPDATE'); 
-                    return; 
-                }
 
                 if (action.type === 'MATCH_FOUND') {
                     showFeedback('success');
@@ -503,14 +489,21 @@
                     render();
                 } else {
                     gameState = normalizeState(action.state);
-                    if (!gameState.players.includes(myName)) {
-                        gameState.players.push(myName);
-                        gameState.scores[myName] = 0;
-                        if (gameState.availableTasks.length > 0) {
-                            gameState.tasks[myName] = gameState.availableTasks.pop();
-                        } else {
-                            gameState.availableTasks = shuffle([...allBodies]);
-                            gameState.tasks[myName] = gameState.availableTasks.pop();
+                    
+                    // БЕЗПЕЧНЕ ПРИЄДНАННЯ ДО ІСНУЮЧОЇ ГРИ
+                    if (!gameState.players.includes(myName) || !gameState.tasks[myName]) {
+                        if (!gameState.players.includes(myName)) {
+                            gameState.players.push(myName);
+                            gameState.scores[myName] = 0;
+                        }
+                        // Видаємо завдання, якщо його немає
+                        if (!gameState.tasks[myName]) {
+                            if (gameState.availableTasks.length > 0) {
+                                gameState.tasks[myName] = gameState.availableTasks.pop();
+                            } else {
+                                gameState.availableTasks = shuffle([...allBodies]);
+                                gameState.tasks[myName] = gameState.availableTasks.pop();
+                            }
                         }
                         syncState('STATE_UPDATE');
                     } else {
@@ -560,7 +553,7 @@
         }
 
 
-        // --- 5. МЕХАНІКА ГРИ ---
+        // --- 5. МЕХАНІКА ГРИ ТА СУВОРИЙ КОНТРОЛЬ ХОДІВ ---
         function isMyTurn() {
             return gameState.gameStarted && gameState.players[gameState.currentPlayerIndex] === myName && !gameState.winner;
         }
@@ -572,16 +565,6 @@
             return null;
         }
 
-        function moveRow(rowType, direction) {
-            if (!isMyTurn() || gameState.movesLeft <= 0 || isEndingTurn) return;
-
-            performRowMoveLocally(rowType, direction);
-            gameState.movesLeft--;
-
-            syncState('STATE_UPDATE'); // Тепер гарантує синхронізацію кожного кроку!
-            checkMatch();
-        }
-
         function performRowMoveLocally(rowType, direction) {
             const arr = gameState.rows[rowType];
             if (direction === -1) {
@@ -591,56 +574,87 @@
             }
         }
 
-        function checkMatch() {
-            let myTaskBody = gameState.tasks[myName];
+        function checkMatchLogic() {
+            const myTaskBody = gameState.tasks[myName];
+            if (!myTaskBody) return false;
             
-            // АГРЕСИВНЕ ВІДНОВЛЕННЯ ЗАВДАННЯ (якщо щось пішло не так)
-            if (!myTaskBody && gameState.gameStarted) {
+            const target = getTargetParts(myTaskBody);
+            if (!target) return false;
+
+            // Жорстка перевірка збігу з використанням Number()
+            if (gameState.rows.head && gameState.rows.head.length > TARGET_INDEX &&
+                Number(gameState.rows.head[TARGET_INDEX]) === Number(target.head) &&
+                Number(gameState.rows.belly[TARGET_INDEX]) === Number(target.belly) &&
+                Number(gameState.rows.legs[TARGET_INDEX]) === Number(target.legs)) {
+                return true;
+            }
+            return false;
+        }
+
+        function handleMatchSuccess() {
+            gameState.scores[myName] = (gameState.scores[myName] || 0) + 1;
+            triggerMatchHighlight();
+            
+            if (gameState.scores[myName] >= 10) {
+                gameState.winner = myName;
+                showFeedback('victory');
+            } else {
+                showFeedback('success');
+                // Видаємо нове завдання
                 if (gameState.availableTasks.length > 0) {
                     gameState.tasks[myName] = gameState.availableTasks.pop();
                 } else {
                     gameState.availableTasks = shuffle([...allBodies]);
                     gameState.tasks[myName] = gameState.availableTasks.pop();
                 }
-                myTaskBody = gameState.tasks[myName];
-                syncState('STATE_UPDATE');
+                // Передаємо хід наступному
+                gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+                gameState.movesLeft = 3;
             }
+        }
 
-            if (!myTaskBody) {
-                if (gameState.movesLeft <= 0) setTimeout(() => endTurn(), 800);
-                return;
-            }
-            
-            const target = getTargetParts(myTaskBody);
-            
-            // Жорстка перевірка типів + Перевірка існування масивів
-            if (gameState.rows.head && gameState.rows.head.length > TARGET_INDEX &&
-                Number(gameState.rows.head[TARGET_INDEX]) === Number(target.head) &&
-                Number(gameState.rows.belly[TARGET_INDEX]) === Number(target.belly) &&
-                Number(gameState.rows.legs[TARGET_INDEX]) === Number(target.legs)) {
-                
-                gameState.scores[myName] = (gameState.scores[myName] || 0) + 1;
-                triggerMatchHighlight();
-                
-                if (gameState.scores[myName] >= 10) {
-                    gameState.winner = myName;
-                    showFeedback('victory');
-                } else {
-                    showFeedback('success');
-                    if (gameState.availableTasks.length > 0) {
-                        gameState.tasks[myName] = gameState.availableTasks.pop();
-                    } else {
-                        gameState.availableTasks = shuffle([...allBodies]);
-                        gameState.tasks[myName] = gameState.availableTasks.pop();
-                    }
-                    gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
-                    gameState.movesLeft = 3;
-                }
-                
+        function moveRow(rowType, direction) {
+            // Запобігаємо клікам, поки сервер не опрацює поточний хід
+            if (!isMyTurn() || gameState.movesLeft <= 0 || isProcessingMove) return;
+            isProcessingMove = true;
+
+            performRowMoveLocally(rowType, direction);
+            gameState.movesLeft--;
+
+            const isMatch = checkMatchLogic();
+
+            if (isMatch) {
+                handleMatchSuccess();
                 syncState('MATCH_FOUND');
-            } else if (gameState.movesLeft <= 0) {
-                setTimeout(() => endTurn(), 800); 
+                setTimeout(() => { isProcessingMove = false; }, 300); // Захист від спаму кліками
+            } else {
+                if (gameState.movesLeft <= 0) {
+                    syncState('STATE_UPDATE'); // Показуємо всім останній рух
+                    // Чекаємо пів секунди і гарантовано передаємо хід
+                    setTimeout(() => {
+                        if (isMyTurn() && gameState.movesLeft <= 0) {
+                            gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+                            gameState.movesLeft = 3;
+                            syncState('STATE_UPDATE');
+                        }
+                        isProcessingMove = false;
+                    }, 800);
+                } else {
+                    syncState('STATE_UPDATE');
+                    setTimeout(() => { isProcessingMove = false; }, 300);
+                }
             }
+        }
+
+        function endTurn() {
+            if (!isMyTurn() || isProcessingMove) return;
+            isProcessingMove = true; 
+            
+            gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+            gameState.movesLeft = 3;
+            syncState('STATE_UPDATE');
+            
+            setTimeout(() => { isProcessingMove = false; }, 500);
         }
 
         function triggerMatchHighlight() {
@@ -650,18 +664,6 @@
                 localMatchHighlight = false;
                 render();
             }, 1500);
-        }
-
-        function endTurn() {
-            if (!isMyTurn() || isEndingTurn) return;
-            isEndingTurn = true; 
-            
-            gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
-            gameState.movesLeft = 3;
-            
-            syncState('STATE_UPDATE');
-            
-            setTimeout(() => { isEndingTurn = false; }, 500);
         }
 
 
@@ -709,8 +711,8 @@
 
             const myTurn = isMyTurn();
             const navButtons = document.querySelectorAll('.nav-btn');
-            navButtons.forEach(btn => { btn.disabled = !myTurn || gameState.movesLeft <= 0 || isEndingTurn; });
-            document.getElementById('btn-end-turn').disabled = !myTurn || isEndingTurn;
+            navButtons.forEach(btn => { btn.disabled = !myTurn || gameState.movesLeft <= 0 || isProcessingMove; });
+            document.getElementById('btn-end-turn').disabled = !myTurn || isProcessingMove;
 
             const scoreList = document.getElementById('score-list');
             scoreList.innerHTML = '';
