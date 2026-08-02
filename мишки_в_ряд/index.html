@@ -45,7 +45,7 @@
             height: 100vh;
             overflow: auto;
             z-index: 1;
-            cursor: grab; /* Курсор для перетягування поля */
+            cursor: grab;
         }
         #game-board-wrapper:active {
             cursor: grabbing;
@@ -80,7 +80,7 @@
             position: absolute;
             width: 120px;
             height: 140px;
-            display: flex; /* За замовчуванням приховано, покажеться через JS */
+            display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
@@ -88,11 +88,14 @@
         .deck-label {
             background: rgba(0,0,0,0.5);
             color: #fff;
-            padding: 2px 6px;
+            padding: 4px 8px;
             border-radius: 4px;
-            font-size: 12px;
+            font-size: 14px;
             margin-bottom: 5px;
-            pointer-events: none;
+            pointer-events: auto; /* Дозволяє клікати та тягнути */
+            cursor: move;
+            z-index: 101;
+            border: 1px solid rgba(255,255,255,0.5);
         }
 
         /* UI Панель керування */
@@ -122,11 +125,19 @@
             background: rgba(255, 255, 255, 0.8);
             color: #333;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: background 0.2s, transform 0.1s;
         }
         button:hover, select:hover {
             background: rgba(255, 255, 255, 1);
         }
+        
+        /* Кнопки вибору ходу */
+        .turn-btn {
+            font-weight: bold;
+            border: 2px solid transparent;
+            opacity: 0.8;
+        }
+        .turn-btn:hover { opacity: 1; transform: scale(1.05); }
 
         /* Індикатор ходу та тост */
         #turn-indicator {
@@ -142,14 +153,15 @@
             top: 80px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(255, 50, 50, 0.9);
+            background: rgba(255, 50, 50, 0.95);
             color: white;
-            padding: 10px 20px;
+            padding: 15px 25px;
             border-radius: 8px;
             z-index: 999999;
             font-weight: bold;
-            font-size: 16px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            font-size: 18px;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.6);
+            text-align: center;
         }
 
         /* Кнопка налаштувань (Theme Manager) */
@@ -293,9 +305,9 @@
 <body>
 
     <!-- Версія гри -->
-    <div id="game-version" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 14px; z-index: 999999; font-family: Arial, sans-serif; pointer-events: none;">v1.3</div>
+    <div id="game-version" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 14px; z-index: 999999; font-family: Arial, sans-serif; pointer-events: none;">v1.4</div>
 
-    <!-- Тост для помилок вибору ходу -->
+    <!-- Тост для повідомлень та помилок -->
     <div id="toast-message"></div>
 
     <!-- UI Панель -->
@@ -313,20 +325,20 @@
             </div>
             
             <div id="turn-indicator" class="transparent-container">Хід: Очікування...</div>
-            <select id="turn-selector">
-                <option value="none">Оберіть чий хід...</option>
-                <option value="white">Хід: Білі</option>
-                <option value="grey">Хід: Сірі</option>
-                <option value="black">Хід: Чорні</option>
-                <option value="red">Хід: Руді</option>
-            </select>
+            
+            <!-- Кнопки керування ходами -->
+            <div id="turn-buttons" class="ui-row" style="gap: 5px;">
+                <button class="turn-btn" data-turn="white" style="background: #fff; color: #000;">Білі</button>
+                <button class="turn-btn" data-turn="grey" style="background: #888; color: #fff;">Сірі</button>
+                <button class="turn-btn" data-turn="black" style="background: #000; color: #fff;">Чорні</button>
+                <button class="turn-btn" data-turn="red" style="background: #d32f2f; color: #fff;">Руді</button>
+            </div>
         </div>
     </div>
 
     <!-- Ігрове поле (тепер 6000x6000) -->
     <div id="game-board-wrapper">
         <div id="game-board">
-            <!-- Координати колод зміщені в центр поля (3000х3000) -->
             <div id="deck-white" class="deck-area" style="top: 2900px; left: 2600px;">
                 <div class="deck-label">Білі мишки</div>
             </div>
@@ -378,13 +390,25 @@
 
         const namesDict = { white: 'Білі', grey: 'Сірі', black: 'Чорні', red: 'Руді', none: 'Очікування' };
 
+        // Метадані для підрахунку (m = мишки, type = їжа, c = кількість їжі)
+        // s = полуниця, pea = горох, pump = гарбуз, ch = сир
+        const cardMeta = {
+            'kartka_58.webp': {m:1, type:'s', c:4}, 'kartka_59.webp': {m:2, type:'pea', c:3}, 'kartka_52.webp': {m:2, type:'pump', c:3}, 'kartka_53.webp': {m:1, type:'s', c:4}, 'kartka_54.webp': {m:1, type:'ch', c:2}, 'kartka_55.webp': {m:1, type:'pump', c:2}, 'kartka_56.webp': {m:1, type:'pea', c:2}, 'kartka_57.webp': {m:4, type:'s', c:1}, 'kartka_49.webp': {m:3, type:'s', c:2}, 'kartka_50.webp': {m:2, type:'ch', c:3}, 'kartka_51.webp': {m:3, type:'s', c:2},
+            'kartka_35.webp': {m:2, type:'ch', c:3}, 'kartka_36.webp': {m:1, type:'ch', c:2}, 'kartka_33.webp': {m:2, type:'s', c:3}, 'kartka_31.webp': {m:1, type:'pump', c:4}, 'kartka_32.webp': {m:1, type:'pea', c:2}, 'kartka_29.webp': {m:1, type:'pump', c:4}, 'kartka_30.webp': {m:1, type:'s', c:2}, 'kartka_26.webp': {m:3, type:'pump', c:2}, 'kartka_27.webp': {m:3, type:'pump', c:2}, 'kartka_28.webp': {m:2, type:'pea', c:3}, 'kartka_25.webp': {m:4, type:'pump', c:1},
+            'kartka_22.webp': {m:4, type:'ch', c:1}, 'kartka_23.webp': {m:2, type:'pea', c:3}, 'kartka_20.webp': {m:1, type:'ch', c:4}, 'kartka_21.webp': {m:1, type:'pump', c:2}, 'kartka_18.webp': {m:2, type:'s', c:3}, 'kartka_19.webp': {m:1, type:'ch', c:4}, 'kartka_16.webp': {m:3, type:'ch', c:2}, 'kartka_17.webp': {m:1, type:'s', c:2}, 'kartka_14.webp': {m:2, type:'pump', c:3}, 'kartka_15.webp': {m:1, type:'pea', c:2}, 'kartka_13.webp': {m:3, type:'ch', c:2},
+            'kartka_10.webp': {m:3, type:'pea', c:2}, 'kartka_11.webp': {m:1, type:'pump', c:2}, 'kartka_8.webp': {m:2, type:'pump', c:3}, 'kartka_9.webp': {m:2, type:'s', c:3}, 'kartka_5.webp': {m:1, type:'pea', c:4}, 'kartka_6.webp': {m:2, type:'ch', c:3}, 'kartka_7.webp': {m:1, type:'s', c:2}, 'kartka_2.webp': {m:1, type:'ch', c:2}, 'kartka_3.webp': {m:1, type:'pea', c:4}, 'kartka_4.webp': {m:3, type:'pea', c:2}, 'kartka_1.webp': {m:4, type:'pea', c:1}
+        };
+
         // Глобальні змінні стану
         let zIndexCounter = 100;
         let isRemoteAction = false;
         let localCardsState = {};
+        let hasWon = false;
         
-        let myRole = 'none'; // Поточна обрана роль гравця
-        let currentTurn = 'none'; // Чий зараз хід глобально
+        let myRole = 'none';
+        let currentTurn = 'none'; 
+        // Ліміт взяття карток (скидається при зміні ходу)
+        let drawnThisTurn = { white: false, grey: false, black: false, red: false };
 
         // --- ІНІЦІАЛІЗАЦІЯ FIREBASE ---
         const firebaseConfig = {
@@ -405,7 +429,7 @@
         // Поточні індекси для витягування карток
         const drawIndexes = { white: 0, grey: 0, black: 0, red: 0 };
 
-        // Доступні гравці
+        // Доступні гравці (зберігаємо також їхні координати колод)
         const playersConfig = {
             white: { id: 'white', name: 'Білі', deck: document.getElementById('deck-white') },
             grey:  { id: 'grey', name: 'Сірі', deck: document.getElementById('deck-grey') },
@@ -414,26 +438,33 @@
         };
 
         const playedCardsContainer = document.getElementById('played-cards');
-        const turnSelector = document.getElementById('turn-selector');
         const turnIndicator = document.getElementById('turn-indicator');
+        const turnButtons = document.querySelectorAll('.turn-btn');
         const myRoleSelector = document.getElementById('my-role-selector');
         const toastMessage = document.getElementById('toast-message');
         const boardWrapper = document.getElementById('game-board-wrapper');
+
+        // Ліміти ходу
+        let drawnThisTurn = { white: false, grey: false, black: false, red: false };
+        let currentTurn = 'none';
+        let myRole = 'none';
+        let hasWon = false;
+        let localCardsState = {};
+        let localDecksState = {};
 
         // --- ПАНОРАМУВАННЯ (СКРОЛІНГ) ІГРОВОГО ПОЛЯ ---
         let isPanning = false;
         let startPanX = 0, startPanY = 0;
         let startScrollLeft = 0, startScrollTop = 0;
 
-        // Центруємо поле при старті (середина 6000x6000, мінус половина екрану)
         window.addEventListener('load', () => {
             boardWrapper.scrollLeft = 3000 - window.innerWidth / 2;
             boardWrapper.scrollTop = 3000 - window.innerHeight / 2;
         });
 
-        // Миша
+        // Панорамування (миша)
         boardWrapper.addEventListener('mousedown', (e) => {
-            if (e.target.classList.contains('card') || e.target.closest('#ui-panel') || e.target.closest('#theme-btn')) return;
+            if (e.target.classList.contains('card') || e.target.classList.contains('deck-label') || e.target.closest('#ui-panel') || e.target.closest('#theme-btn')) return;
             isPanning = true;
             startPanX = e.clientX;
             startPanY = e.clientY;
@@ -452,9 +483,9 @@
             boardWrapper.style.cursor = 'grab';
         });
 
-        // Сенсорні екрани
+        // Панорамування (сенсор)
         boardWrapper.addEventListener('touchstart', (e) => {
-            if (e.target.classList.contains('card') || e.target.closest('#ui-panel') || e.target.closest('#theme-btn') || e.touches.length !== 1) return;
+            if (e.target.classList.contains('card') || e.target.classList.contains('deck-label') || e.target.closest('#ui-panel') || e.target.closest('#theme-btn') || e.touches.length !== 1) return;
             isPanning = true;
             startPanX = e.touches[0].clientX;
             startPanY = e.touches[0].clientY;
@@ -470,25 +501,28 @@
         window.addEventListener('touchend', () => { isPanning = false; });
 
 
-        // --- ФУНКЦІЯ ДЛЯ СПЛИВАЮЧИХ ПОВІДОМЛЕНЬ ---
+        // --- СПЛИВАЮЧІ ПОВІДОМЛЕННЯ (ТОСТИ) ---
         let toastTimeout;
         function showToast(message) {
             toastMessage.innerText = message;
             toastMessage.style.display = 'block';
+            toastMessage.style.animation = 'none';
+            void toastMessage.offsetWidth; // trigger reflow
+            toastMessage.style.animation = 'shake 0.4s';
             clearTimeout(toastTimeout);
             toastTimeout = setTimeout(() => {
                 toastMessage.style.display = 'none';
-            }, 3000);
+            }, 4000);
         }
 
-        // --- ВИБІР РОЛІ ТА ВІДОБРАЖЕННЯ КОЛОД ---
+        // --- ВИБІР РОЛІ ---
         function updateDeckVisibility() {
             Object.keys(playersConfig).forEach(playerId => {
                 const deck = playersConfig[playerId].deck;
                 if (myRole === playerId) {
-                    deck.style.display = 'flex'; // Показуємо тільки свою колоду
+                    deck.style.display = 'flex';
                 } else {
-                    deck.style.display = 'none'; // Приховуємо всі інші
+                    deck.style.display = 'none';
                 }
             });
         }
@@ -503,18 +537,21 @@
             }
         });
 
-        // --- ІНІЦІАЛІЗАЦІЯ КОЛОД ---
+        // --- ІНІЦІАЛІЗАЦІЯ ТА ПЕРЕТЯГУВАННЯ КОЛОД ---
         function initDecks() {
             Object.keys(playersConfig).forEach(playerId => {
                 const deckEl = playersConfig[playerId].deck;
+                const labelEl = deckEl.querySelector('.deck-label');
+                
+                // Перетягування колоди за плашку
+                labelEl.addEventListener('mousedown', (e) => startDragDeck(e, deckEl, playerId));
+                labelEl.addEventListener('touchstart', (e) => startDragDeck(e, deckEl, playerId), {passive: false});
                 
                 const deckCard = document.createElement('div');
                 deckCard.className = 'card';
                 deckCard.style.backgroundImage = `url('${gameData[playerId].back}')`;
                 deckCard.style.position = 'relative';
-                deckCard.style.display = 'none'; // Буде показано через updateDeckVisibility, якщо це наша роль
                 
-                // Зберігаємо посилання на рубашку, щоб маніпулювати нею
                 playersConfig[playerId].backElement = deckCard;
 
                 deckCard.addEventListener('mousedown', (e) => startDrawCard(e, playerId));
@@ -522,14 +559,52 @@
                 
                 deckEl.appendChild(deckCard);
             });
-            // Викликаємо первинне оновлення (приховає всі рубашки, бо стартова роль 'none')
             updateDeckVisibility();
-            Object.keys(playersConfig).forEach(pid => {
-                playersConfig[pid].backElement.style.display = 'block'; 
-            });
         }
 
-        // --- ЛОГІКА ПЕРЕТЯГУВАННЯ ТА МАЛЮВАННЯ КАРТОК ---
+        function startDragDeck(e, deckEl, playerId) {
+            if (e.type === 'touchstart') e.preventDefault();
+            
+            const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+            const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
+            const rect = deckEl.getBoundingClientRect();
+            
+            const offsetX = clientX - rect.left;
+            const offsetY = clientY - rect.top;
+            
+            deckEl.style.zIndex = ++zIndexCounter;
+
+            function onMove(moveEvent) {
+                const moveX = moveEvent.clientX || (moveEvent.touches ? moveEvent.touches[0].clientX : 0);
+                const moveY = moveEvent.clientY || (moveEvent.touches ? moveEvent.touches[0].clientY : 0);
+                
+                let newLeft = moveX - offsetX + boardWrapper.scrollLeft;
+                let newTop = moveY - offsetY + boardWrapper.scrollTop;
+                
+                deckEl.style.left = `${newLeft}px`;
+                deckEl.style.top = `${newTop}px`;
+            }
+
+            function onEnd() {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onEnd);
+                document.removeEventListener('touchmove', onMove);
+                document.removeEventListener('touchend', onEnd);
+                
+                const finalLeft = parseInt(deckEl.style.left) || 0;
+                const finalTop = parseInt(deckEl.style.top) || 0;
+                
+                localDecksState[playerId] = { x: finalLeft, y: finalTop, zIndex: zIndexCounter };
+                sendAction({ type: 'deck_move', playerId: playerId, deck: localDecksState[playerId] });
+            }
+
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onEnd);
+            document.addEventListener('touchmove', onMove, {passive: false});
+            document.addEventListener('touchend', onEnd);
+        }
+
+        // --- ЛОГІКА ПЕРЕТЯГУВАННЯ ТА МАЛЮВАННЯ КАРТОК (З ЛІМІТОМ) ---
         function startDrawCard(e, playerId) {
             e.preventDefault();
             
@@ -537,9 +612,12 @@
                 showToast(`Помилка! Ви граєте за: ${namesDict[myRole]}. Це не ваша колода!`);
                 return;
             }
-            
             if (currentTurn !== 'none' && currentTurn !== playerId) {
                 showToast(`Зараз не ваш хід! Ходять: ${namesDict[currentTurn]}`);
+                return;
+            }
+            if (drawnThisTurn[playerId]) {
+                showToast('Ви вже витягнули картку в цьому ході! Передайте хід.');
                 return;
             }
 
@@ -553,12 +631,12 @@
             const cardImage = gameData[playerId].cards[drawIndexes[playerId]];
             const cardId = `card_${playerId}_${drawIndexes[playerId]}`;
             drawIndexes[playerId]++;
+            drawnThisTurn[playerId] = true; // Фіксуємо, що картку взято
 
             const newCard = createCardElement(cardId, cardImage, playerId);
             
             const clientX = e.clientX || e.touches[0].clientX;
             const clientY = e.clientY || e.touches[0].clientY;
-            
             const startX = clientX + boardWrapper.scrollLeft;
             const startY = clientY + boardWrapper.scrollTop;
             
@@ -595,7 +673,6 @@
             if (e.type === 'touchstart') e.preventDefault();
             
             const owner = card.dataset.owner;
-            
             if (myRole !== 'none' && myRole !== owner) {
                 showToast(`Це картка суперника (${namesDict[owner]})! Ви не можете її рухати.`);
                 return;
@@ -603,9 +680,8 @@
 
             const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
             const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
-
             const rect = card.getBoundingClientRect();
-            // Зсув відносно видимої області
+            
             const offsetX = clientX - rect.left;
             const offsetY = clientY - rect.top;
 
@@ -619,15 +695,15 @@
                 let newLeft = moveX - offsetX + boardWrapper.scrollLeft;
                 let newTop = moveY - offsetY + boardWrapper.scrollTop;
 
-                // Снапінг до сітки
-                newLeft = Math.round(newLeft / (cardWidth / 2)) * (cardWidth / 2);
-                newTop = Math.round(newTop / (cardHeight / 2)) * (cardHeight / 2);
+                // Снапінг до сітки (крок 50px для перекриття)
+                newLeft = Math.round(newLeft / 50) * 50;
+                newTop = Math.round(newTop / 50) * 50;
 
                 card.style.left = `${newLeft}px`;
                 card.style.top = `${newTop}px`;
             }
 
-            function onEnd(endEvent) {
+            function onEnd() {
                 document.removeEventListener('mousemove', onMove);
                 document.removeEventListener('mouseup', onEnd);
                 document.removeEventListener('touchmove', onMove);
@@ -645,12 +721,101 @@
                     y: finalTop,
                     zIndex: zIndexCounter
                 });
+                
+                // Перевірка перемоги після кожного руху
+                setTimeout(checkWinCondition, 500);
             }
 
             document.addEventListener('mousemove', onMove);
             document.addEventListener('mouseup', onEnd);
             document.addEventListener('touchmove', onMove, {passive: false});
             document.addEventListener('touchend', onEnd);
+        }
+
+        // --- ЛОГІКА ПЕРЕВІРКИ ПЕРЕМОГИ (10 мишок або їжі) ---
+        function checkWinCondition() {
+            if (hasWon) return;
+            
+            let cards = Object.values(localCardsState).map(c => {
+                let filename = c.image.split('/').pop();
+                return { ...c, meta: cardMeta[filename] };
+            }).filter(c => c.meta);
+            
+            if (cards.length === 0) return;
+
+            // Групуємо картки за власниками
+            let byOwner = { white: [], grey: [], black: [], red: [] };
+            cards.forEach(c => byOwner[c.owner].push(c));
+
+            for (let owner in byOwner) {
+                let pCards = byOwner[owner];
+                if (pCards.length < 3) continue; // Мінімум потрібно хоча б 3 картки щоб зібрати 10
+
+                // Спрощений алгоритм: перевіряємо, чи є достатня сума у лініях, що торкаються
+                // Для веб-версії шукаємо групи зв'язаних карток (компоненти зв'язності). 
+                // Дві картки зв'язані, якщо відстань між ними не більше 120px
+                
+                let visited = new Set();
+                
+                for (let i = 0; i < pCards.length; i++) {
+                    if (visited.has(i)) continue;
+                    
+                    let group = [];
+                    let queue = [i];
+                    visited.add(i);
+                    
+                    while (queue.length > 0) {
+                        let currIdx = queue.shift();
+                        let curr = pCards[currIdx];
+                        group.push(curr);
+                        
+                        for (let j = 0; j < pCards.length; j++) {
+                            if (!visited.has(j)) {
+                                let other = pCards[j];
+                                let dx = Math.abs(curr.x - other.x);
+                                let dy = Math.abs(curr.y - other.y);
+                                // Якщо торкаються або перекриваються (допуск 110px)
+                                if (dx <= 110 && dy <= 110) {
+                                    visited.add(j);
+                                    queue.push(j);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Аналізуємо групу
+                    let totalMice = group.reduce((sum, c) => sum + c.meta.m, 0);
+                    
+                    // Групуємо їжу за типом в цій зв'язці
+                    let foodSums = {};
+                    group.forEach(c => {
+                        if (!foodSums[c.meta.type]) foodSums[c.meta.type] = 0;
+                        foodSums[c.meta.type] += c.meta.c;
+                    });
+                    
+                    let maxFood = Math.max(...Object.values(foodSums), 0);
+                    
+                    if (totalMice >= 10) {
+                        triggerWin(owner, `Зібрано 10 ${namesDict[owner]} мишок!`);
+                        return;
+                    }
+                    if (maxFood >= 10) {
+                        triggerWin(owner, `Зібрано 10 одиниць улюбленої їжі! (${namesDict[owner]} мишки)`);
+                        return;
+                    }
+                }
+            }
+        }
+
+        function triggerWin(winner, message) {
+            hasWon = true;
+            showToast(`🎉 ПЕРЕМОГА! ${message}`);
+            // Багато конфеті
+            let w = window.innerWidth;
+            let h = window.innerHeight;
+            for(let i=0; i<20; i++) {
+                setTimeout(() => createConfetti(w/2 + (Math.random()-0.5)*w, h/2 + (Math.random()-0.5)*h), i*200);
+            }
         }
 
         // --- ВІЗУАЛЬНІ ЕФЕКТИ (Без звуків) ---
@@ -671,41 +836,53 @@
         }
 
         function createConfetti(x, y) {
-            for (let i = 0; i < 10; i++) {
+            for (let i = 0; i < 20; i++) {
                 const particle = document.createElement('div');
                 particle.className = 'particle';
                 particle.style.left = `${x}px`;
                 particle.style.top = `${y}px`;
                 particle.style.width = '8px';
                 particle.style.height = '8px';
-                particle.style.background = '#FFD700';
-                particle.style.setProperty('--tx', `${(Math.random() - 0.5) * 60}px`);
-                particle.style.setProperty('--ty', `${-Math.random() * 100}px`);
+                particle.style.background = ['#FFD700', '#FF6347', '#00FF00', '#1E90FF'][Math.floor(Math.random()*4)];
+                particle.style.setProperty('--tx', `${(Math.random() - 0.5) * 150}px`);
+                particle.style.setProperty('--ty', `${-Math.random() * 200}px`);
                 document.body.appendChild(particle);
                 setTimeout(() => particle.remove(), 1000);
             }
         }
 
-        // --- КЕРУВАННЯ ХОДАМИ ---
+        // --- КЕРУВАННЯ ХОДАМИ (ЧЕРЕЗ КНОПКИ) ---
         function updateTurnUI(turn) {
             currentTurn = turn;
-            turnSelector.value = turn;
             turnIndicator.innerText = turn !== 'none' ? `Хід: ${namesDict[turn]}` : 'Хід: Очікування...';
+            
+            // Скидаємо ліміт взяття карток для всіх гравців при передачі ходу
+            Object.keys(drawnThisTurn).forEach(k => drawnThisTurn[k] = false);
+
+            // Виділення активної кнопки
+            turnButtons.forEach(btn => {
+                if (btn.dataset.turn === turn) {
+                    btn.style.border = '2px solid #0f0';
+                    btn.style.boxShadow = '0 0 10px #0f0';
+                } else {
+                    btn.style.border = '2px solid transparent';
+                    btn.style.boxShadow = 'none';
+                }
+            });
         }
 
-        turnSelector.addEventListener('change', (e) => {
-            const turn = e.target.value;
-            updateTurnUI(turn);
-            sendAction({ type: 'set_turn', turn: turn });
+        turnButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const turn = btn.dataset.turn;
+                updateTurnUI(turn);
+                sendAction({ type: 'set_turn', turn: turn });
+            });
         });
 
         // --- СИНХРОНІЗАЦІЯ ЧЕРЕЗ FIREBASE ---
         function updateCardState(id, updates) {
-            if (!localCardsState[id]) {
-                localCardsState[id] = { id: id };
-            }
+            if (!localCardsState[id]) localCardsState[id] = { id: id };
             localCardsState[id] = { ...localCardsState[id], ...updates };
-            
             renderCard(localCardsState[id]);
             sendAction({ type: 'card_move', card: localCardsState[id] });
         }
@@ -720,10 +897,15 @@
             if (parts.length === 3) {
                 const owner = parts[1];
                 const index = parseInt(parts[2]);
-                if (drawIndexes[owner] <= index) {
-                    drawIndexes[owner] = index + 1;
-                }
+                if (drawIndexes[owner] <= index) drawIndexes[owner] = index + 1;
             }
+        }
+
+        function renderDeck(playerId, deckData) {
+            const deckEl = playersConfig[playerId].deck;
+            deckEl.style.left = `${deckData.x}px`;
+            deckEl.style.top = `${deckData.y}px`;
+            if (deckData.zIndex) deckEl.style.zIndex = deckData.zIndex;
         }
 
         function sendAction(data) {
@@ -746,6 +928,10 @@
                 localCardsState[action.card.id] = action.card;
                 renderCard(action.card);
                 if (action.card.zIndex > zIndexCounter) zIndexCounter = action.card.zIndex + 1;
+            } else if (action.type === 'deck_move') {
+                localDecksState[action.playerId] = action.deck;
+                renderDeck(action.playerId, action.deck);
+                if (action.deck.zIndex > zIndexCounter) zIndexCounter = action.deck.zIndex + 1;
             } else if (action.type === 'set_turn') {
                 updateTurnUI(action.turn);
             }
