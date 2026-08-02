@@ -394,7 +394,6 @@
         let lastActionId = null;
         let localMatchHighlight = false; 
         let matchHighlightIndex = -1;
-        let isProcessingMove = false; 
 
         // ЗАХИСТ СТАНУ (Відновлення масивів після Firebase)
         function normalizeState(state) {
@@ -434,9 +433,10 @@
                 osc.connect(gain);
                 gain.connect(ctx.destination);
                 
-                const maxVol = 0.05; 
+                const maxVol = 0.05; // ДУЖЕ ТИХО
 
                 if (type === 'success') {
+                    // Звук "бульк" (успіх)
                     osc.type = 'sine';
                     osc.frequency.setValueAtTime(500, ctx.currentTime);
                     osc.frequency.exponentialRampToValueAtTime(1000, ctx.currentTime + 0.15);
@@ -446,6 +446,7 @@
                     osc.start();
                     osc.stop(ctx.currentTime + 0.3);
                 } else if (type === 'victory') {
+                    // Мелодія перемоги
                     osc.type = 'triangle';
                     osc.frequency.setValueAtTime(440, ctx.currentTime);
                     osc.frequency.setValueAtTime(554, ctx.currentTime + 0.15);
@@ -509,10 +510,16 @@
                 }
 
                 if (action.type === 'MATCH_FOUND') {
-                    showFeedback('success');
-                    triggerMatchHighlight(action.matchIndex !== undefined ? action.matchIndex : -1);
+                    // Викликаємо візуальні ефекти безпечно
+                    if (action.matchIndex !== undefined && action.matchIndex !== -1) {
+                        triggerMatchHighlight(action.matchIndex);
+                        if (gameState.winner) showFeedback('victory');
+                        else showFeedback('success');
+                    }
+                } else if (gameState.winner && !oldWinner) {
+                    showFeedback('victory');
                 }
-                if (gameState.winner && !oldWinner) showFeedback('victory');
+                
                 render();
             }
         });
@@ -646,88 +653,62 @@
             return -1;
         }
 
-        // Захищений від падінь алгоритм руху
+        // Захищений від падінь алгоритм руху (БЕЗ блокування UI змінними)
         function moveRow(rowType, direction) {
-            if (!isMyTurn() || gameState.movesLeft <= 0 || isProcessingMove) return;
-            
-            isProcessingMove = true;
-            render(); // Миттєве блокування UI для уникнення дабл-кліків
+            if (!isMyTurn() || gameState.movesLeft <= 0) return;
 
-            try {
-                performRowMoveLocally(rowType, direction);
-                gameState.movesLeft--;
+            performRowMoveLocally(rowType, direction);
+            gameState.movesLeft--;
 
-                const matchIndex = checkMatchLogic(myName);
+            const matchIndex = checkMatchLogic(myName);
 
-                if (matchIndex !== -1) {
-                    gameState.scores[myName] = (gameState.scores[myName] || 0) + 1;
-                    triggerMatchHighlight(matchIndex);
-                    
-                    if (gameState.scores[myName] >= 10) {
-                        gameState.winner = myName;
-                        showFeedback('victory');
-                    } else {
-                        showFeedback('success');
-                        if (gameState.availableTasks.length > 0) {
-                            gameState.tasks[myName] = gameState.availableTasks.pop();
-                        } else {
-                            gameState.availableTasks = shuffle([...allBodies]);
-                            gameState.tasks[myName] = gameState.availableTasks.pop();
-                        }
-                        gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
-                        gameState.movesLeft = 3;
-                    }
-                    
-                    syncState('MATCH_FOUND', { matchIndex: matchIndex });
-                    setTimeout(() => { 
-                        isProcessingMove = false; 
-                        render(); 
-                    }, 300);
+            if (matchIndex !== -1) {
+                // МИТТЄВЕ ЗАРАХУВАННЯ
+                gameState.scores[myName] = (gameState.scores[myName] || 0) + 1;
+                
+                if (gameState.scores[myName] >= 10) {
+                    gameState.winner = myName;
                 } else {
-                    if (gameState.movesLeft <= 0) {
-                        syncState('STATE_UPDATE'); 
-                        setTimeout(() => {
-                            if (isMyTurn() && gameState.movesLeft <= 0) {
-                                gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
-                                gameState.movesLeft = 3;
-                                syncState('STATE_UPDATE');
-                            }
-                            isProcessingMove = false;
-                            render(); 
-                        }, 1000); 
+                    if (gameState.availableTasks.length > 0) {
+                        gameState.tasks[myName] = gameState.availableTasks.pop();
                     } else {
-                        syncState('STATE_UPDATE');
-                        setTimeout(() => { 
-                            isProcessingMove = false; 
-                            render(); 
-                        }, 300);
+                        gameState.availableTasks = shuffle([...allBodies]);
+                        gameState.tasks[myName] = gameState.availableTasks.pop();
                     }
+                    gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+                    gameState.movesLeft = 3;
                 }
-            } catch (error) {
-                // Якщо раптом щось зламалось, гарантовано розблоковуємо гру
-                console.error("Game loop error caught and resolved:", error);
-                isProcessingMove = false;
-                render();
+                
+                // Візуальні ефекти локально
+                triggerMatchHighlight(matchIndex);
+                if (gameState.winner) showFeedback('victory');
+                else showFeedback('success');
+
+                syncState('MATCH_FOUND', { matchIndex: matchIndex });
+            } else {
+                // НЕМАЄ ЗБІГУ
+                if (gameState.movesLeft <= 0) {
+                    syncState('STATE_UPDATE'); 
+                    setTimeout(() => {
+                        // Перевіряємо ще раз, чи це наш хід і чи нуль ходів (уникаємо бага)
+                        if (isMyTurn() && gameState.movesLeft <= 0) {
+                            gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+                            gameState.movesLeft = 3;
+                            syncState('STATE_UPDATE');
+                        }
+                    }, 1000); 
+                } else {
+                    syncState('STATE_UPDATE');
+                }
             }
         }
 
         function endTurn() {
-            if (!isMyTurn() || isProcessingMove) return;
-            isProcessingMove = true; 
-            render(); 
+            if (!isMyTurn()) return;
             
-            try {
-                gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
-                gameState.movesLeft = 3;
-                syncState('STATE_UPDATE');
-            } catch (error) {
-                console.error("End turn error caught and resolved:", error);
-            }
-            
-            setTimeout(() => { 
-                isProcessingMove = false; 
-                render(); 
-            }, 500);
+            gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+            gameState.movesLeft = 3;
+            syncState('STATE_UPDATE');
         }
 
         function triggerMatchHighlight(index) {
@@ -786,8 +767,8 @@
 
             const myTurn = isMyTurn();
             const navButtons = document.querySelectorAll('.nav-btn');
-            navButtons.forEach(btn => { btn.disabled = !myTurn || gameState.movesLeft <= 0 || isProcessingMove; });
-            document.getElementById('btn-end-turn').disabled = !myTurn || isProcessingMove;
+            navButtons.forEach(btn => { btn.disabled = !myTurn || gameState.movesLeft <= 0; });
+            document.getElementById('btn-end-turn').disabled = !myTurn;
 
             const scoreList = document.getElementById('score-list');
             scoreList.innerHTML = '';
