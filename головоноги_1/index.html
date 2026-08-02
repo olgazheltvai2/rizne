@@ -151,7 +151,7 @@
 </head>
 <body>
 
-    <div id="version">v1.2</div>
+    <div id="version">v1.3</div>
     <canvas id="effects-canvas"></canvas>
 
     <!-- Екран 1: Налаштування -->
@@ -308,7 +308,7 @@ function initSetup() {
         let div = document.createElement('div');
         div.className = 'setup-card';
         div.innerHTML = `
-            <img src="https://olgazheltvai2.github.io/images/elements/kartka_${i}.webp" alt="card">
+            <img src="kartka_${i}.webp" alt="card">
             <input type="text" id="name-input-${i}" placeholder="Ім'я..." autocomplete="off">
         `;
         setupGrid.appendChild(div);
@@ -456,7 +456,7 @@ function processAction(action) {
 function updateUI() {
     // Оновлення активної карти
     if (gameState.activeCard) {
-        activeCardContainer.innerHTML = `<img src="https://olgazheltvai2.github.io/images/elements/kartka_${gameState.activeCard}.webp" id="current-active-img">`;
+        activeCardContainer.innerHTML = `<img src="kartka_${gameState.activeCard}.webp" id="current-active-img">`;
     } else {
         activeCardContainer.innerHTML = '';
     }
@@ -511,7 +511,7 @@ function animateCardFly(cardId, playerName) {
     const endRect = endEl.getBoundingClientRect();
     
     const flyingImg = document.createElement('img');
-    flyingImg.src = `https://olgazheltvai2.github.io/images/elements/kartka_${cardId}.webp`;
+    flyingImg.src = `kartka_${cardId}.webp`;
     flyingImg.className = 'flying-card';
     flyingImg.style.left = startRect.left + 'px';
     flyingImg.style.top = startRect.top + 'px';
