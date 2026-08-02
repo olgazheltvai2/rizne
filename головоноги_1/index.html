@@ -37,7 +37,7 @@
             display: flex; flex-direction: column; align-items: center; background: transparent;
         }
         .setup-card img {
-            width: 100px; height: 100px; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+            max-width: 100px; max-height: 100px; width: auto; height: auto; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
             border-radius: 15px; /* Скруглені краї карток */
             overflow: hidden;
         }
@@ -74,7 +74,7 @@
         .deck-stack:hover { transform: scale(1.05); }
         
         .active-card-slot img {
-            width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.6));
+            max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.6));
             animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             border-radius: 15px; /* Скруглені краї карток */
             overflow: hidden;
@@ -102,7 +102,7 @@
         @keyframes popIn { 0% { transform: scale(0.5) rotate(-10deg); opacity: 0; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
         @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px) rotate(-5deg); } 75% { transform: translateX(5px) rotate(5deg); } }
         .flying-card {
-            position: fixed; width: 100px; height: 100px; object-fit: contain; z-index: 100;
+            position: fixed; max-width: 100px; max-height: 100px; width: auto; height: auto; object-fit: contain; z-index: 100;
             pointer-events: none; transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
             border-radius: 15px; /* Скруглені краї карток */
             overflow: hidden;
@@ -151,7 +151,7 @@
 </head>
 <body>
 
-    <div id="version">v1.3</div>
+    <div id="version">v1.4</div>
     <canvas id="effects-canvas"></canvas>
 
     <!-- Екран 1: Налаштування -->
