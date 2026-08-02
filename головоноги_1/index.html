@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Головоноги</title>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        /* Базові стилі та Адаптивність */
+        * { box-sizing: border-box; font-family: Arial, sans-serif; user-select: none; }
+        body {
+            margin: 0; padding: 0; min-height: 100vh; overflow: hidden;
+            background-color: #222; background-size: cover; background-position: center;
+            color: #fff; transition: background-image 0.5s ease;
+        }
+        #version {
+            position: fixed; top: 10px; right: 10px; color: rgba(255,255,255,0.7);
+            font-size: 14px; font-weight: bold; z-index: 100; text-shadow: 1px 1px 2px #000;
+        }
+
+        /* Контейнери (прозорі) */
+        .screen {
+            display: none; flex-direction: column; width: 100vw; height: 100vh;
+            padding: 20px; position: absolute; top: 0; left: 0; z-index: 10;
+        }
+        .screen.active { display: flex; }
+
+        /* Екран налаштування карток */
+        #setup-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 15px; overflow-y: auto; flex-grow: 1; padding-bottom: 20px;
+        }
+        .setup-card {
+            display: flex; flex-direction: column; align-items: center; background: transparent;
+        }
+        .setup-card img {
+            width: 100px; height: 100px; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+            border-radius: 15px; /* Скруглені краї карток */
+            overflow: hidden;
+        }
+        .setup-card input {
+            margin-top: 10px; width: 90%; padding: 5px; text-align: center; border-radius: 15px;
+            border: 2px solid #fff; background: rgba(0,0,0,0.5); color: #fff; font-size: 14px; outline: none;
+        }
+        .secret-input { color: transparent !important; text-shadow: 0 0 0 transparent !important; }
+        
+        .controls-row {
+            display: flex; justify-content: center; gap: 15px; padding: 10px; flex-wrap: wrap;
+        }
+        button {
+            padding: 10px 20px; border-radius: 20px; border: 2px solid #fff; background: rgba(0,0,0,0.6);
+            color: #fff; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 16px;
+            backdrop-filter: blur(5px);
+        }
+        button:hover { background: rgba(255,255,255,0.3); transform: scale(1.05); }
+
+        /* Ігровий екран */
+        #game-area { display: flex; flex-direction: column; height: 100%; justify-content: space-between; }
+        #table-center {
+            flex-grow: 1; display: flex; justify-content: center; align-items: center; position: relative; gap: 40px;
+        }
+        
+        .deck-stack, .active-card-slot {
+            width: 150px; height: 200px; position: relative; cursor: pointer;
+            border-radius: 15px; display: flex; justify-content: center; align-items: center;
+        }
+        .deck-stack {
+            background: repeating-linear-gradient(45deg, #444, #444 10px, #333 10px, #333 20px);
+            border: 4px solid #fff; box-shadow: 5px 5px 15px rgba(0,0,0,0.7); transition: transform 0.2s;
+        }
+        .deck-stack:hover { transform: scale(1.05); }
+        
+        .active-card-slot img {
+            width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.6));
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border-radius: 15px; /* Скруглені краї карток */
+            overflow: hidden;
+        }
+
+        #big-name-display {
+            position: absolute; top: 10%; left: 50%; transform: translateX(-50%);
+            font-size: 50px; font-weight: bold; color: #fff; text-shadow: 0 0 10px #ff0, 0 0 20px #ff0;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s, transform 0.3s; z-index: 20;
+        }
+
+        /* Гравці */
+        #players-bar {
+            display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding: 10px; min-height: 80px;
+        }
+        .player-badge {
+            background: rgba(0,0,0,0.7); border: 2px solid #fff; border-radius: 20px;
+            padding: 5px 15px; display: flex; align-items: center; gap: 10px; position: relative;
+        }
+        .player-name { font-weight: bold; font-size: 18px; }
+        .player-score { background: #ffcc00; color: #000; border-radius: 50%; width: 25px; height: 25px; display: flex; justify-content: center; align-items: center; font-weight: bold; }
+        .kick-btn { background: red; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; padding: 0; display: flex; justify-content: center; align-items: center; }
+
+        /* Анімації */
+        @keyframes popIn { 0% { transform: scale(0.5) rotate(-10deg); opacity: 0; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px) rotate(-5deg); } 75% { transform: translateX(5px) rotate(5deg); } }
+        .flying-card {
+            position: fixed; width: 100px; height: 100px; object-fit: contain; z-index: 100;
+            pointer-events: none; transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+            border-radius: 15px; /* Скруглені краї карток */
+            overflow: hidden;
+        }
+
+        /* Менеджер Тем */
+        #theme-btn {
+            position: fixed; bottom: 20px; right: 20px; width: 50px; height: 50px; border-radius: 50%;
+            background: rgba(0,0,0,0.7); border: 2px solid #fff; color: white; font-size: 24px;
+            display: flex; justify-content: center; align-items: center; cursor: pointer; z-index: 50;
+        }
+        #theme-modal {
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 90vw; max-width: 600px; background: rgba(30,30,30,0.95); border: 2px solid #fff;
+            border-radius: 15px; z-index: 60; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+        #theme-modal h3 { margin-top: 0; text-align: center; }
+        #bg-gallery {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px;
+            max-height: 60vh; overflow-y: auto; padding-right: 5px;
+        }
+        .bg-thumb {
+            height: 80px; border-radius: 8px; border: 2px solid transparent; background-size: cover;
+            background-position: center; cursor: pointer; position: relative; overflow: hidden;
+        }
+        .bg-thumb:hover { border-color: #fff; transform: scale(1.05); }
+        .bg-thumb span {
+            position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.7);
+            color: #fff; font-size: 12px; text-align: center; padding: 2px 0;
+        }
+        .close-modal {
+            display: block; margin: 15px auto 0; padding: 5px 20px;
+        }
+
+        /* Заглушка доступу */
+        #block-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.9); z-index: 9999; justify-content: center; align-items: center; flex-direction: column;
+        }
+        #block-overlay h1 { color: red; font-size: 3vw; text-align: center; font-weight: bold; text-shadow: 2px 2px 10px black; padding: 20px; }
+        
+        /* Канвас для ефектів */
+        #effects-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 90; }
+
+    </style>
+</head>
+<body>
+
+    <div id="version">v1.2</div>
+    <canvas id="effects-canvas"></canvas>
+
+    <!-- Екран 1: Налаштування -->
+    <div id="setup-screen" class="screen active">
+        <h2 style="text-align: center; text-shadow: 1px 1px 3px #000;">Назви Головоногів</h2>
+        <div id="setup-grid"></div>
+        <div class="controls-row">
+            <button id="toggle-secret-btn">Секретний ввід: ВИМК</button>
+            <button id="start-game-btn" style="background: rgba(0, 150, 0, 0.7);">Почати гру</button>
+        </div>
+    </div>
+
+    <!-- Екран 2: Гра -->
+    <div id="game-screen" class="screen">
+        <div id="big-name-display"></div>
+        
+        <div id="table-center">
+            <div id="main-deck" class="deck-stack"></div>
+            <div id="active-card-container" class="active-card-slot">
+                <!-- Сюди потраплятиме поточна карта -->
+            </div>
+        </div>
+
+        <div id="players-bar"></div>
+
+        <div class="controls-row">
+            <button id="show-name-btn">Показати ім'я</button>
+            <button id="calc-scores-btn">Підрахувати</button>
+            <button id="restart-btn" style="background: rgba(150, 0, 0, 0.7);">Почати заново</button>
+        </div>
+    </div>
+
+    <!-- Менеджер тем -->
+    <div id="theme-btn">⚙️</div>
+    <div id="theme-modal">
+        <h3>Оберіть фон</h3>
+        <div id="bg-gallery"></div>
+        <button class="close-modal" onclick="document.getElementById('theme-modal').style.display='none'">Закрити</button>
+    </div>
+
+    <!-- Блок контролю доступу -->
+    <div id="block-overlay">
+        <h1>Зачекай! Зараз не твій урок.</h1>
+    </div>
+
+<script>
+/**
+ * БАЗОВІ НАЛАШТУВАННЯ ТА FIREBASE
+ */
+const firebaseConfig = {
+    databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/",
+    projectId: "lesson-13c44"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// Ідентифікація користувача
+const urlParams = new URLSearchParams(window.location.search);
+let myName = urlParams.get('user') || sessionStorage.getItem('myName');
+if (!myName) {
+    myName = "Гість_" + Math.floor(Math.random() * 1000);
+}
+sessionStorage.setItem('myName', myName);
+
+// Звуковий рушій (Дуже тихі звуки)
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playQuietSound(type) {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    osc.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    
+    if (type === 'pop') { // Для перегортання карти
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.05);
+        gainNode.gain.setValueAtTime(0.02, audioCtx.currentTime); // Дуже тихо!
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.05);
+    } else if (type === 'grab') { // Для забирання карти
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.1);
+        gainNode.gain.setValueAtTime(0.02, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.1);
+    }
+}
+
+/**
+ * ЛОГІКА СИНХРОНІЗАЦІЇ (ДІЇ)
+ */
+const mySenderId = myName + "_" + Date.now();
+let lastTimestamp = 0;
+let isOffline = false; 
+
+const actionRef = db.ref('game_action');
+actionRef.on('value', (snap) => {
+    const val = snap.val();
+    if (!val) return;
+    if (val.timestamp <= lastTimestamp) return;
+    
+    // Якщо це дія від іншого гравця або нас самих (але обробляємо через єдиний потік)
+    processAction(val);
+    lastTimestamp = val.timestamp;
+});
+
+function sendAction(type, data = {}) {
+    const action = { senderId: mySenderId, timestamp: Date.now(), type, data };
+    
+    // Записуємо в Firebase (хто перший записав - той виграв гонку)
+    if (!isOffline) {
+        actionRef.set(action).catch(() => {
+            // Фолбек для офлайну
+            processAction(action);
+        });
+    } else {
+        processAction(action);
+    }
+}
+
+/**
+ * СТАН ГРИ
+ */
+let gameState = {
+    phase: 'setup', // 'setup' | 'playing'
+    cardNames: {},
+    deck: [],
+    activeCard: null,
+    scores: {},
+    players: new Set(),
+    secretInput: false
+};
+
+const TOTAL_CARDS = 12;
+const CARDS_MULTIPLIER = 5;
+
+// Елементи DOM
+const setupScreen = document.getElementById('setup-screen');
+const gameScreen = document.getElementById('game-screen');
+const setupGrid = document.getElementById('setup-grid');
+const mainDeckBtn = document.getElementById('main-deck');
+const activeCardContainer = document.getElementById('active-card-container');
+const playersBar = document.getElementById('players-bar');
+const bigNameDisplay = document.getElementById('big-name-display');
+
+// Ініціалізація екрану налаштувань
+function initSetup() {
+    setupGrid.innerHTML = '';
+    for(let i=1; i<=TOTAL_CARDS; i++) {
+        let div = document.createElement('div');
+        div.className = 'setup-card';
+        div.innerHTML = `
+            <img src="https://olgazheltvai2.github.io/images/elements/kartka_${i}.webp" alt="card">
+            <input type="text" id="name-input-${i}" placeholder="Ім'я..." autocomplete="off">
+        `;
+        setupGrid.appendChild(div);
+    }
+}
+initSetup();
+
+document.getElementById('toggle-secret-btn').addEventListener('click', (e) => {
+    gameState.secretInput = !gameState.secretInput;
+    e.target.innerText = `Секретний ввід: ${gameState.secretInput ? 'УВІМК' : 'ВИМК'}`;
+    document.querySelectorAll('.setup-card input').forEach(inp => {
+        if(gameState.secretInput) inp.classList.add('secret-input');
+        else inp.classList.remove('secret-input');
+    });
+});
+
+document.getElementById('start-game-btn').addEventListener('click', () => {
+    // Збираємо імена
+    let names = {};
+    for(let i=1; i<=TOTAL_CARDS; i++) {
+        names[i] = document.getElementById(`name-input-${i}`).value || `Головоніг ${i}`;
+    }
+    
+    // Формуємо колоду (12 * 5 = 60)
+    let newDeck = [];
+    for(let i=1; i<=TOTAL_CARDS; i++) {
+        for(let j=0; j<CARDS_MULTIPLIER; j++) {
+            newDeck.push(i);
+        }
+    }
+    // Перемішуємо
+    newDeck.sort(() => Math.random() - 0.5);
+    
+    sendAction('start_game', { names, deck: newDeck });
+});
+
+mainDeckBtn.addEventListener('click', () => {
+    if (gameState.deck.length === 0) return;
+    sendAction('flip_card', {});
+});
+
+activeCardContainer.addEventListener('click', () => {
+    if (!gameState.activeCard) return;
+    sendAction('claim_card', { player: myName });
+});
+
+document.getElementById('show-name-btn').addEventListener('click', () => {
+    if(!gameState.activeCard) return;
+    sendAction('show_name', {});
+});
+
+document.getElementById('calc-scores-btn').addEventListener('click', () => {
+    sendAction('show_scores', {});
+});
+
+document.getElementById('restart-btn').addEventListener('click', () => {
+    sendAction('restart', {});
+});
+
+/**
+ * ОБРОБКА ДІЙ (PROCESS ACTION)
+ */
+function processAction(action) {
+    const { type, data } = action;
+
+    if (type === 'start_game') {
+        gameState.cardNames = data.names;
+        gameState.deck = data.deck;
+        gameState.phase = 'playing';
+        gameState.activeCard = null;
+        gameState.scores = {}; // Скидаємо рахунок
+        Array.from(gameState.players).forEach(p => gameState.scores[p] = 0);
+        
+        setupScreen.classList.remove('active');
+        gameScreen.classList.add('active');
+        updateUI();
+        fireConfetti(); // Ефект старту
+    } 
+    else if (type === 'flip_card') {
+        if (gameState.deck.length > 0) {
+            gameState.activeCard = gameState.deck.pop();
+            playQuietSound('pop');
+            updateUI();
+            
+            // Легке трясіння колоди
+            mainDeckBtn.style.animation = 'none';
+            void mainDeckBtn.offsetWidth; 
+            mainDeckBtn.style.animation = 'shake 0.3s';
+        }
+    } 
+    else if (type === 'claim_card') {
+        if (gameState.activeCard) {
+            const winner = data.player;
+            if(!gameState.scores[winner]) gameState.scores[winner] = 0;
+            gameState.scores[winner]++;
+            
+            animateCardFly(gameState.activeCard, winner);
+            playQuietSound('grab');
+            
+            gameState.activeCard = null;
+            updateUI();
+        }
+    }
+    else if (type === 'show_name') {
+        if(gameState.activeCard && gameState.cardNames[gameState.activeCard]) {
+            showBigName(gameState.cardNames[gameState.activeCard]);
+        }
+    }
+    else if (type === 'show_scores') {
+        let text = "РЕЗУЛЬТАТИ:\n";
+        for(let p in gameState.scores) {
+            text += `${p}: ${gameState.scores[p]} карт\n`;
+        }
+        alert(text);
+        fireConfetti();
+    }
+    else if (type === 'restart') {
+        gameState.phase = 'setup';
+        setupScreen.classList.add('active');
+        gameScreen.classList.remove('active');
+        initSetup(); // Скидаємо поля
+    }
+    else if (type === 'kick_player') {
+        if(data.player === myName) {
+            alert("Вас видалили з поточної гри.");
+            window.location.reload();
+        }
+        gameState.players.delete(data.player);
+        delete gameState.scores[data.player];
+        updateUI();
+    }
+    else if (type === 'sync_players') {
+        // Оновлюємо список активних гравців на базі радару
+        gameState.players.add(data.player);
+        if(gameState.phase === 'playing' && !gameState.scores[data.player]) {
+            gameState.scores[data.player] = 0;
+        }
+        updateUI();
+    }
+}
+
+/**
+ * ОНОВЛЕННЯ ІНТЕРФЕЙСУ
+ */
+function updateUI() {
+    // Оновлення активної карти
+    if (gameState.activeCard) {
+        activeCardContainer.innerHTML = `<img src="https://olgazheltvai2.github.io/images/elements/kartka_${gameState.activeCard}.webp" id="current-active-img">`;
+    } else {
+        activeCardContainer.innerHTML = '';
+    }
+
+    // Відображення колоди (зникає якщо порожня)
+    if (gameState.deck.length === 0 && !gameState.activeCard) {
+        mainDeckBtn.style.opacity = '0.3';
+        mainDeckBtn.style.pointerEvents = 'none';
+    } else {
+        mainDeckBtn.style.opacity = '1';
+        mainDeckBtn.style.pointerEvents = 'auto';
+    }
+
+    // Оновлення списку гравців
+    playersBar.innerHTML = '';
+    Array.from(gameState.players).forEach(pName => {
+        let score = gameState.scores[pName] || 0;
+        let badge = document.createElement('div');
+        badge.className = 'player-badge';
+        badge.id = 'player-badge-' + sanitizeId(pName);
+        badge.innerHTML = `
+            <span class="player-name">${pName}</span>
+            <span class="player-score">${score}</span>
+            <button class="kick-btn" onclick="sendAction('kick_player', {player: '${pName}'})">X</button>
+        `;
+        playersBar.appendChild(badge);
+    });
+}
+
+function sanitizeId(str) { return str.replace(/[^a-zA-Z0-9]/g, '_'); }
+
+function showBigName(name) {
+    bigNameDisplay.innerText = name;
+    bigNameDisplay.style.opacity = '1';
+    bigNameDisplay.style.transform = 'translate(-50%, 0) scale(1.2)';
+    setTimeout(() => {
+        bigNameDisplay.style.opacity = '0';
+        bigNameDisplay.style.transform = 'translate(-50%, -50%) scale(1)';
+    }, 2000);
+}
+
+/**
+ * АНІМАЦІЯ ПОЛЬОТУ КАРТКИ
+ */
+function animateCardFly(cardId, playerName) {
+    const startEl = document.getElementById('active-card-container');
+    const endEl = document.getElementById('player-badge-' + sanitizeId(playerName));
+    
+    if(!startEl || !endEl) return;
+    
+    const startRect = startEl.getBoundingClientRect();
+    const endRect = endEl.getBoundingClientRect();
+    
+    const flyingImg = document.createElement('img');
+    flyingImg.src = `https://olgazheltvai2.github.io/images/elements/kartka_${cardId}.webp`;
+    flyingImg.className = 'flying-card';
+    flyingImg.style.left = startRect.left + 'px';
+    flyingImg.style.top = startRect.top + 'px';
+    document.body.appendChild(flyingImg);
+    
+    // Змушуємо браузер відмалювати початкову позицію
+    void flyingImg.offsetWidth;
+    
+    flyingImg.style.left = (endRect.left + endRect.width/2 - 50) + 'px';
+    flyingImg.style.top = (endRect.top + endRect.height/2 - 50) + 'px';
+    flyingImg.style.transform = 'scale(0.2) rotate(360deg)';
+    
+    // Світловий ефект прильоту
+    endEl.style.boxShadow = '0 0 20px #ffcc00';
+    setTimeout(() => { endEl.style.boxShadow = 'none'; }, 600);
+
+    setTimeout(() => {
+        if(flyingImg.parentNode) flyingImg.parentNode.removeChild(flyingImg);
+    }, 600);
+}
+
+/**
+ * ВІЗУАЛЬНІ ЕФЕКТИ (КОНФЕТТІ)
+ */
+const canvas = document.getElementById('effects-canvas');
+const ctx = canvas.getContext('2d');
+let particles = [];
+
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function fireConfetti() {
+    for (let i = 0; i < 100; i++) {
+        particles.push({
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            vx: (Math.random() - 0.5) * 20,
+            vy: (Math.random() - 0.5) * 20 - 5,
+            size: Math.random() * 8 + 4,
+            color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+            life: 1
+        });
+    }
+}
+
+function renderEffects() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.5; // гравітація
+        p.life -= 0.02;
+        
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        if (p.life <= 0) particles.splice(i, 1);
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(renderEffects);
+}
+renderEffects();
+
+/**
+ * 1. СИСТЕМА ДИНАМІЧНИХ ФОНІВ (THEME MANAGER)
+ */
+const themeBtn = document.getElementById('theme-btn');
+const themeModal = document.getElementById('theme-modal');
+const bgGallery = document.getElementById('bg-gallery');
+const MAX_BG = 1000;
+
+themeBtn.addEventListener('click', () => {
+    themeModal.style.display = 'block';
+});
+
+// Асинхронне завантаження фонів
+async function loadBackgrounds() {
+    for (let i = 1; i <= MAX_BG; i++) {
+        const url = `https://olgazheltvai2.github.io/images/backgrounds/background_${i}.webp`;
+        let img = new Image();
+        img.onload = () => {
+            let div = document.createElement('div');
+            div.className = 'bg-thumb';
+            div.style.backgroundImage = `url(${url})`;
+            div.innerHTML = `<span>Фон ${i}</span>`;
+            div.onclick = () => {
+                db.ref('game_theme').set(url); // Запис у Firebase
+            };
+            bgGallery.appendChild(div);
+        };
+        img.src = url;
+        // Невелика пауза, щоб не покласти браузер
+        await new Promise(r => setTimeout(r, 10));
+    }
+}
+loadBackgrounds();
+
+// Слухач зміни фону
+db.ref('game_theme').on('value', (snap) => {
+    const url = snap.val();
+    if (url) {
+        document.body.style.backgroundImage = `url(${url})`;
+        localStorage.setItem('mySavedGameBg', url);
+    }
+});
+
+// Відновлення локального фону при старті
+const savedBg = localStorage.getItem('mySavedGameBg');
+if (savedBg) {
+    document.body.style.backgroundImage = `url(${savedBg})`;
+}
+
+
+/**
+ * 3. УНІВЕРСАЛЬНИЙ БЛОК КОНТРОЛЮ (ІДЕНТИФІКАЦІЯ, РАДАР ТА БЛОКУВАННЯ)
+ */
+// Генерація tabId
+const tabId = Math.random().toString(36).substr(2, 9);
+const myConnectionRef = db.ref(`online_users/${myName}/${tabId}`);
+const connectedRef = db.ref('.info/connected');
+
+connectedRef.on('value', (snap) => {
+    if (snap.val() === true) {
+        // При розриві з'єднання - видалити з радару
+        myConnectionRef.onDisconnect().remove().then(() => {
+            myConnectionRef.set(true);
+            // Повідомляємо інших про свою присутність
+            sendAction('sync_players', { player: myName });
+        });
+        isOffline = false;
+    } else {
+        isOffline = true;
+    }
+});
+
+window.addEventListener('beforeunload', () => {
+    myConnectionRef.remove();
+});
+
+// Слухаємо онлайн-користувачів для оновлення списку
+db.ref('online_users').on('value', (snap) => {
+    const users = snap.val() || {};
+    let activeNames = Object.keys(users);
+    
+    // Синхронізуємо локальний список гравців з радаром
+    activeNames.forEach(name => gameState.players.add(name));
+    
+    // Очищаємо тих, хто вийшов (якщо їх немає в радарі)
+    gameState.players.forEach(p => {
+        if(!activeNames.includes(p)) {
+            gameState.players.delete(p);
+            // Не видаляємо рахунок відразу, раптом він перепідключиться
+        }
+    });
+    updateUI();
+});
+
+// Блокування
+const blockOverlay = document.getElementById('block-overlay');
+db.ref(`blocked_users/${myName}`).on('value', (snap) => {
+    if (snap.val() === true) {
+        blockOverlay.style.display = 'flex';
+    } else {
+        blockOverlay.style.display = 'none';
+    }
+});
+
+// Примусове оновлення сторінки
+db.ref('force_refresh').on('value', (snap) => {
+    const val = snap.val();
+    if (val && val > Date.now() - 5000) { // захист від старих сигналів
+        window.location.reload();
+    }
+});
+
+// Повернення в лоббі з імунітетом 1 секунда
+let lobbyImmunity = true;
+setTimeout(() => { lobbyImmunity = false; }, 1000);
+
+db.ref('current_activity').on('value', (snap) => {
+    const activity = snap.val();
+    if (!lobbyImmunity && activity === 'lobby') {
+        window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html?user=' + encodeURIComponent(myName);
+    }
+});
+</script>
+</body>
+</html>
