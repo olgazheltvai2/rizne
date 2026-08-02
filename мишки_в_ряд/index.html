@@ -273,6 +273,9 @@
 </head>
 <body>
 
+    <!-- Версія гри -->
+    <div id="game-version" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 14px; z-index: 999999; font-family: Arial, sans-serif; pointer-events: none;">v1.1</div>
+
     <!-- UI Панель -->
     <div id="ui-panel" class="transparent-container">
         <div class="ui-row">
@@ -768,9 +771,12 @@
                 userRef.remove();
             });
 
-            // Оновлення списку та блокування
+            // Оновлення списку та блокування (З виправленням зациклення)
+            let isFirstRefreshCheck = true;
             db.ref('force_refresh').on('value', (snap) => {
-                if (snap.val()) {
+                if (isFirstRefreshCheck) {
+                    isFirstRefreshCheck = false; // Ігноруємо перше зчитування при завантаженні
+                } else if (snap.val()) {
                     window.location.reload();
                 }
             });
