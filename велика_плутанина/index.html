@@ -25,7 +25,7 @@
         /* Лічильник версій */
         .version-counter {
             position: fixed; top: 10px; right: 10px;
-            color: rgba(255, 255, 255, 0.5); font-size: 14px; font-weight: bold;
+            color: rgba(255, 255, 255, 0.5); font-size: 16px; font-weight: bold;
             z-index: 1000; pointer-events: none; text-shadow: 1px 1px 2px black;
         }
 
@@ -120,7 +120,8 @@
         }
         
         .action-buttons {
-            display: flex; gap: 15px; flex-wrap: wrap; justify-content: center;
+            display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; align-items: center;
+            background: rgba(0,0,0,0.4); padding: 10px; border-radius: 10px; width: 100%;
         }
         
         .action-btn {
@@ -197,7 +198,7 @@
 </head>
 <body>
 
-    <div class="version-counter">v2.1</div>
+    <div class="version-counter">v3.0</div>
     <button class="btn-restart-corner" onclick="forceRestart()" title="Почати заново">🔄</button>
 
     <div id="game-container">
@@ -233,10 +234,11 @@
         </div>
 
         <div class="bottom-panel">
-            <div class="action-buttons">
-                <button class="action-btn" id="btn-end-turn" onclick="endTurn()" disabled>Завершити хід</button>
-                <button class="action-btn" id="btn-start-game" onclick="startGame()" style="background:#00cc00; display:none;">Почати гру</button>
+            <!-- РУЧНА ПЕРЕДАЧА ХОДУ -->
+            <div id="pass-turn-container" class="action-buttons">
+                <!-- Кнопки гравців генеруватимуться тут автоматично -->
             </div>
+            <button class="action-btn" id="btn-start-game" onclick="startGame()" style="background:#00cc00; display:none; margin-bottom:15px;">Почати гру</button>
             
             <div class="scores">
                 <h3>Зібрані тваринки (до 10 для перемоги)</h3>
@@ -389,7 +391,7 @@
 
         let gameState = {
             players: [],
-            currentPlayerIndex: 0,
+            currentPlayerName: null, /* РУЧНА СИСТЕМА ІМЕН (замість індексів) */
             movesLeft: 3,
             rows: { head: [], belly: [], legs: [] },
             tasks: {}, 
@@ -402,7 +404,7 @@
         let lastActionId = null;
         let localMatchHighlight = false; 
         let matchHighlightIndex = -1;
-        let turnPassTimeout = null; // Для керування паузою перед ходом
+        let isProcessingMove = false; 
 
         // ЗАХИСТ СТАНУ (Відновлення масивів та очистка дублів)
         function normalizeState(state) {
@@ -420,7 +422,7 @@
             if (!state.scores) state.scores = {};
             
             if (typeof state.movesLeft !== 'number') state.movesLeft = 3;
-            if (typeof state.currentPlayerIndex !== 'number') state.currentPlayerIndex = 0;
+            if (!state.currentPlayerName) state.currentPlayerName = state.players[0] || myName;
             return state;
         }
 
@@ -506,9 +508,10 @@
                 let oldWinner = gameState.winner;
                 gameState = normalizeState(action.state);
 
-                // Авто-додавання: дозволяє іншим зайти, якщо вони ще не в грі
+                // Авто-додавання нового гравця (якщо він відсутній у базі)
                 if (gameState.gameStarted && !gameState.players.includes(myName)) {
                     gameState.players.push(myName);
+                    gameState.players = [...new Set(gameState.players)];
                     gameState.scores[myName] = 0;
                     if (gameState.availableTasks.length > 0) {
                         gameState.tasks[myName] = gameState.availableTasks.pop();
@@ -537,6 +540,7 @@
                     gameState = normalizeState({});
                     gameState.players = [myName];
                     gameState.scores[myName] = 0;
+                    gameState.currentPlayerName = myName;
                     render();
                 } else {
                     gameState = normalizeState(action.state);
@@ -544,6 +548,7 @@
                     if (!gameState.players.includes(myName) || !gameState.tasks[myName]) {
                         if (!gameState.players.includes(myName)) {
                             gameState.players.push(myName);
+                            gameState.players = [...new Set(gameState.players)];
                             gameState.scores[myName] = 0;
                         }
                         if (!gameState.tasks[myName]) {
@@ -562,13 +567,12 @@
             });
         }
 
-        // КАРДИНАЛЬНЕ ВИПРАВЛЕННЯ: Жорсткий рестарт знищує всіх фантомних гравців
+        // ЖОРСТКИЙ РЕСТАРТ (Знищує всіх фантомів, залишає лише реальних)
         function forceRestart() {
-            if (confirm('Ви впевнені, що хочете скинути гру і почати заново? (Всі інші гравці будуть видалені, поки не зроблять хід)')) {
+            if (confirm('Ви впевнені, що хочете скинути гру і почати заново? (Всі фантоми будуть видалені)')) {
                 gameState = normalizeState({});
                 
-                // Залишаємо ТІЛЬКИ ініціатора рестарту. Решта автоматично додасться мілісекундою пізніше, якщо вони активні! Фантоми зникнуть.
-                gameState.players = [myName];
+                gameState.players = [myName]; // Очищаємо список! Всі інші самі доєднаються за мілісекунду.
                 
                 gameState.rows.head = shuffle([...allHeads]);
                 gameState.rows.belly = shuffle([...allBellies]);
@@ -579,7 +583,7 @@
                 gameState.scores[myName] = 0;
                 
                 gameState.gameStarted = true;
-                gameState.currentPlayerIndex = 0;
+                gameState.currentPlayerName = myName;
                 gameState.movesLeft = 3;
                 gameState.winner = null;
                 document.getElementById('btn-start-game').style.display = 'none';
@@ -614,9 +618,7 @@
         // --- 5. МЕХАНІКА ГРИ ТА СУВОРИЙ КОНТРОЛЬ ХОДІВ (БЕЗ ЗАВИСАНЬ) ---
         function isMyTurn() {
             return gameState.gameStarted && 
-                   gameState.players && 
-                   gameState.players.length > 0 && 
-                   gameState.players[gameState.currentPlayerIndex] === myName && 
+                   gameState.currentPlayerName === myName && 
                    !gameState.winner;
         }
 
@@ -656,64 +658,50 @@
             return -1;
         }
 
+        // РУХ БЕЗ БЛОКУВАННЯ UI
         function moveRow(rowType, direction) {
-            if (!isMyTurn() || gameState.movesLeft <= 0) return;
-
-            performRowMoveLocally(rowType, direction);
-            gameState.movesLeft--;
-
-            const matchIndex = checkMatchLogic(myName);
-
-            if (matchIndex !== -1) {
-                // ЗБІГ ЗНАЙДЕНО - Зараховуємо і миттєво передаємо хід
-                gameState.scores[myName] = (gameState.scores[myName] || 0) + 1;
-                
-                if (gameState.scores[myName] >= 10) {
-                    gameState.winner = myName;
-                    showFeedback('victory');
-                } else {
-                    showFeedback('success');
-                    if (gameState.availableTasks.length > 0) {
-                        gameState.tasks[myName] = gameState.availableTasks.pop();
-                    } else {
-                        gameState.availableTasks = shuffle([...allBodies]);
-                        gameState.tasks[myName] = gameState.availableTasks.pop();
-                    }
-                    gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
-                    gameState.movesLeft = 3;
-                }
-                
-                triggerMatchHighlight(matchIndex);
-                syncState('MATCH_FOUND', { matchIndex: matchIndex });
-            } else {
-                // ЗБІГУ НЕМАЄ
-                if (gameState.movesLeft <= 0) {
-                    syncState('STATE_UPDATE'); 
-                    
-                    // Чекаємо 1 секунду, щоб гравець побачив свій останній рух
-                    clearTimeout(turnPassTimeout);
-                    turnPassTimeout = setTimeout(() => {
-                        // Перевіряємо ще раз, щоб уникнути подвійної передачі ходу
-                        if (isMyTurn() && gameState.movesLeft <= 0) {
-                            gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
-                            gameState.movesLeft = 3;
-                            syncState('STATE_UPDATE');
-                        }
-                    }, 1000); 
-                } else {
-                    syncState('STATE_UPDATE');
-                }
-            }
-        }
-
-        // Ручна передача ходу
-        function endTurn() {
-            if (!isMyTurn()) return;
-            clearTimeout(turnPassTimeout); // Скасовуємо авто-передачу, якщо гравець натиснув кнопку сам
+            if (!isMyTurn() || gameState.movesLeft <= 0 || isProcessingMove) return;
             
-            gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
-            gameState.movesLeft = 3;
-            syncState('STATE_UPDATE');
+            isProcessingMove = true;
+            render();
+
+            try {
+                performRowMoveLocally(rowType, direction);
+                gameState.movesLeft--;
+
+                const matchIndex = checkMatchLogic(myName);
+
+                if (matchIndex !== -1) {
+                    // ЗБІГ ЗНАЙДЕНО - Зараховуємо бал і ЗУПИНЯЄМО хід (тепер треба клікнути кому передати)
+                    gameState.scores[myName] = (gameState.scores[myName] || 0) + 1;
+                    gameState.movesLeft = 0; // Хід закінчено після збігу!
+                    
+                    if (gameState.scores[myName] >= 10) {
+                        gameState.winner = myName;
+                        showFeedback('victory');
+                    } else {
+                        showFeedback('success');
+                        if (gameState.availableTasks.length > 0) {
+                            gameState.tasks[myName] = gameState.availableTasks.pop();
+                        } else {
+                            gameState.availableTasks = shuffle([...allBodies]);
+                            gameState.tasks[myName] = gameState.availableTasks.pop();
+                        }
+                    }
+                    
+                    triggerMatchHighlight(matchIndex);
+                    syncState('MATCH_FOUND', { matchIndex: matchIndex });
+                    setTimeout(() => { isProcessingMove = false; render(); }, 300);
+                } else {
+                    // ЗБІГУ НЕМАЄ - Просто продовжуємо або зупиняємось на 0 ходів
+                    syncState('STATE_UPDATE');
+                    setTimeout(() => { isProcessingMove = false; render(); }, 300);
+                }
+            } catch (error) {
+                console.error("Game loop error caught:", error);
+                isProcessingMove = false;
+                render();
+            }
         }
 
         function triggerMatchHighlight(index) {
@@ -754,7 +742,7 @@
         function render() {
             if (!gameState.gameStarted) return;
 
-            const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+            const currentPlayer = gameState.currentPlayerName;
             document.getElementById('current-turn-display').innerText = currentPlayer || 'Очікування...';
             document.getElementById('moves-left-display').innerText = gameState.movesLeft;
 
@@ -772,13 +760,44 @@
 
             const myTurn = isMyTurn();
             const navButtons = document.querySelectorAll('.nav-btn');
-            navButtons.forEach(btn => { btn.disabled = !myTurn || gameState.movesLeft <= 0; });
-            document.getElementById('btn-end-turn').disabled = !myTurn;
+            navButtons.forEach(btn => { btn.disabled = !myTurn || gameState.movesLeft <= 0 || isProcessingMove; });
+
+            // ОНОВЛЕНА СИСТЕМА РУЧНОЇ ПЕРЕДАЧІ ХОДУ (Уникаємо фантомів)
+            const passContainer = document.getElementById('pass-turn-container');
+            passContainer.innerHTML = '<span style="font-size:1.2rem; font-weight:bold; color:#ffd700; text-shadow:1px 1px 2px #000;">Хто ходить:</span>';
+            
+            gameState.players.forEach(p => {
+                const btn = document.createElement('button');
+                btn.className = 'action-btn';
+                btn.innerText = p;
+                
+                // Стилізація активного гравця
+                if (p === gameState.currentPlayerName) {
+                    btn.style.background = '#00cc00';
+                    btn.style.boxShadow = '0 0 10px #00ff00';
+                    btn.style.border = '2px solid #fff';
+                } else {
+                    btn.style.background = '#555';
+                    btn.style.border = '2px solid transparent';
+                }
+                
+                // Якщо є переможець або йде анімація - кнопки неактивні
+                btn.disabled = isProcessingMove || gameState.winner;
+                
+                // КЛІК = ПЕРЕДАЧА ХОДУ ЦІЙ ЛЮДИНІ
+                btn.onclick = () => {
+                    gameState.currentPlayerName = p;
+                    gameState.movesLeft = 3;
+                    syncState('STATE_UPDATE');
+                };
+                
+                passContainer.appendChild(btn);
+            });
 
             const scoreList = document.getElementById('score-list');
             scoreList.innerHTML = '';
             for (const [player, score] of Object.entries(gameState.scores)) {
-                // Показуємо рахунки тільки тих гравців, які є в активному масиві players
+                // Показуємо рахунки тільки реальних активних гравців
                 if(gameState.players.includes(player)) {
                     const div = document.createElement('div');
                     div.className = 'score-item';
