@@ -36,7 +36,7 @@
             color: #fff;
         }
 
-        /* Ігрове поле (з можливістю панорамування) */
+        /* Ігрове поле (Нескінченне полотно) */
         #game-board-wrapper {
             position: absolute;
             top: 0;
@@ -45,21 +45,25 @@
             height: 100vh;
             overflow: auto;
             z-index: 1;
+            cursor: grab; /* Курсор для перетягування поля */
+        }
+        #game-board-wrapper:active {
+            cursor: grabbing;
         }
         #game-board {
             position: relative;
-            width: 3000px;
-            height: 3000px;
+            width: 6000px;
+            height: 6000px;
             transform-origin: 0 0;
         }
 
-        /* Картки та колоди - ТЕПЕР КВАДРАТНІ */
+        /* Картки та колоди - КВАДРАТНІ */
         .card {
             position: absolute;
             width: 100px;
             height: 100px;
             border-radius: 10px;
-            background-size: contain; /* Щоб зображення точно не обрізалось */
+            background-size: contain; 
             background-position: center;
             background-repeat: no-repeat;
             background-color: transparent;
@@ -76,7 +80,7 @@
             position: absolute;
             width: 120px;
             height: 140px;
-            display: flex;
+            display: flex; /* За замовчуванням приховано, покажеться через JS */
             flex-direction: column;
             align-items: center;
             justify-content: center;
@@ -122,9 +126,6 @@
         }
         button:hover, select:hover {
             background: rgba(255, 255, 255, 1);
-        }
-        .hidden-player {
-            display: none !important;
         }
 
         /* Індикатор ходу та тост */
@@ -292,7 +293,7 @@
 <body>
 
     <!-- Версія гри -->
-    <div id="game-version" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 14px; z-index: 999999; font-family: Arial, sans-serif; pointer-events: none;">v1.2</div>
+    <div id="game-version" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 14px; z-index: 999999; font-family: Arial, sans-serif; pointer-events: none;">v1.3</div>
 
     <!-- Тост для помилок вибору ходу -->
     <div id="toast-message"></div>
@@ -320,28 +321,22 @@
                 <option value="red">Хід: Руді</option>
             </select>
         </div>
-        <div class="ui-row">
-            <span style="font-size: 14px; text-shadow: 1px 1px 2px #000;">Відображення колод:</span>
-            <label><input type="checkbox" class="player-toggle" value="white" checked> Білі</label>
-            <label><input type="checkbox" class="player-toggle" value="grey" checked> Сірі</label>
-            <label><input type="checkbox" class="player-toggle" value="black" checked> Чорні</label>
-            <label><input type="checkbox" class="player-toggle" value="red" checked> Руді</label>
-        </div>
     </div>
 
-    <!-- Ігрове поле -->
+    <!-- Ігрове поле (тепер 6000x6000) -->
     <div id="game-board-wrapper">
         <div id="game-board">
-            <div id="deck-white" class="deck-area" style="top: 100px; left: 100px;">
+            <!-- Координати колод зміщені в центр поля (3000х3000) -->
+            <div id="deck-white" class="deck-area" style="top: 2900px; left: 2600px;">
                 <div class="deck-label">Білі мишки</div>
             </div>
-            <div id="deck-grey" class="deck-area" style="top: 100px; left: 1400px;">
+            <div id="deck-grey" class="deck-area" style="top: 2900px; left: 3300px;">
                 <div class="deck-label">Сірі мишки</div>
             </div>
-            <div id="deck-black" class="deck-area" style="top: 800px; left: 100px;">
+            <div id="deck-black" class="deck-area" style="top: 3100px; left: 2600px;">
                 <div class="deck-label">Чорні мишки</div>
             </div>
-            <div id="deck-red" class="deck-area" style="top: 800px; left: 1400px;">
+            <div id="deck-red" class="deck-area" style="top: 3100px; left: 3300px;">
                 <div class="deck-label">Руді мишки</div>
             </div>
             
@@ -421,9 +416,59 @@
         const playedCardsContainer = document.getElementById('played-cards');
         const turnSelector = document.getElementById('turn-selector');
         const turnIndicator = document.getElementById('turn-indicator');
-        const playerToggles = document.querySelectorAll('.player-toggle');
         const myRoleSelector = document.getElementById('my-role-selector');
         const toastMessage = document.getElementById('toast-message');
+        const boardWrapper = document.getElementById('game-board-wrapper');
+
+        // --- ПАНОРАМУВАННЯ (СКРОЛІНГ) ІГРОВОГО ПОЛЯ ---
+        let isPanning = false;
+        let startPanX = 0, startPanY = 0;
+        let startScrollLeft = 0, startScrollTop = 0;
+
+        // Центруємо поле при старті (середина 6000x6000, мінус половина екрану)
+        window.addEventListener('load', () => {
+            boardWrapper.scrollLeft = 3000 - window.innerWidth / 2;
+            boardWrapper.scrollTop = 3000 - window.innerHeight / 2;
+        });
+
+        // Миша
+        boardWrapper.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('card') || e.target.closest('#ui-panel') || e.target.closest('#theme-btn')) return;
+            isPanning = true;
+            startPanX = e.clientX;
+            startPanY = e.clientY;
+            startScrollLeft = boardWrapper.scrollLeft;
+            startScrollTop = boardWrapper.scrollTop;
+            boardWrapper.style.cursor = 'grabbing';
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (!isPanning) return;
+            e.preventDefault();
+            boardWrapper.scrollLeft = startScrollLeft - (e.clientX - startPanX);
+            boardWrapper.scrollTop = startScrollTop - (e.clientY - startPanY);
+        });
+        window.addEventListener('mouseup', () => {
+            isPanning = false;
+            boardWrapper.style.cursor = 'grab';
+        });
+
+        // Сенсорні екрани
+        boardWrapper.addEventListener('touchstart', (e) => {
+            if (e.target.classList.contains('card') || e.target.closest('#ui-panel') || e.target.closest('#theme-btn') || e.touches.length !== 1) return;
+            isPanning = true;
+            startPanX = e.touches[0].clientX;
+            startPanY = e.touches[0].clientY;
+            startScrollLeft = boardWrapper.scrollLeft;
+            startScrollTop = boardWrapper.scrollTop;
+        }, {passive: false});
+        window.addEventListener('touchmove', (e) => {
+            if (!isPanning || e.touches.length !== 1) return;
+            if (e.cancelable) e.preventDefault();
+            boardWrapper.scrollLeft = startScrollLeft - (e.touches[0].clientX - startPanX);
+            boardWrapper.scrollTop = startScrollTop - (e.touches[0].clientY - startPanY);
+        }, {passive: false});
+        window.addEventListener('touchend', () => { isPanning = false; });
+
 
         // --- ФУНКЦІЯ ДЛЯ СПЛИВАЮЧИХ ПОВІДОМЛЕНЬ ---
         let toastTimeout;
@@ -436,13 +481,25 @@
             }, 3000);
         }
 
-        // --- ВИБІР РОЛІ ---
+        // --- ВИБІР РОЛІ ТА ВІДОБРАЖЕННЯ КОЛОД ---
+        function updateDeckVisibility() {
+            Object.keys(playersConfig).forEach(playerId => {
+                const deck = playersConfig[playerId].deck;
+                if (myRole === playerId) {
+                    deck.style.display = 'flex'; // Показуємо тільки свою колоду
+                } else {
+                    deck.style.display = 'none'; // Приховуємо всі інші
+                }
+            });
+        }
+
         myRoleSelector.addEventListener('change', (e) => {
             myRole = e.target.value;
+            updateDeckVisibility();
             if (myRole !== 'none') {
                 showToast(`Ви обрали роль: ${namesDict[myRole]} мишки`);
             } else {
-                showToast('Ви стали глядачем');
+                showToast('Ви стали глядачем (колоди приховано)');
             }
         });
 
@@ -451,17 +508,24 @@
             Object.keys(playersConfig).forEach(playerId => {
                 const deckEl = playersConfig[playerId].deck;
                 
-                // Створюємо візуальну рубашку колоди
                 const deckCard = document.createElement('div');
                 deckCard.className = 'card';
                 deckCard.style.backgroundImage = `url('${gameData[playerId].back}')`;
                 deckCard.style.position = 'relative';
+                deckCard.style.display = 'none'; // Буде показано через updateDeckVisibility, якщо це наша роль
                 
-                // Додаємо обробники для витягування нової картки
+                // Зберігаємо посилання на рубашку, щоб маніпулювати нею
+                playersConfig[playerId].backElement = deckCard;
+
                 deckCard.addEventListener('mousedown', (e) => startDrawCard(e, playerId));
                 deckCard.addEventListener('touchstart', (e) => startDrawCard(e, playerId), {passive: false});
                 
                 deckEl.appendChild(deckCard);
+            });
+            // Викликаємо первинне оновлення (приховає всі рубашки, бо стартова роль 'none')
+            updateDeckVisibility();
+            Object.keys(playersConfig).forEach(pid => {
+                playersConfig[pid].backElement.style.display = 'block'; 
             });
         }
 
@@ -469,21 +533,21 @@
         function startDrawCard(e, playerId) {
             e.preventDefault();
             
-            // Перевірка ролі (не можна брати чужу колоду)
             if (myRole !== 'none' && myRole !== playerId) {
                 showToast(`Помилка! Ви граєте за: ${namesDict[myRole]}. Це не ваша колода!`);
                 return;
             }
             
-            // Перевірка черги ходу
             if (currentTurn !== 'none' && currentTurn !== playerId) {
                 showToast(`Зараз не ваш хід! Ходять: ${namesDict[currentTurn]}`);
                 return;
             }
 
             if (drawIndexes[playerId] >= gameData[playerId].cards.length) {
-                createExplosion(e.clientX || e.touches[0].clientX, e.clientY || e.touches[0].clientY);
-                return; // Картки закінчились
+                const clientX = e.clientX || (e.touches ? e.touches[0].clientX : window.innerWidth/2);
+                const clientY = e.clientY || (e.touches ? e.touches[0].clientY : window.innerHeight/2);
+                createExplosion(clientX, clientY);
+                return;
             }
 
             const cardImage = gameData[playerId].cards[drawIndexes[playerId]];
@@ -492,12 +556,9 @@
 
             const newCard = createCardElement(cardId, cardImage, playerId);
             
-            // Позиціонування на місці курсора
             const clientX = e.clientX || e.touches[0].clientX;
             const clientY = e.clientY || e.touches[0].clientY;
             
-            // Враховуємо скрол дошки
-            const boardWrapper = document.getElementById('game-board-wrapper');
             const startX = clientX + boardWrapper.scrollLeft;
             const startY = clientY + boardWrapper.scrollTop;
             
@@ -509,7 +570,6 @@
                 zIndex: ++zIndexCounter
             });
 
-            // Відразу починаємо перетягування
             startDrag(e, newCard, cardId);
             createConfetti(clientX, clientY);
         }
@@ -522,7 +582,6 @@
                 card.className = 'card';
                 card.dataset.owner = owner;
                 
-                // Обробники для вже існуючих карток на полі
                 card.addEventListener('mousedown', (e) => startDrag(e, card, id));
                 card.addEventListener('touchstart', (e) => startDrag(e, card, id), {passive: false});
                 
@@ -537,18 +596,16 @@
             
             const owner = card.dataset.owner;
             
-            // Перевірка ролі при перетягуванні вже викладених карток
             if (myRole !== 'none' && myRole !== owner) {
                 showToast(`Це картка суперника (${namesDict[owner]})! Ви не можете її рухати.`);
                 return;
             }
 
-            const boardWrapper = document.getElementById('game-board-wrapper');
             const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
             const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
 
             const rect = card.getBoundingClientRect();
-            // Зсув курсора відносно лівого верхнього кута картки
+            // Зсув відносно видимої області
             const offsetX = clientX - rect.left;
             const offsetY = clientY - rect.top;
 
@@ -562,7 +619,7 @@
                 let newLeft = moveX - offsetX + boardWrapper.scrollLeft;
                 let newTop = moveY - offsetY + boardWrapper.scrollTop;
 
-                // Снапінг (прилипання) до сітки для рівного викладання (крок половина картки)
+                // Снапінг до сітки
                 newLeft = Math.round(newLeft / (cardWidth / 2)) * (cardWidth / 2);
                 newTop = Math.round(newTop / (cardHeight / 2)) * (cardHeight / 2);
 
@@ -580,7 +637,6 @@
                 card.classList.add('shake');
                 setTimeout(() => card.classList.remove('shake'), 400);
 
-                // Синхронізація результату
                 const finalLeft = parseInt(card.style.left) || 0;
                 const finalTop = parseInt(card.style.top) || 0;
 
@@ -630,7 +686,7 @@
             }
         }
 
-        // --- КЕРУВАННЯ ГРАВЦЯМИ ТА ХОДАМИ ---
+        // --- КЕРУВАННЯ ХОДАМИ ---
         function updateTurnUI(turn) {
             currentTurn = turn;
             turnSelector.value = turn;
@@ -642,25 +698,6 @@
             updateTurnUI(turn);
             sendAction({ type: 'set_turn', turn: turn });
         });
-
-        playerToggles.forEach(toggle => {
-            toggle.addEventListener('change', (e) => {
-                const playerId = e.target.value;
-                const isVisible = e.target.checked;
-                sendAction({ type: 'toggle_player', playerId: playerId, isVisible: isVisible });
-                togglePlayerVisibility(playerId, isVisible);
-            });
-        });
-
-        function togglePlayerVisibility(playerId, isVisible) {
-            const deck = playersConfig[playerId].deck;
-            if (isVisible) {
-                deck.classList.remove('hidden-player');
-            } else {
-                deck.classList.add('hidden-player');
-            }
-        }
-
 
         // --- СИНХРОНІЗАЦІЯ ЧЕРЕЗ FIREBASE ---
         function updateCardState(id, updates) {
@@ -679,7 +716,6 @@
             card.style.top = `${cardData.y}px`;
             if (cardData.zIndex) card.style.zIndex = cardData.zIndex;
             
-            // Оновлюємо лічильник витягнутих карток, якщо це необхідно (для синхронізації нових гравців)
             const parts = cardData.id.split('_');
             if (parts.length === 3) {
                 const owner = parts[1];
@@ -712,10 +748,6 @@
                 if (action.card.zIndex > zIndexCounter) zIndexCounter = action.card.zIndex + 1;
             } else if (action.type === 'set_turn') {
                 updateTurnUI(action.turn);
-            } else if (action.type === 'toggle_player') {
-                const toggle = document.querySelector(`.player-toggle[value="${action.playerId}"]`);
-                if (toggle) toggle.checked = action.isVisible;
-                togglePlayerVisibility(action.playerId, action.isVisible);
             }
         });
 
