@@ -18,6 +18,8 @@
             font-family: Arial, sans-serif;
             overflow: hidden;
             background-color: #333;
+            /* Фон за замовчуванням, щоб не було чорного екрану */
+            background-image: url('https://olgazheltvai2.github.io/images/backgrounds/background_1.webp');
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
@@ -47,13 +49,12 @@
             z-index: 1;
             cursor: grab;
         }
-        #game-board-wrapper:active {
-            cursor: grabbing;
-        }
+        #game-board-wrapper:active { cursor: grabbing; }
+        
         #game-board {
             position: relative;
-            width: 6000px;
-            height: 6000px;
+            width: 4000px;
+            height: 4000px;
             transform-origin: 0 0;
         }
 
@@ -86,16 +87,18 @@
             justify-content: center;
         }
         .deck-label {
-            background: rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.7);
             color: #fff;
-            padding: 4px 8px;
-            border-radius: 4px;
+            padding: 6px 10px;
+            border-radius: 6px;
             font-size: 14px;
+            font-weight: bold;
             margin-bottom: 5px;
             pointer-events: auto; /* Дозволяє клікати та тягнути */
             cursor: move;
             z-index: 101;
             border: 1px solid rgba(255,255,255,0.5);
+            text-align: center;
         }
 
         /* UI Панель керування */
@@ -107,7 +110,7 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
-            padding: 10px;
+            padding: 15px;
             max-width: 90vw;
         }
         .ui-row {
@@ -116,52 +119,57 @@
             gap: 10px;
             align-items: center;
         }
-        button, select {
+        select {
             padding: 8px 12px;
             font-family: Arial, sans-serif;
             font-size: 14px;
             border: none;
             border-radius: 6px;
-            background: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.9);
             color: #333;
             cursor: pointer;
-            transition: background 0.2s, transform 0.1s;
-        }
-        button:hover, select:hover {
-            background: rgba(255, 255, 255, 1);
         }
         
         /* Кнопки вибору ходу */
         .turn-btn {
+            font-family: Arial, sans-serif;
             font-weight: bold;
-            border: 2px solid transparent;
-            opacity: 0.8;
+            font-size: 14px;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 3px solid transparent;
+            opacity: 0.85;
+            transition: all 0.2s ease;
         }
         .turn-btn:hover { opacity: 1; transform: scale(1.05); }
 
         /* Індикатор ходу та тост */
         #turn-indicator {
-            font-size: 16px;
+            font-size: 18px;
             font-weight: bold;
-            padding: 8px 15px;
+            padding: 10px 20px;
             text-align: center;
-            text-shadow: 1px 1px 2px #000;
+            text-shadow: 1px 1px 3px #000;
+            background: rgba(0,0,0,0.4);
+            border-radius: 8px;
         }
         #toast-message {
             display: none;
             position: fixed;
-            top: 80px;
+            top: 100px;
             left: 50%;
             transform: translateX(-50%);
             background: rgba(255, 50, 50, 0.95);
             color: white;
-            padding: 15px 25px;
-            border-radius: 8px;
+            padding: 15px 30px;
+            border-radius: 12px;
             z-index: 999999;
             font-weight: bold;
             font-size: 18px;
-            box-shadow: 0 6px 12px rgba(0,0,0,0.6);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.6);
             text-align: center;
+            pointer-events: none;
         }
 
         /* Кнопка налаштувань (Theme Manager) */
@@ -169,15 +177,17 @@
             position: fixed;
             bottom: 20px;
             right: 20px;
-            width: 50px;
-            height: 50px;
+            width: 55px;
+            height: 55px;
             border-radius: 50%;
-            font-size: 24px;
+            font-size: 26px;
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 1000;
             box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            cursor: pointer;
+            border: none;
         }
 
         /* Модальне вікно тем */
@@ -187,7 +197,7 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 80%;
+            width: 85%;
             max-width: 600px;
             max-height: 60vh;
             z-index: 2000;
@@ -243,9 +253,10 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
+            font-weight: bold;
         }
 
-        /* Анімації (без слів) */
+        /* Анімації */
         .glow { animation: glowing 1.5s infinite; }
         @keyframes glowing {
             0% { box-shadow: 0 0 5px #fff, 0 0 10px #fff; }
@@ -254,11 +265,11 @@
         }
         .shake { animation: shaking 0.4s; }
         @keyframes shaking {
-            0% { transform: translate(1px, 1px) rotate(0deg); }
-            25% { transform: translate(-1px, -2px) rotate(-1deg); }
-            50% { transform: translate(-3px, 0px) rotate(1deg); }
-            75% { transform: translate(3px, 2px) rotate(0deg); }
-            100% { transform: translate(1px, -1px) rotate(0deg); }
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+            100% { transform: translateX(0); }
         }
         .particle {
             position: absolute;
@@ -293,30 +304,30 @@
 
         /* Адаптивність для мобільних */
         @media (max-width: 600px) {
-            #ui-panel { top: 5px; left: 5px; padding: 5px; width: 95vw; }
+            #ui-panel { top: 5px; left: 5px; padding: 10px; width: 95vw; }
             .ui-row { gap: 5px; }
-            button, select { padding: 6px 8px; font-size: 12px; }
-            #turn-indicator { font-size: 12px; padding: 5px 10px; }
+            select { padding: 6px 8px; font-size: 12px; }
+            .turn-btn { padding: 8px 10px; font-size: 12px; }
+            #turn-indicator { font-size: 14px; padding: 6px 12px; }
             .card { width: 70px; height: 70px; }
-            .deck-area { width: 80px; height: 100px; }
+            .deck-area { width: 90px; height: 110px; }
+            .deck-label { font-size: 11px; padding: 4px 6px; }
         }
     </style>
 </head>
 <body>
 
-    <!-- Версія гри -->
-    <div id="game-version" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 14px; z-index: 999999; font-family: Arial, sans-serif; pointer-events: none;">v1.4</div>
+    <div id="game-version" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 14px; z-index: 999999; font-family: Arial, sans-serif; pointer-events: none;">v1.5</div>
 
-    <!-- Тост для повідомлень та помилок -->
     <div id="toast-message"></div>
 
     <!-- UI Панель -->
     <div id="ui-panel" class="transparent-container">
         <div class="ui-row">
-            <div class="transparent-container" style="padding: 6px 12px; display: flex; align-items: center; gap: 5px;">
-                <span style="font-weight:bold;">Я граю за:</span>
-                <select id="my-role-selector" style="background: rgba(255,255,255,0.9);">
-                    <option value="none">Глядач</option>
+            <div class="transparent-container" style="padding: 6px 12px; display: flex; align-items: center; gap: 8px;">
+                <span style="font-weight:bold; text-shadow: 1px 1px 2px #000;">Я граю за:</span>
+                <select id="my-role-selector">
+                    <option value="none" selected>Глядач</option>
                     <option value="white">Білі мишки</option>
                     <option value="grey">Сірі мишки</option>
                     <option value="black">Чорні мишки</option>
@@ -324,31 +335,33 @@
                 </select>
             </div>
             
-            <div id="turn-indicator" class="transparent-container">Хід: Очікування...</div>
-            
-            <!-- Кнопки керування ходами -->
-            <div id="turn-buttons" class="ui-row" style="gap: 5px;">
-                <button class="turn-btn" data-turn="white" style="background: #fff; color: #000;">Білі</button>
-                <button class="turn-btn" data-turn="grey" style="background: #888; color: #fff;">Сірі</button>
-                <button class="turn-btn" data-turn="black" style="background: #000; color: #fff;">Чорні</button>
-                <button class="turn-btn" data-turn="red" style="background: #d32f2f; color: #fff;">Руді</button>
-            </div>
+            <div id="turn-indicator">Хід: Очікування...</div>
+        </div>
+        
+        <div class="ui-row" style="margin-top: 5px;">
+            <span style="font-weight:bold; text-shadow: 1px 1px 2px #000;">Передати хід:</span>
+            <!-- 4 кольорові кнопки -->
+            <button class="turn-btn" data-turn="white" style="background: #ffffff; color: #000000;">Білі</button>
+            <button class="turn-btn" data-turn="grey" style="background: #808080; color: #ffffff;">Сірі</button>
+            <button class="turn-btn" data-turn="black" style="background: #222222; color: #ffffff;">Чорні</button>
+            <button class="turn-btn" data-turn="red" style="background: #d32f2f; color: #ffffff;">Руді</button>
         </div>
     </div>
 
-    <!-- Ігрове поле (тепер 6000x6000) -->
+    <!-- Ігрове поле (4000x4000) -->
     <div id="game-board-wrapper">
         <div id="game-board">
-            <div id="deck-white" class="deck-area" style="top: 2900px; left: 2600px;">
+            <!-- Колоди зміщені в центр поля (на координати 1800-2200) -->
+            <div id="deck-white" class="deck-area" style="top: 1800px; left: 1800px; display: none;">
                 <div class="deck-label">Білі мишки</div>
             </div>
-            <div id="deck-grey" class="deck-area" style="top: 2900px; left: 3300px;">
+            <div id="deck-grey" class="deck-area" style="top: 1800px; left: 2200px; display: none;">
                 <div class="deck-label">Сірі мишки</div>
             </div>
-            <div id="deck-black" class="deck-area" style="top: 3100px; left: 2600px;">
+            <div id="deck-black" class="deck-area" style="top: 2200px; left: 1800px; display: none;">
                 <div class="deck-label">Чорні мишки</div>
             </div>
-            <div id="deck-red" class="deck-area" style="top: 3100px; left: 3300px;">
+            <div id="deck-red" class="deck-area" style="top: 2200px; left: 2200px; display: none;">
                 <div class="deck-label">Руді мишки</div>
             </div>
             
@@ -366,671 +379,564 @@
 
     <!-- Екран-заглушка -->
     <div id="block-overlay">Зачекай! Зараз не твій урок.</div>
-
     <script>
-        // --- БАЗА КАРТОК ТА КОЛОД ---
-        const gameData = {
-            white: {
-                back: 'kartka_39.webp',
-                cards: ['kartka_1.webp', 'kartka_2.webp', 'kartka_3.webp', 'kartka_4.webp', 'kartka_5.webp', 'kartka_6.webp', 'kartka_7.webp', 'kartka_8.webp', 'kartka_9.webp', 'kartka_10.webp', 'kartka_11.webp']
-            },
-            grey: {
-                back: 'kartka_37.webp',
-                cards: ['kartka_25.webp', 'kartka_26.webp', 'kartka_27.webp', 'kartka_28.webp', 'kartka_29.webp', 'kartka_30.webp', 'kartka_31.webp', 'kartka_32.webp', 'kartka_33.webp', 'kartka_35.webp', 'kartka_36.webp']
-            },
-            black: {
-                back: 'kartka_38.webp',
-                cards: ['kartka_13.webp', 'kartka_14.webp', 'kartka_15.webp', 'kartka_16.webp', 'kartka_17.webp', 'kartka_18.webp', 'kartka_19.webp', 'kartka_20.webp', 'kartka_21.webp', 'kartka_22.webp', 'kartka_23.webp']
-            },
-            red: {
-                back: 'kartka_48.webp',
-                cards: ['kartka_49.webp', 'kartka_50.webp', 'kartka_51.webp', 'kartka_52.webp', 'kartka_53.webp', 'kartka_54.webp', 'kartka_55.webp', 'kartka_56.webp', 'kartka_57.webp', 'kartka_58.webp', 'kartka_59.webp']
-            }
-        };
+        // Щоб гарантувати, що всі елементи завантажилися, обгортаємо основний код
+        document.addEventListener("DOMContentLoaded", () => {
+            
+            // --- БАЗА КАРТОК ТА КОЛОД ---
+            const gameData = {
+                white: { back: 'kartka_39.webp', cards: ['kartka_1.webp', 'kartka_2.webp', 'kartka_3.webp', 'kartka_4.webp', 'kartka_5.webp', 'kartka_6.webp', 'kartka_7.webp', 'kartka_8.webp', 'kartka_9.webp', 'kartka_10.webp', 'kartka_11.webp'] },
+                grey: { back: 'kartka_37.webp', cards: ['kartka_25.webp', 'kartka_26.webp', 'kartka_27.webp', 'kartka_28.webp', 'kartka_29.webp', 'kartka_30.webp', 'kartka_31.webp', 'kartka_32.webp', 'kartka_33.webp', 'kartka_35.webp', 'kartka_36.webp'] },
+                black: { back: 'kartka_38.webp', cards: ['kartka_13.webp', 'kartka_14.webp', 'kartka_15.webp', 'kartka_16.webp', 'kartka_17.webp', 'kartka_18.webp', 'kartka_19.webp', 'kartka_20.webp', 'kartka_21.webp', 'kartka_22.webp', 'kartka_23.webp'] },
+                red: { back: 'kartka_48.webp', cards: ['kartka_49.webp', 'kartka_50.webp', 'kartka_51.webp', 'kartka_52.webp', 'kartka_53.webp', 'kartka_54.webp', 'kartka_55.webp', 'kartka_56.webp', 'kartka_57.webp', 'kartka_58.webp', 'kartka_59.webp'] }
+            };
 
-        const namesDict = { white: 'Білі', grey: 'Сірі', black: 'Чорні', red: 'Руді', none: 'Очікування' };
+            const namesDict = { white: 'Білі', grey: 'Сірі', black: 'Чорні', red: 'Руді', none: 'Очікування' };
 
-        // Метадані для підрахунку (m = мишки, type = їжа, c = кількість їжі)
-        // s = полуниця, pea = горох, pump = гарбуз, ch = сир
-        const cardMeta = {
-            'kartka_58.webp': {m:1, type:'s', c:4}, 'kartka_59.webp': {m:2, type:'pea', c:3}, 'kartka_52.webp': {m:2, type:'pump', c:3}, 'kartka_53.webp': {m:1, type:'s', c:4}, 'kartka_54.webp': {m:1, type:'ch', c:2}, 'kartka_55.webp': {m:1, type:'pump', c:2}, 'kartka_56.webp': {m:1, type:'pea', c:2}, 'kartka_57.webp': {m:4, type:'s', c:1}, 'kartka_49.webp': {m:3, type:'s', c:2}, 'kartka_50.webp': {m:2, type:'ch', c:3}, 'kartka_51.webp': {m:3, type:'s', c:2},
-            'kartka_35.webp': {m:2, type:'ch', c:3}, 'kartka_36.webp': {m:1, type:'ch', c:2}, 'kartka_33.webp': {m:2, type:'s', c:3}, 'kartka_31.webp': {m:1, type:'pump', c:4}, 'kartka_32.webp': {m:1, type:'pea', c:2}, 'kartka_29.webp': {m:1, type:'pump', c:4}, 'kartka_30.webp': {m:1, type:'s', c:2}, 'kartka_26.webp': {m:3, type:'pump', c:2}, 'kartka_27.webp': {m:3, type:'pump', c:2}, 'kartka_28.webp': {m:2, type:'pea', c:3}, 'kartka_25.webp': {m:4, type:'pump', c:1},
-            'kartka_22.webp': {m:4, type:'ch', c:1}, 'kartka_23.webp': {m:2, type:'pea', c:3}, 'kartka_20.webp': {m:1, type:'ch', c:4}, 'kartka_21.webp': {m:1, type:'pump', c:2}, 'kartka_18.webp': {m:2, type:'s', c:3}, 'kartka_19.webp': {m:1, type:'ch', c:4}, 'kartka_16.webp': {m:3, type:'ch', c:2}, 'kartka_17.webp': {m:1, type:'s', c:2}, 'kartka_14.webp': {m:2, type:'pump', c:3}, 'kartka_15.webp': {m:1, type:'pea', c:2}, 'kartka_13.webp': {m:3, type:'ch', c:2},
-            'kartka_10.webp': {m:3, type:'pea', c:2}, 'kartka_11.webp': {m:1, type:'pump', c:2}, 'kartka_8.webp': {m:2, type:'pump', c:3}, 'kartka_9.webp': {m:2, type:'s', c:3}, 'kartka_5.webp': {m:1, type:'pea', c:4}, 'kartka_6.webp': {m:2, type:'ch', c:3}, 'kartka_7.webp': {m:1, type:'s', c:2}, 'kartka_2.webp': {m:1, type:'ch', c:2}, 'kartka_3.webp': {m:1, type:'pea', c:4}, 'kartka_4.webp': {m:3, type:'pea', c:2}, 'kartka_1.webp': {m:4, type:'pea', c:1}
-        };
+            const cardMeta = {
+                'kartka_58.webp': {m:1, type:'s', c:4}, 'kartka_59.webp': {m:2, type:'pea', c:3}, 'kartka_52.webp': {m:2, type:'pump', c:3}, 'kartka_53.webp': {m:1, type:'s', c:4}, 'kartka_54.webp': {m:1, type:'ch', c:2}, 'kartka_55.webp': {m:1, type:'pump', c:2}, 'kartka_56.webp': {m:1, type:'pea', c:2}, 'kartka_57.webp': {m:4, type:'s', c:1}, 'kartka_49.webp': {m:3, type:'s', c:2}, 'kartka_50.webp': {m:2, type:'ch', c:3}, 'kartka_51.webp': {m:3, type:'s', c:2},
+                'kartka_35.webp': {m:2, type:'ch', c:3}, 'kartka_36.webp': {m:1, type:'ch', c:2}, 'kartka_33.webp': {m:2, type:'s', c:3}, 'kartka_31.webp': {m:1, type:'pump', c:4}, 'kartka_32.webp': {m:1, type:'pea', c:2}, 'kartka_29.webp': {m:1, type:'pump', c:4}, 'kartka_30.webp': {m:1, type:'s', c:2}, 'kartka_26.webp': {m:3, type:'pump', c:2}, 'kartka_27.webp': {m:3, type:'pump', c:2}, 'kartka_28.webp': {m:2, type:'pea', c:3}, 'kartka_25.webp': {m:4, type:'pump', c:1},
+                'kartka_22.webp': {m:4, type:'ch', c:1}, 'kartka_23.webp': {m:2, type:'pea', c:3}, 'kartka_20.webp': {m:1, type:'ch', c:4}, 'kartka_21.webp': {m:1, type:'pump', c:2}, 'kartka_18.webp': {m:2, type:'s', c:3}, 'kartka_19.webp': {m:1, type:'ch', c:4}, 'kartka_16.webp': {m:3, type:'ch', c:2}, 'kartka_17.webp': {m:1, type:'s', c:2}, 'kartka_14.webp': {m:2, type:'pump', c:3}, 'kartka_15.webp': {m:1, type:'pea', c:2}, 'kartka_13.webp': {m:3, type:'ch', c:2},
+                'kartka_10.webp': {m:3, type:'pea', c:2}, 'kartka_11.webp': {m:1, type:'pump', c:2}, 'kartka_8.webp': {m:2, type:'pump', c:3}, 'kartka_9.webp': {m:2, type:'s', c:3}, 'kartka_5.webp': {m:1, type:'pea', c:4}, 'kartka_6.webp': {m:2, type:'ch', c:3}, 'kartka_7.webp': {m:1, type:'s', c:2}, 'kartka_2.webp': {m:1, type:'ch', c:2}, 'kartka_3.webp': {m:1, type:'pea', c:4}, 'kartka_4.webp': {m:3, type:'pea', c:2}, 'kartka_1.webp': {m:4, type:'pea', c:1}
+            };
 
-        // Глобальні змінні стану
-        let zIndexCounter = 100;
-        let isRemoteAction = false;
-        let localCardsState = {};
-        let hasWon = false;
-        
-        let myRole = 'none';
-        let currentTurn = 'none'; 
-        // Ліміт взяття карток (скидається при зміні ходу)
-        let drawnThisTurn = { white: false, grey: false, black: false, red: false };
+            // Глобальні змінні стану
+            let zIndexCounter = 100;
+            let isRemoteAction = false;
+            let localCardsState = {};
+            let localDecksState = {};
+            let hasWon = false;
+            let myRole = 'none';
+            let currentTurn = 'none'; 
+            let drawnThisTurn = { white: false, grey: false, black: false, red: false };
+            let drawIndexes = { white: 0, grey: 0, black: 0, red: 0 };
+            const cardWidth = 100, cardHeight = 100;
 
-        // --- ІНІЦІАЛІЗАЦІЯ FIREBASE ---
-        const firebaseConfig = {
-            databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/"
-        };
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
-        const db = firebase.database();
-        // --- ГЛОБАЛЬНІ ЗМІННІ ТА СТАН (ПРОДОВЖЕННЯ) ---
-        const mySessionId = 'session_' + Math.random().toString(36).substr(2, 9);
-        const actionRef = db.ref('game_action_mice');
-        const themeRef = db.ref('game_theme_mice');
-        
-        const cardWidth = 100; // Квадратні картки
-        const cardHeight = 100;
+            const playersConfig = {
+                white: { id: 'white', deck: document.getElementById('deck-white') },
+                grey:  { id: 'grey', deck: document.getElementById('deck-grey') },
+                black: { id: 'black', deck: document.getElementById('deck-black') },
+                red:   { id: 'red', deck: document.getElementById('deck-red') }
+            };
 
-        // Поточні індекси для витягування карток
-        const drawIndexes = { white: 0, grey: 0, black: 0, red: 0 };
+            const playedCardsContainer = document.getElementById('played-cards');
+            const turnIndicator = document.getElementById('turn-indicator');
+            const turnButtons = document.querySelectorAll('.turn-btn');
+            const myRoleSelector = document.getElementById('my-role-selector');
+            const toastMessage = document.getElementById('toast-message');
+            const boardWrapper = document.getElementById('game-board-wrapper');
 
-        // Доступні гравці (зберігаємо також їхні координати колод)
-        const playersConfig = {
-            white: { id: 'white', name: 'Білі', deck: document.getElementById('deck-white') },
-            grey:  { id: 'grey', name: 'Сірі', deck: document.getElementById('deck-grey') },
-            black: { id: 'black', name: 'Чорні', deck: document.getElementById('deck-black') },
-            red:   { id: 'red', name: 'Руді', deck: document.getElementById('deck-red') }
-        };
+            // --- ІНІЦІАЛІЗАЦІЯ FIREBASE ---
+            const firebaseConfig = { databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/" };
+            if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+            const db = firebase.database();
+            const mySessionId = 'session_' + Math.random().toString(36).substr(2, 9);
+            const actionRef = db.ref('game_action_mice');
+            const themeRef = db.ref('game_theme_mice');
 
-        const playedCardsContainer = document.getElementById('played-cards');
-        const turnIndicator = document.getElementById('turn-indicator');
-        const turnButtons = document.querySelectorAll('.turn-btn');
-        const myRoleSelector = document.getElementById('my-role-selector');
-        const toastMessage = document.getElementById('toast-message');
-        const boardWrapper = document.getElementById('game-board-wrapper');
-
-        // Ліміти ходу
-        let drawnThisTurn = { white: false, grey: false, black: false, red: false };
-        let currentTurn = 'none';
-        let myRole = 'none';
-        let hasWon = false;
-        let localCardsState = {};
-        let localDecksState = {};
-
-        // --- ПАНОРАМУВАННЯ (СКРОЛІНГ) ІГРОВОГО ПОЛЯ ---
-        let isPanning = false;
-        let startPanX = 0, startPanY = 0;
-        let startScrollLeft = 0, startScrollTop = 0;
-
-        window.addEventListener('load', () => {
-            boardWrapper.scrollLeft = 3000 - window.innerWidth / 2;
-            boardWrapper.scrollTop = 3000 - window.innerHeight / 2;
-        });
-
-        // Панорамування (миша)
-        boardWrapper.addEventListener('mousedown', (e) => {
-            if (e.target.classList.contains('card') || e.target.classList.contains('deck-label') || e.target.closest('#ui-panel') || e.target.closest('#theme-btn')) return;
-            isPanning = true;
-            startPanX = e.clientX;
-            startPanY = e.clientY;
-            startScrollLeft = boardWrapper.scrollLeft;
-            startScrollTop = boardWrapper.scrollTop;
-            boardWrapper.style.cursor = 'grabbing';
-        });
-        window.addEventListener('mousemove', (e) => {
-            if (!isPanning) return;
-            e.preventDefault();
-            boardWrapper.scrollLeft = startScrollLeft - (e.clientX - startPanX);
-            boardWrapper.scrollTop = startScrollTop - (e.clientY - startPanY);
-        });
-        window.addEventListener('mouseup', () => {
-            isPanning = false;
-            boardWrapper.style.cursor = 'grab';
-        });
-
-        // Панорамування (сенсор)
-        boardWrapper.addEventListener('touchstart', (e) => {
-            if (e.target.classList.contains('card') || e.target.classList.contains('deck-label') || e.target.closest('#ui-panel') || e.target.closest('#theme-btn') || e.touches.length !== 1) return;
-            isPanning = true;
-            startPanX = e.touches[0].clientX;
-            startPanY = e.touches[0].clientY;
-            startScrollLeft = boardWrapper.scrollLeft;
-            startScrollTop = boardWrapper.scrollTop;
-        }, {passive: false});
-        window.addEventListener('touchmove', (e) => {
-            if (!isPanning || e.touches.length !== 1) return;
-            if (e.cancelable) e.preventDefault();
-            boardWrapper.scrollLeft = startScrollLeft - (e.touches[0].clientX - startPanX);
-            boardWrapper.scrollTop = startScrollTop - (e.touches[0].clientY - startPanY);
-        }, {passive: false});
-        window.addEventListener('touchend', () => { isPanning = false; });
-
-
-        // --- СПЛИВАЮЧІ ПОВІДОМЛЕННЯ (ТОСТИ) ---
-        let toastTimeout;
-        function showToast(message) {
-            toastMessage.innerText = message;
-            toastMessage.style.display = 'block';
-            toastMessage.style.animation = 'none';
-            void toastMessage.offsetWidth; // trigger reflow
-            toastMessage.style.animation = 'shake 0.4s';
-            clearTimeout(toastTimeout);
-            toastTimeout = setTimeout(() => {
-                toastMessage.style.display = 'none';
-            }, 4000);
-        }
-
-        // --- ВИБІР РОЛІ ---
-        function updateDeckVisibility() {
-            Object.keys(playersConfig).forEach(playerId => {
-                const deck = playersConfig[playerId].deck;
-                if (myRole === playerId) {
-                    deck.style.display = 'flex';
-                } else {
-                    deck.style.display = 'none';
+            // --- ПАНОРАМУВАННЯ ТА ЦЕНТРУВАННЯ ПОЛЯ ---
+            function centerBoard() {
+                if(boardWrapper) {
+                    boardWrapper.scrollLeft = 2000 - window.innerWidth / 2;
+                    boardWrapper.scrollTop = 2000 - window.innerHeight / 2;
                 }
+            }
+            centerBoard();
+            setTimeout(centerBoard, 200);
+            window.addEventListener('resize', centerBoard);
+
+            let isPanning = false;
+            let startPanX = 0, startPanY = 0, startScrollLeft = 0, startScrollTop = 0;
+
+            boardWrapper.addEventListener('mousedown', (e) => {
+                if (e.target.classList.contains('card') || e.target.classList.contains('deck-label') || e.target.closest('#ui-panel') || e.target.closest('#theme-btn')) return;
+                isPanning = true; startPanX = e.clientX; startPanY = e.clientY;
+                startScrollLeft = boardWrapper.scrollLeft; startScrollTop = boardWrapper.scrollTop;
+                boardWrapper.style.cursor = 'grabbing';
             });
-        }
-
-        myRoleSelector.addEventListener('change', (e) => {
-            myRole = e.target.value;
-            updateDeckVisibility();
-            if (myRole !== 'none') {
-                showToast(`Ви обрали роль: ${namesDict[myRole]} мишки`);
-            } else {
-                showToast('Ви стали глядачем (колоди приховано)');
-            }
-        });
-
-        // --- ІНІЦІАЛІЗАЦІЯ ТА ПЕРЕТЯГУВАННЯ КОЛОД ---
-        function initDecks() {
-            Object.keys(playersConfig).forEach(playerId => {
-                const deckEl = playersConfig[playerId].deck;
-                const labelEl = deckEl.querySelector('.deck-label');
-                
-                // Перетягування колоди за плашку
-                labelEl.addEventListener('mousedown', (e) => startDragDeck(e, deckEl, playerId));
-                labelEl.addEventListener('touchstart', (e) => startDragDeck(e, deckEl, playerId), {passive: false});
-                
-                const deckCard = document.createElement('div');
-                deckCard.className = 'card';
-                deckCard.style.backgroundImage = `url('${gameData[playerId].back}')`;
-                deckCard.style.position = 'relative';
-                
-                playersConfig[playerId].backElement = deckCard;
-
-                deckCard.addEventListener('mousedown', (e) => startDrawCard(e, playerId));
-                deckCard.addEventListener('touchstart', (e) => startDrawCard(e, playerId), {passive: false});
-                
-                deckEl.appendChild(deckCard);
+            window.addEventListener('mousemove', (e) => {
+                if (!isPanning) return;
+                e.preventDefault();
+                boardWrapper.scrollLeft = startScrollLeft - (e.clientX - startPanX);
+                boardWrapper.scrollTop = startScrollTop - (e.clientY - startPanY);
             });
-            updateDeckVisibility();
-        }
+            window.addEventListener('mouseup', () => { isPanning = false; boardWrapper.style.cursor = 'grab'; });
 
-        function startDragDeck(e, deckEl, playerId) {
-            if (e.type === 'touchstart') e.preventDefault();
-            
-            const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
-            const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
-            const rect = deckEl.getBoundingClientRect();
-            
-            const offsetX = clientX - rect.left;
-            const offsetY = clientY - rect.top;
-            
-            deckEl.style.zIndex = ++zIndexCounter;
+            boardWrapper.addEventListener('touchstart', (e) => {
+                if (e.target.classList.contains('card') || e.target.classList.contains('deck-label') || e.target.closest('#ui-panel') || e.target.closest('#theme-btn') || e.touches.length !== 1) return;
+                isPanning = true; startPanX = e.touches[0].clientX; startPanY = e.touches[0].clientY;
+                startScrollLeft = boardWrapper.scrollLeft; startScrollTop = boardWrapper.scrollTop;
+            }, {passive: false});
+            window.addEventListener('touchmove', (e) => {
+                if (!isPanning || e.touches.length !== 1) return;
+                if (e.cancelable) e.preventDefault();
+                boardWrapper.scrollLeft = startScrollLeft - (e.touches[0].clientX - startPanX);
+                boardWrapper.scrollTop = startScrollTop - (e.touches[0].clientY - startPanY);
+            }, {passive: false});
+            window.addEventListener('touchend', () => { isPanning = false; });
 
-            function onMove(moveEvent) {
-                const moveX = moveEvent.clientX || (moveEvent.touches ? moveEvent.touches[0].clientX : 0);
-                const moveY = moveEvent.clientY || (moveEvent.touches ? moveEvent.touches[0].clientY : 0);
-                
-                let newLeft = moveX - offsetX + boardWrapper.scrollLeft;
-                let newTop = moveY - offsetY + boardWrapper.scrollTop;
-                
-                deckEl.style.left = `${newLeft}px`;
-                deckEl.style.top = `${newTop}px`;
+            // --- СПЛИВАЮЧІ ПОВІДОМЛЕННЯ (ТОСТИ) ---
+            function showToast(message, duration = 4000) {
+                if(!toastMessage) return;
+                toastMessage.innerText = message;
+                toastMessage.style.display = 'block';
+                toastMessage.style.animation = 'none';
+                void toastMessage.offsetWidth;
+                toastMessage.style.animation = 'shake 0.4s';
+                if(window.toastTimeout) clearTimeout(window.toastTimeout);
+                window.toastTimeout = setTimeout(() => { toastMessage.style.display = 'none'; }, duration);
             }
 
-            function onEnd() {
-                document.removeEventListener('mousemove', onMove);
-                document.removeEventListener('mouseup', onEnd);
-                document.removeEventListener('touchmove', onMove);
-                document.removeEventListener('touchend', onEnd);
-                
-                const finalLeft = parseInt(deckEl.style.left) || 0;
-                const finalTop = parseInt(deckEl.style.top) || 0;
-                
-                localDecksState[playerId] = { x: finalLeft, y: finalTop, zIndex: zIndexCounter };
-                sendAction({ type: 'deck_move', playerId: playerId, deck: localDecksState[playerId] });
-            }
-
-            document.addEventListener('mousemove', onMove);
-            document.addEventListener('mouseup', onEnd);
-            document.addEventListener('touchmove', onMove, {passive: false});
-            document.addEventListener('touchend', onEnd);
-        }
-
-        // --- ЛОГІКА ПЕРЕТЯГУВАННЯ ТА МАЛЮВАННЯ КАРТОК (З ЛІМІТОМ) ---
-        function startDrawCard(e, playerId) {
-            e.preventDefault();
-            
-            if (myRole !== 'none' && myRole !== playerId) {
-                showToast(`Помилка! Ви граєте за: ${namesDict[myRole]}. Це не ваша колода!`);
-                return;
-            }
-            if (currentTurn !== 'none' && currentTurn !== playerId) {
-                showToast(`Зараз не ваш хід! Ходять: ${namesDict[currentTurn]}`);
-                return;
-            }
-            if (drawnThisTurn[playerId]) {
-                showToast('Ви вже витягнули картку в цьому ході! Передайте хід.');
-                return;
-            }
-
-            if (drawIndexes[playerId] >= gameData[playerId].cards.length) {
-                const clientX = e.clientX || (e.touches ? e.touches[0].clientX : window.innerWidth/2);
-                const clientY = e.clientY || (e.touches ? e.touches[0].clientY : window.innerHeight/2);
-                createExplosion(clientX, clientY);
-                return;
-            }
-
-            const cardImage = gameData[playerId].cards[drawIndexes[playerId]];
-            const cardId = `card_${playerId}_${drawIndexes[playerId]}`;
-            drawIndexes[playerId]++;
-            drawnThisTurn[playerId] = true; // Фіксуємо, що картку взято
-
-            const newCard = createCardElement(cardId, cardImage, playerId);
-            
-            const clientX = e.clientX || e.touches[0].clientX;
-            const clientY = e.clientY || e.touches[0].clientY;
-            const startX = clientX + boardWrapper.scrollLeft;
-            const startY = clientY + boardWrapper.scrollTop;
-            
-            updateCardState(cardId, {
-                x: startX - cardWidth / 2,
-                y: startY - cardHeight / 2,
-                image: cardImage,
-                owner: playerId,
-                zIndex: ++zIndexCounter
-            });
-
-            startDrag(e, newCard, cardId);
-            createConfetti(clientX, clientY);
-        }
-
-        function createCardElement(id, image, owner) {
-            let card = document.getElementById(id);
-            if (!card) {
-                card = document.createElement('div');
-                card.id = id;
-                card.className = 'card';
-                card.dataset.owner = owner;
-                
-                card.addEventListener('mousedown', (e) => startDrag(e, card, id));
-                card.addEventListener('touchstart', (e) => startDrag(e, card, id), {passive: false});
-                
-                playedCardsContainer.appendChild(card);
-            }
-            card.style.backgroundImage = `url('${image}')`;
-            return card;
-        }
-
-        function startDrag(e, card, id) {
-            if (e.type === 'touchstart') e.preventDefault();
-            
-            const owner = card.dataset.owner;
-            if (myRole !== 'none' && myRole !== owner) {
-                showToast(`Це картка суперника (${namesDict[owner]})! Ви не можете її рухати.`);
-                return;
-            }
-
-            const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
-            const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
-            const rect = card.getBoundingClientRect();
-            
-            const offsetX = clientX - rect.left;
-            const offsetY = clientY - rect.top;
-
-            card.style.zIndex = ++zIndexCounter;
-            card.classList.add('glow');
-
-            function onMove(moveEvent) {
-                const moveX = moveEvent.clientX || (moveEvent.touches ? moveEvent.touches[0].clientX : 0);
-                const moveY = moveEvent.clientY || (moveEvent.touches ? moveEvent.touches[0].clientY : 0);
-
-                let newLeft = moveX - offsetX + boardWrapper.scrollLeft;
-                let newTop = moveY - offsetY + boardWrapper.scrollTop;
-
-                // Снапінг до сітки (крок 50px для перекриття)
-                newLeft = Math.round(newLeft / 50) * 50;
-                newTop = Math.round(newTop / 50) * 50;
-
-                card.style.left = `${newLeft}px`;
-                card.style.top = `${newTop}px`;
-            }
-
-            function onEnd() {
-                document.removeEventListener('mousemove', onMove);
-                document.removeEventListener('mouseup', onEnd);
-                document.removeEventListener('touchmove', onMove);
-                document.removeEventListener('touchend', onEnd);
-                
-                card.classList.remove('glow');
-                card.classList.add('shake');
-                setTimeout(() => card.classList.remove('shake'), 400);
-
-                const finalLeft = parseInt(card.style.left) || 0;
-                const finalTop = parseInt(card.style.top) || 0;
-
-                updateCardState(id, {
-                    x: finalLeft,
-                    y: finalTop,
-                    zIndex: zIndexCounter
+            // --- ВИБІР РОЛІ ---
+            function updateDeckVisibility() {
+                Object.keys(playersConfig).forEach(playerId => {
+                    const deck = playersConfig[playerId].deck;
+                    if (myRole === playerId) {
+                        deck.style.display = 'flex';
+                    } else {
+                        deck.style.display = 'none';
+                    }
                 });
-                
-                // Перевірка перемоги після кожного руху
-                setTimeout(checkWinCondition, 500);
             }
 
-            document.addEventListener('mousemove', onMove);
-            document.addEventListener('mouseup', onEnd);
-            document.addEventListener('touchmove', onMove, {passive: false});
-            document.addEventListener('touchend', onEnd);
-        }
+            myRoleSelector.addEventListener('change', (e) => {
+                myRole = e.target.value;
+                updateDeckVisibility();
+                if (myRole !== 'none') showToast(`Ви обрали роль: ${namesDict[myRole]} мишки`);
+                else showToast('Ви стали глядачем (колоди приховано)');
+            });
 
-        // --- ЛОГІКА ПЕРЕВІРКИ ПЕРЕМОГИ (10 мишок або їжі) ---
-        function checkWinCondition() {
-            if (hasWon) return;
-            
-            let cards = Object.values(localCardsState).map(c => {
-                let filename = c.image.split('/').pop();
-                return { ...c, meta: cardMeta[filename] };
-            }).filter(c => c.meta);
-            
-            if (cards.length === 0) return;
-
-            // Групуємо картки за власниками
-            let byOwner = { white: [], grey: [], black: [], red: [] };
-            cards.forEach(c => byOwner[c.owner].push(c));
-
-            for (let owner in byOwner) {
-                let pCards = byOwner[owner];
-                if (pCards.length < 3) continue; // Мінімум потрібно хоча б 3 картки щоб зібрати 10
-
-                // Спрощений алгоритм: перевіряємо, чи є достатня сума у лініях, що торкаються
-                // Для веб-версії шукаємо групи зв'язаних карток (компоненти зв'язності). 
-                // Дві картки зв'язані, якщо відстань між ними не більше 120px
-                
-                let visited = new Set();
-                
-                for (let i = 0; i < pCards.length; i++) {
-                    if (visited.has(i)) continue;
+            // --- ІНІЦІАЛІЗАЦІЯ ТА ПЕРЕТЯГУВАННЯ КОЛОД ---
+            function initDecks() {
+                Object.keys(playersConfig).forEach(playerId => {
+                    const deckEl = playersConfig[playerId].deck;
+                    const labelEl = deckEl.querySelector('.deck-label');
                     
-                    let group = [];
-                    let queue = [i];
-                    visited.add(i);
+                    labelEl.addEventListener('mousedown', (e) => startDragDeck(e, deckEl, playerId));
+                    labelEl.addEventListener('touchstart', (e) => startDragDeck(e, deckEl, playerId), {passive: false});
                     
-                    while (queue.length > 0) {
-                        let currIdx = queue.shift();
-                        let curr = pCards[currIdx];
-                        group.push(curr);
+                    const deckCard = document.createElement('div');
+                    deckCard.className = 'card';
+                    deckCard.style.backgroundImage = `url('${gameData[playerId].back}')`;
+                    deckCard.style.position = 'relative';
+                    
+                    deckCard.addEventListener('mousedown', (e) => startDrawCard(e, playerId));
+                    deckCard.addEventListener('touchstart', (e) => startDrawCard(e, playerId), {passive: false});
+                    
+                    deckEl.appendChild(deckCard);
+                });
+                updateDeckVisibility(); // Сховає всі колоди, бо старт з "Глядач"
+            }
+
+            function startDragDeck(e, deckEl, playerId) {
+                if (e.type === 'touchstart') e.preventDefault();
+                const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+                const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
+                const rect = deckEl.getBoundingClientRect();
+                const offsetX = clientX - rect.left;
+                const offsetY = clientY - rect.top;
+                
+                deckEl.style.zIndex = ++zIndexCounter;
+
+                function onMove(moveEvent) {
+                    const moveX = moveEvent.clientX || (moveEvent.touches ? moveEvent.touches[0].clientX : 0);
+                    const moveY = moveEvent.clientY || (moveEvent.touches ? moveEvent.touches[0].clientY : 0);
+                    let newLeft = moveX - offsetX + boardWrapper.scrollLeft;
+                    let newTop = moveY - offsetY + boardWrapper.scrollTop;
+                    deckEl.style.left = `${newLeft}px`;
+                    deckEl.style.top = `${newTop}px`;
+                }
+
+                function onEnd() {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onEnd);
+                    document.removeEventListener('touchmove', onMove);
+                    document.removeEventListener('touchend', onEnd);
+                    
+                    const finalLeft = parseInt(deckEl.style.left) || 0;
+                    const finalTop = parseInt(deckEl.style.top) || 0;
+                    localDecksState[playerId] = { x: finalLeft, y: finalTop, zIndex: zIndexCounter };
+                    sendAction({ type: 'deck_move', playerId: playerId, deck: localDecksState[playerId] });
+                }
+
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onEnd);
+                document.addEventListener('touchmove', onMove, {passive: false});
+                document.addEventListener('touchend', onEnd);
+            }
+
+            // --- ВИТЯГУВАННЯ ТА ПЕРЕТЯГУВАННЯ КАРТОК (З ЛІМІТОМ) ---
+            function startDrawCard(e, playerId) {
+                e.preventDefault();
+                
+                if (myRole !== 'none' && myRole !== playerId) {
+                    showToast(`Помилка! Ви граєте за: ${namesDict[myRole]}. Це не ваша колода!`);
+                    return;
+                }
+                if (currentTurn !== 'none' && currentTurn !== playerId) {
+                    showToast(`Зараз не ваш хід! Ходять: ${namesDict[currentTurn]}`);
+                    return;
+                }
+                if (drawnThisTurn[playerId]) {
+                    showToast('Ви вже витягнули картку в цьому ході! Передайте хід кнопкою.');
+                    return;
+                }
+                if (drawIndexes[playerId] >= gameData[playerId].cards.length) {
+                    const cx = e.clientX || (e.touches ? e.touches[0].clientX : window.innerWidth/2);
+                    const cy = e.clientY || (e.touches ? e.touches[0].clientY : window.innerHeight/2);
+                    createExplosion(cx, cy);
+                    return;
+                }
+
+                const cardImage = gameData[playerId].cards[drawIndexes[playerId]];
+                const cardId = `card_${playerId}_${drawIndexes[playerId]}`;
+                drawIndexes[playerId]++;
+                drawnThisTurn[playerId] = true;
+
+                const newCard = createCardElement(cardId, cardImage, playerId);
+                
+                const clientX = e.clientX || e.touches[0].clientX;
+                const clientY = e.clientY || e.touches[0].clientY;
+                const startX = clientX + boardWrapper.scrollLeft;
+                const startY = clientY + boardWrapper.scrollTop;
+                
+                updateCardState(cardId, {
+                    x: startX - cardWidth / 2,
+                    y: startY - cardHeight / 2,
+                    image: cardImage,
+                    owner: playerId,
+                    zIndex: ++zIndexCounter
+                });
+
+                startDrag(e, newCard, cardId);
+                createConfetti(clientX, clientY);
+            }
+
+            function createCardElement(id, image, owner) {
+                let card = document.getElementById(id);
+                if (!card) {
+                    card = document.createElement('div');
+                    card.id = id;
+                    card.className = 'card';
+                    card.dataset.owner = owner;
+                    card.addEventListener('mousedown', (e) => startDrag(e, card, id));
+                    card.addEventListener('touchstart', (e) => startDrag(e, card, id), {passive: false});
+                    playedCardsContainer.appendChild(card);
+                }
+                card.style.backgroundImage = `url('${image}')`;
+                return card;
+            }
+
+            function startDrag(e, card, id) {
+                if (e.type === 'touchstart') e.preventDefault();
+                
+                const owner = card.dataset.owner;
+                if (myRole !== 'none' && myRole !== owner) {
+                    showToast(`Це картка суперника (${namesDict[owner]})! Ви не можете її рухати.`);
+                    return;
+                }
+
+                const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+                const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
+                const rect = card.getBoundingClientRect();
+                const offsetX = clientX - rect.left;
+                const offsetY = clientY - rect.top;
+
+                card.style.zIndex = ++zIndexCounter;
+                card.classList.add('glow');
+
+                function onMove(moveEvent) {
+                    const moveX = moveEvent.clientX || (moveEvent.touches ? moveEvent.touches[0].clientX : 0);
+                    const moveY = moveEvent.clientY || (moveEvent.touches ? moveEvent.touches[0].clientY : 0);
+                    let newLeft = moveX - offsetX + boardWrapper.scrollLeft;
+                    let newTop = moveY - offsetY + boardWrapper.scrollTop;
+
+                    // Прилипання до сітки (крок 50px)
+                    newLeft = Math.round(newLeft / 50) * 50;
+                    newTop = Math.round(newTop / 50) * 50;
+
+                    card.style.left = `${newLeft}px`;
+                    card.style.top = `${newTop}px`;
+                }
+
+                function onEnd() {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onEnd);
+                    document.removeEventListener('touchmove', onMove);
+                    document.removeEventListener('touchend', onEnd);
+                    
+                    card.classList.remove('glow');
+                    card.classList.add('shake');
+                    setTimeout(() => card.classList.remove('shake'), 400);
+
+                    const finalLeft = parseInt(card.style.left) || 0;
+                    const finalTop = parseInt(card.style.top) || 0;
+
+                    updateCardState(id, { x: finalLeft, y: finalTop, zIndex: zIndexCounter });
+                    setTimeout(checkWinCondition, 500); // Перевірка перемоги після відпускання
+                }
+
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onEnd);
+                document.addEventListener('touchmove', onMove, {passive: false});
+                document.addEventListener('touchend', onEnd);
+            }
+
+            // --- ЛОГІКА ПЕРЕВІРКИ ПЕРЕМОГИ (АВТОМАТИЧНА) ---
+            function checkWinCondition() {
+                if (hasWon) return;
+                
+                let cards = Object.values(localCardsState).map(c => {
+                    let filename = c.image.split('/').pop();
+                    return { ...c, meta: cardMeta[filename] };
+                }).filter(c => c.meta);
+                
+                if (cards.length === 0) return;
+
+                let byOwner = { white: [], grey: [], black: [], red: [] };
+                cards.forEach(c => byOwner[c.owner].push(c));
+
+                for (let owner in byOwner) {
+                    let pCards = byOwner[owner];
+                    if (pCards.length < 3) continue;
+
+                    let visited = new Set();
+                    for (let i = 0; i < pCards.length; i++) {
+                        if (visited.has(i)) continue;
                         
-                        for (let j = 0; j < pCards.length; j++) {
-                            if (!visited.has(j)) {
-                                let other = pCards[j];
-                                let dx = Math.abs(curr.x - other.x);
-                                let dy = Math.abs(curr.y - other.y);
-                                // Якщо торкаються або перекриваються (допуск 110px)
-                                if (dx <= 110 && dy <= 110) {
-                                    visited.add(j);
-                                    queue.push(j);
+                        let group = [];
+                        let queue = [i];
+                        visited.add(i);
+                        
+                        while (queue.length > 0) {
+                            let currIdx = queue.shift();
+                            let curr = pCards[currIdx];
+                            group.push(curr);
+                            
+                            for (let j = 0; j < pCards.length; j++) {
+                                if (!visited.has(j)) {
+                                    let other = pCards[j];
+                                    let dx = Math.abs(curr.x - other.x);
+                                    let dy = Math.abs(curr.y - other.y);
+                                    // Якщо знаходяться поруч (допуск 120px для компенсації зсувів)
+                                    if (dx <= 120 && dy <= 120) {
+                                        visited.add(j);
+                                        queue.push(j);
+                                    }
                                 }
                             }
                         }
-                    }
-                    
-                    // Аналізуємо групу
-                    let totalMice = group.reduce((sum, c) => sum + c.meta.m, 0);
-                    
-                    // Групуємо їжу за типом в цій зв'язці
-                    let foodSums = {};
-                    group.forEach(c => {
-                        if (!foodSums[c.meta.type]) foodSums[c.meta.type] = 0;
-                        foodSums[c.meta.type] += c.meta.c;
-                    });
-                    
-                    let maxFood = Math.max(...Object.values(foodSums), 0);
-                    
-                    if (totalMice >= 10) {
-                        triggerWin(owner, `Зібрано 10 ${namesDict[owner]} мишок!`);
-                        return;
-                    }
-                    if (maxFood >= 10) {
-                        triggerWin(owner, `Зібрано 10 одиниць улюбленої їжі! (${namesDict[owner]} мишки)`);
-                        return;
+                        
+                        let totalMice = group.reduce((sum, c) => sum + c.meta.m, 0);
+                        let foodSums = {};
+                        group.forEach(c => {
+                            if (!foodSums[c.meta.type]) foodSums[c.meta.type] = 0;
+                            foodSums[c.meta.type] += c.meta.c;
+                        });
+                        let maxFood = Math.max(...Object.values(foodSums), 0);
+                        
+                        if (totalMice >= 10) { triggerWin(owner, `Зібрано 10 ${namesDict[owner]} мишок!`); return; }
+                        if (maxFood >= 10) { triggerWin(owner, `Зібрано 10 одиниць улюбленої їжі! (${namesDict[owner]} мишки)`); return; }
                     }
                 }
             }
-        }
 
-        function triggerWin(winner, message) {
-            hasWon = true;
-            showToast(`🎉 ПЕРЕМОГА! ${message}`);
-            // Багато конфеті
-            let w = window.innerWidth;
-            let h = window.innerHeight;
-            for(let i=0; i<20; i++) {
-                setTimeout(() => createConfetti(w/2 + (Math.random()-0.5)*w, h/2 + (Math.random()-0.5)*h), i*200);
-            }
-        }
-
-        // --- ВІЗУАЛЬНІ ЕФЕКТИ (Без звуків) ---
-        function createExplosion(x, y) {
-            for (let i = 0; i < 15; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                particle.style.left = `${x}px`;
-                particle.style.top = `${y}px`;
-                particle.style.width = `${Math.random() * 10 + 5}px`;
-                particle.style.height = particle.style.width;
-                particle.style.background = ['#ff0', '#f00', '#0f0', '#00f', '#fff'][Math.floor(Math.random() * 5)];
-                particle.style.setProperty('--tx', `${(Math.random() - 0.5) * 100}px`);
-                particle.style.setProperty('--ty', `${(Math.random() - 0.5) * 100}px`);
-                document.body.appendChild(particle);
-                setTimeout(() => particle.remove(), 1000);
-            }
-        }
-
-        function createConfetti(x, y) {
-            for (let i = 0; i < 20; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                particle.style.left = `${x}px`;
-                particle.style.top = `${y}px`;
-                particle.style.width = '8px';
-                particle.style.height = '8px';
-                particle.style.background = ['#FFD700', '#FF6347', '#00FF00', '#1E90FF'][Math.floor(Math.random()*4)];
-                particle.style.setProperty('--tx', `${(Math.random() - 0.5) * 150}px`);
-                particle.style.setProperty('--ty', `${-Math.random() * 200}px`);
-                document.body.appendChild(particle);
-                setTimeout(() => particle.remove(), 1000);
-            }
-        }
-
-        // --- КЕРУВАННЯ ХОДАМИ (ЧЕРЕЗ КНОПКИ) ---
-        function updateTurnUI(turn) {
-            currentTurn = turn;
-            turnIndicator.innerText = turn !== 'none' ? `Хід: ${namesDict[turn]}` : 'Хід: Очікування...';
-            
-            // Скидаємо ліміт взяття карток для всіх гравців при передачі ходу
-            Object.keys(drawnThisTurn).forEach(k => drawnThisTurn[k] = false);
-
-            // Виділення активної кнопки
-            turnButtons.forEach(btn => {
-                if (btn.dataset.turn === turn) {
-                    btn.style.border = '2px solid #0f0';
-                    btn.style.boxShadow = '0 0 10px #0f0';
-                } else {
-                    btn.style.border = '2px solid transparent';
-                    btn.style.boxShadow = 'none';
+            function triggerWin(winner, message) {
+                hasWon = true;
+                showToast(`🎉 ПЕРЕМОГА! ${message}`, 8000);
+                let w = window.innerWidth;
+                let h = window.innerHeight;
+                for(let i=0; i<30; i++) {
+                    setTimeout(() => createConfetti(w/2 + (Math.random()-0.5)*w, h/2 + (Math.random()-0.5)*h), i*150);
                 }
-            });
-        }
-
-        turnButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const turn = btn.dataset.turn;
-                updateTurnUI(turn);
-                sendAction({ type: 'set_turn', turn: turn });
-            });
-        });
-
-        // --- СИНХРОНІЗАЦІЯ ЧЕРЕЗ FIREBASE ---
-        function updateCardState(id, updates) {
-            if (!localCardsState[id]) localCardsState[id] = { id: id };
-            localCardsState[id] = { ...localCardsState[id], ...updates };
-            renderCard(localCardsState[id]);
-            sendAction({ type: 'card_move', card: localCardsState[id] });
-        }
-
-        function renderCard(cardData) {
-            const card = createCardElement(cardData.id, cardData.image, cardData.owner);
-            card.style.left = `${cardData.x}px`;
-            card.style.top = `${cardData.y}px`;
-            if (cardData.zIndex) card.style.zIndex = cardData.zIndex;
-            
-            const parts = cardData.id.split('_');
-            if (parts.length === 3) {
-                const owner = parts[1];
-                const index = parseInt(parts[2]);
-                if (drawIndexes[owner] <= index) drawIndexes[owner] = index + 1;
-            }
-        }
-
-        function renderDeck(playerId, deckData) {
-            const deckEl = playersConfig[playerId].deck;
-            deckEl.style.left = `${deckData.x}px`;
-            deckEl.style.top = `${deckData.y}px`;
-            if (deckData.zIndex) deckEl.style.zIndex = deckData.zIndex;
-        }
-
-        function sendAction(data) {
-            isRemoteAction = false;
-            actionRef.set({
-                senderId: mySessionId,
-                timestamp: firebase.database.ServerValue.TIMESTAMP,
-                data: data
-            }).catch(console.error);
-        }
-
-        actionRef.on('value', (snapshot) => {
-            const val = snapshot.val();
-            if (!val || val.senderId === mySessionId) return;
-
-            isRemoteAction = true;
-            const action = val.data;
-
-            if (action.type === 'card_move') {
-                localCardsState[action.card.id] = action.card;
-                renderCard(action.card);
-                if (action.card.zIndex > zIndexCounter) zIndexCounter = action.card.zIndex + 1;
-            } else if (action.type === 'deck_move') {
-                localDecksState[action.playerId] = action.deck;
-                renderDeck(action.playerId, action.deck);
-                if (action.deck.zIndex > zIndexCounter) zIndexCounter = action.deck.zIndex + 1;
-            } else if (action.type === 'set_turn') {
-                updateTurnUI(action.turn);
-            }
-        });
-
-        // --- 1. СИСТЕМА ДИНАМІЧНИХ ФОНІВ (THEME MANAGER) ---
-        const themeBtn = document.getElementById('theme-btn');
-        const themeModal = document.getElementById('theme-modal');
-        const closeThemeModal = document.getElementById('close-theme-modal');
-        const themeGallery = document.getElementById('theme-gallery');
-        const baseURL = "https://olgazheltvai2.github.io/images/backgrounds/";
-        
-        let loadedThemesCount = 0;
-        const maxThemes = 200; 
-
-        function loadThemes() {
-            if (loadedThemesCount > 0) return; 
-            themeGallery.innerHTML = '<p>Завантаження фонів...</p>';
-            
-            let validPromises = [];
-
-            for (let i = 1; i <= maxThemes; i++) {
-                const bgUrl = `${baseURL}background_${i}.webp`;
-                const checkImg = new Promise((resolve) => {
-                    const img = new Image();
-                    img.onload = () => resolve({ url: bgUrl, id: i, valid: true });
-                    img.onerror = () => resolve({ valid: false });
-                    img.src = bgUrl;
-                });
-                validPromises.push(checkImg);
             }
 
-            Promise.all(validPromises).then(results => {
-                themeGallery.innerHTML = '';
-                results.filter(r => r.valid).forEach(res => {
-                    loadedThemesCount++;
-                    const item = document.createElement('div');
-                    item.className = 'theme-item';
-                    item.style.backgroundImage = `url('${res.url}')`;
-                    
-                    const label = document.createElement('div');
-                    label.className = 'theme-name';
-                    label.innerText = `Фон ${res.id}`;
-                    
-                    item.appendChild(label);
-                    item.addEventListener('click', () => {
-                        applyTheme(res.url);
-                        themeModal.style.display = 'none';
-                    });
-                    
-                    themeGallery.appendChild(item);
-                });
+            // --- ВІЗУАЛЬНІ ЕФЕКТИ ---
+            function createExplosion(x, y) {
+                for (let i = 0; i < 15; i++) {
+                    const particle = document.createElement('div');
+                    particle.className = 'particle';
+                    particle.style.left = `${x}px`;
+                    particle.style.top = `${y}px`;
+                    particle.style.width = `${Math.random() * 10 + 5}px`;
+                    particle.style.height = particle.style.width;
+                    particle.style.background = ['#ff0', '#f00', '#0f0', '#00f', '#fff'][Math.floor(Math.random() * 5)];
+                    particle.style.setProperty('--tx', `${(Math.random() - 0.5) * 100}px`);
+                    particle.style.setProperty('--ty', `${(Math.random() - 0.5) * 100}px`);
+                    document.body.appendChild(particle);
+                    setTimeout(() => particle.remove(), 1000);
+                }
+            }
+
+            function createConfetti(x, y) {
+                for (let i = 0; i < 20; i++) {
+                    const particle = document.createElement('div');
+                    particle.className = 'particle';
+                    particle.style.left = `${x}px`;
+                    particle.style.top = `${y}px`;
+                    particle.style.width = '10px';
+                    particle.style.height = '10px';
+                    particle.style.background = ['#FFD700', '#FF6347', '#00FF00', '#1E90FF'][Math.floor(Math.random()*4)];
+                    particle.style.setProperty('--tx', `${(Math.random() - 0.5) * 150}px`);
+                    particle.style.setProperty('--ty', `${-Math.random() * 200}px`);
+                    document.body.appendChild(particle);
+                    setTimeout(() => particle.remove(), 1000);
+                }
+            }
+
+            // --- КЕРУВАННЯ ХОДАМИ (КНОПКИ) ---
+            function updateTurnUI(turn) {
+                currentTurn = turn;
+                turnIndicator.innerText = turn !== 'none' ? `Хід: ${namesDict[turn]}` : 'Хід: Очікування...';
                 
-                if (loadedThemesCount === 0) {
-                    themeGallery.innerHTML = '<p>Фони не знайдені в репозиторії.</p>';
+                // Скидаємо ліміт карток для всіх гравців
+                Object.keys(drawnThisTurn).forEach(k => drawnThisTurn[k] = false);
+
+                turnButtons.forEach(btn => {
+                    if (btn.dataset.turn === turn) {
+                        btn.style.border = '3px solid #00ff00';
+                        btn.style.boxShadow = '0 0 15px #00ff00';
+                    } else {
+                        btn.style.border = '3px solid transparent';
+                        btn.style.boxShadow = 'none';
+                    }
+                });
+            }
+
+            turnButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const turn = btn.dataset.turn;
+                    updateTurnUI(turn);
+                    sendAction({ type: 'set_turn', turn: turn });
+                });
+            });
+
+            // --- СИНХРОНІЗАЦІЯ ЧЕРЕЗ FIREBASE ---
+            function updateCardState(id, updates) {
+                if (!localCardsState[id]) localCardsState[id] = { id: id };
+                localCardsState[id] = { ...localCardsState[id], ...updates };
+                renderCard(localCardsState[id]);
+                sendAction({ type: 'card_move', card: localCardsState[id] });
+            }
+
+            function renderCard(cardData) {
+                const card = createCardElement(cardData.id, cardData.image, cardData.owner);
+                card.style.left = `${cardData.x}px`;
+                card.style.top = `${cardData.y}px`;
+                if (cardData.zIndex) card.style.zIndex = cardData.zIndex;
+                
+                const parts = cardData.id.split('_');
+                if (parts.length === 3) {
+                    const owner = parts[1];
+                    const index = parseInt(parts[2]);
+                    if (drawIndexes[owner] <= index) drawIndexes[owner] = index + 1;
+                }
+            }
+
+            function renderDeck(playerId, deckData) {
+                const deckEl = playersConfig[playerId].deck;
+                deckEl.style.left = `${deckData.x}px`;
+                deckEl.style.top = `${deckData.y}px`;
+                if (deckData.zIndex) deckEl.style.zIndex = deckData.zIndex;
+            }
+
+            function sendAction(data) {
+                isRemoteAction = false;
+                actionRef.set({ senderId: mySessionId, timestamp: firebase.database.ServerValue.TIMESTAMP, data: data }).catch(console.error);
+            }
+
+            actionRef.on('value', (snapshot) => {
+                const val = snapshot.val();
+                if (!val || val.senderId === mySessionId) return;
+
+                isRemoteAction = true;
+                const action = val.data;
+
+                if (action.type === 'card_move') {
+                    localCardsState[action.card.id] = action.card;
+                    renderCard(action.card);
+                    if (action.card.zIndex > zIndexCounter) zIndexCounter = action.card.zIndex + 1;
+                } else if (action.type === 'deck_move') {
+                    localDecksState[action.playerId] = action.deck;
+                    renderDeck(action.playerId, action.deck);
+                    if (action.deck.zIndex > zIndexCounter) zIndexCounter = action.deck.zIndex + 1;
+                } else if (action.type === 'set_turn') {
+                    updateTurnUI(action.turn);
                 }
             });
-        }
 
-        function applyTheme(url) {
-            document.body.style.backgroundImage = `url('${url}')`;
-            localStorage.setItem('mySavedGameBg', url);
-            themeRef.set({ senderId: mySessionId, url: url });
-        }
+            // --- 1. СИСТЕМА ДИНАМІЧНИХ ФОНІВ (THEME MANAGER) ---
+            const themeBtn = document.getElementById('theme-btn');
+            const themeModal = document.getElementById('theme-modal');
+            const closeThemeModal = document.getElementById('close-theme-modal');
+            const themeGallery = document.getElementById('theme-gallery');
+            const baseURL = "https://olgazheltvai2.github.io/images/backgrounds/";
+            let loadedThemesCount = 0; const maxThemes = 200; 
 
-        const savedBg = localStorage.getItem('mySavedGameBg');
-        if (savedBg) document.body.style.backgroundImage = `url('${savedBg}')`;
-
-        themeRef.on('value', (snap) => {
-            const val = snap.val();
-            if (val && val.url && val.senderId !== mySessionId) {
-                document.body.style.backgroundImage = `url('${val.url}')`;
-                localStorage.setItem('mySavedGameBg', val.url);
+            function loadThemes() {
+                if (loadedThemesCount > 0) return; 
+                themeGallery.innerHTML = '<p>Завантаження фонів...</p>';
+                let validPromises = [];
+                for (let i = 1; i <= maxThemes; i++) {
+                    const bgUrl = `${baseURL}background_${i}.webp`;
+                    const checkImg = new Promise((resolve) => {
+                        const img = new Image();
+                        img.onload = () => resolve({ url: bgUrl, id: i, valid: true });
+                        img.onerror = () => resolve({ valid: false });
+                        img.src = bgUrl;
+                    });
+                    validPromises.push(checkImg);
+                }
+                Promise.all(validPromises).then(results => {
+                    themeGallery.innerHTML = '';
+                    results.filter(r => r.valid).forEach(res => {
+                        loadedThemesCount++;
+                        const item = document.createElement('div');
+                        item.className = 'theme-item';
+                        item.style.backgroundImage = `url('${res.url}')`;
+                        const label = document.createElement('div');
+                        label.className = 'theme-name';
+                        label.innerText = `Фон ${res.id}`;
+                        item.appendChild(label);
+                        item.addEventListener('click', () => {
+                            applyTheme(res.url);
+                            themeModal.style.display = 'none';
+                        });
+                        themeGallery.appendChild(item);
+                    });
+                    if (loadedThemesCount === 0) themeGallery.innerHTML = '<p>Фони не знайдені в репозиторії.</p>';
+                });
             }
-        });
 
-        themeBtn.addEventListener('click', () => {
-            themeModal.style.display = 'flex';
-            loadThemes();
-        });
-        closeThemeModal.addEventListener('click', () => {
-            themeModal.style.display = 'none';
-        });
+            function applyTheme(url) {
+                document.body.style.backgroundImage = `url('${url}')`;
+                localStorage.setItem('mySavedGameBg', url);
+                themeRef.set({ senderId: mySessionId, url: url });
+            }
 
-        initDecks();
+            const savedBg = localStorage.getItem('mySavedGameBg');
+            if (savedBg) document.body.style.backgroundImage = `url('${savedBg}')`;
 
-        // --- 3. УНІВЕРСАЛЬНИЙ БЛОК КОНТРОЛЮ (ІДЕНТИФІКАЦІЯ, РАДАР ТА БЛОКУВАННЯ) ---
-        (function initControlBlock() {
+            themeRef.on('value', (snap) => {
+                const val = snap.val();
+                if (val && val.url && val.senderId !== mySessionId) {
+                    document.body.style.backgroundImage = `url('${val.url}')`;
+                    localStorage.setItem('mySavedGameBg', val.url);
+                }
+            });
+
+            themeBtn.addEventListener('click', () => { themeModal.style.display = 'flex'; loadThemes(); });
+            closeThemeModal.addEventListener('click', () => { themeModal.style.display = 'none'; });
+
+            initDecks();
+
+            // --- 3. УНІВЕРСАЛЬНИЙ БЛОК КОНТРОЛЮ ---
             const urlParams = new URLSearchParams(window.location.search);
             let myName = urlParams.get('user');
-            
-            if (myName) {
-                sessionStorage.setItem('username', myName);
-            } else {
+            if (myName) sessionStorage.setItem('username', myName);
+            else {
                 myName = sessionStorage.getItem('username');
-                if (!myName) {
-                    myName = 'Гість_' + Math.floor(Math.random() * 1000);
-                    sessionStorage.setItem('username', myName);
-                }
+                if (!myName) { myName = 'Гість_' + Math.floor(Math.random() * 1000); sessionStorage.setItem('username', myName); }
             }
 
             const tabId = 'tab_' + Math.random().toString(36).substr(2, 9);
@@ -1038,45 +944,31 @@
             const connectedRef = db.ref('.info/connected');
 
             connectedRef.on('value', (snap) => {
-                if (snap.val() === true) {
-                    userRef.set(true);
-                    userRef.onDisconnect().remove();
-                }
+                if (snap.val() === true) { userRef.set(true); userRef.onDisconnect().remove(); }
             });
-
-            window.addEventListener('beforeunload', () => {
-                userRef.remove();
-            });
+            window.addEventListener('beforeunload', () => { userRef.remove(); });
 
             let isFirstRefreshCheck = true;
             db.ref('force_refresh').on('value', (snap) => {
-                if (isFirstRefreshCheck) {
-                    isFirstRefreshCheck = false;
-                } else if (snap.val()) {
-                    window.location.reload();
-                }
+                if (isFirstRefreshCheck) isFirstRefreshCheck = false;
+                else if (snap.val()) window.location.reload();
             });
 
             const blockOverlay = document.getElementById('block-overlay');
             db.ref('blocked_users/' + myName).on('value', (snap) => {
-                if (snap.val() === true) {
-                    blockOverlay.style.display = 'flex';
-                } else {
-                    blockOverlay.style.display = 'none';
-                }
+                if (snap.val() === true) blockOverlay.style.display = 'flex';
+                else blockOverlay.style.display = 'none';
             });
 
-            let immunity = true;
-            setTimeout(() => { immunity = false; }, 1500); 
-
+            let immunity = true; setTimeout(() => { immunity = false; }, 1500); 
             db.ref('current_activity').on('value', (snap) => {
                 const activity = snap.val();
                 if (!immunity && activity === 'lobby') {
                     window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html?user=' + encodeURIComponent(myName);
                 }
             });
-        })();
 
+        }); // Кінець DOMContentLoaded
     </script>
 </body>
 </html>
