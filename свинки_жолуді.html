@@ -416,7 +416,7 @@
             blockOverlay.style.display = snap.val() ? 'flex' : 'none';
         });
 
-        // Примусове оновлення (Захист від нескінченного циклу перезавантажень)
+        // Примусове оновлення
         let isFirstRefreshCheck = true;
         db.ref('force_refresh').on('value', (snap) => {
             if (isFirstRefreshCheck) {
@@ -428,7 +428,7 @@
             }
         });
 
-        // Повернення в лобі (з імунітетом 1 сек)
+        // Повернення в лобі
         let isImmune = true;
         setTimeout(() => { isImmune = false; }, 1000);
         db.ref('current_activity').on('value', (snap) => {
@@ -438,7 +438,7 @@
         });
 
         // =========================================================================
-        // 2. THEME MANAGER (СИСТЕМА ДИНАМІЧНИХ ФОНІВ)
+        // 2. THEME MANAGER (СИСТЕМА ДИНАМІЧНИХ ФОНІВ) - ВИПРАВЛЕНО ДЛЯ GITHUB PAGES
         // =========================================================================
         const themeBtn = document.getElementById('theme-btn');
         const themeModal = document.getElementById('theme-modal');
@@ -462,13 +462,28 @@
             if (fbUrl) setBackground(fbUrl);
         });
 
+        // Оптимізована функція для запобігання помилці "Перевищено ліміт швидкості" 
+        async function checkImage(url) {
+            return new Promise((resolve) => {
+                let img = new Image();
+                img.onload = () => resolve(true);
+                img.onerror = () => resolve(false);
+                img.src = url;
+            });
+        }
+
         async function loadThemes() {
             let maxChecks = 1000;
+            let consecutiveMisses = 0; // Лічильник для зупинки
+            
             for(let i=1; i<=maxChecks; i++) {
                 let testUrl = `${baseUrl}background_${i}.webp`;
-                let img = new Image();
                 
-                img.onload = () => {
+                // Чекаємо результат по кожній картинці, щоб не забити канал запитами
+                let exists = await checkImage(testUrl);
+                
+                if (exists) {
+                    consecutiveMisses = 0; // Скидаємо лічильник
                     let item = document.createElement('div');
                     item.className = 'theme-item';
                     item.style.backgroundImage = `url('${testUrl}')`;
@@ -483,13 +498,14 @@
                         themeModal.style.display = 'none';
                     });
                     themeGallery.appendChild(item);
-                };
-                
-                img.onerror = () => {
-                    if (i > 15) { i = 1001; } 
-                };
-                
-                img.src = testUrl;
+                } else {
+                    consecutiveMisses++;
+                    // Якщо 3 картинки поспіль не знайдено, зупиняємо цикл, 
+                    // щоб GitHub не заблокував (вирішує проблему "чорного кота")
+                    if (consecutiveMisses >= 3) {
+                        break; 
+                    }
+                }
             }
         }
         loadThemes();
@@ -721,7 +737,7 @@
             boardEl.innerHTML = '';
             let showPig = true;
             if (gameState.gameOver && gameState.winner === 'wolf') {
-                showPig = false; // Свинка зникає, якщо вовки перемогли
+                showPig = false; 
             }
 
             for (let y = 0; y < BOARD_SIZE; y++) {
@@ -784,12 +800,15 @@
             return document.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`);
         }
 
-        // --- ЛОГІКА "ПАКМАН" ПЕРЕМІЩЕННЯ ---
+        // --- ЛОГІКА "ПАКМАН" ПЕРЕМІЩЕННЯ ТА ДІАГОНАЛІ ДЛЯ СВИНКИ ---
         
-        // Свинка ходить СУВОРО на 2 клітинки по прямій
         function getValidPigMoves(px, py) {
             let moves = [];
-            let directions = [{dx: -2, dy: 0}, {dx: 2, dy: 0}, {dx: 0, dy: -2}, {dx: 0, dy: 2}];
+            // Свинка ходить суворо на 2 клітинки: по прямій та діагоналі
+            let directions = [
+                {dx: -2, dy: 0}, {dx: 2, dy: 0}, {dx: 0, dy: -2}, {dx: 0, dy: 2}, // Прямо
+                {dx: -2, dy: -2}, {dx: 2, dy: -2}, {dx: -2, dy: 2}, {dx: 2, dy: 2} // Діагоналі
+            ];
             directions.forEach(d => {
                 let fixed_nx = (((px + d.dx) % BOARD_SIZE) + BOARD_SIZE) % BOARD_SIZE;
                 let fixed_ny = (((py + d.dy) % BOARD_SIZE) + BOARD_SIZE) % BOARD_SIZE;
@@ -798,9 +817,9 @@
             return moves;
         }
 
-        // Вовк ходить СУВОРО на 1 клітинку (усі 8 напрямків)
         function getValidWolfMoves(wx, wy) {
             let moves = [];
+            // Вовк ходить суворо на 1 клітинку
             for (let dx = -1; dx <= 1; dx++) {
                 for (let dy = -1; dy <= 1; dy++) {
                     if (dx === 0 && dy === 0) continue;
@@ -868,7 +887,6 @@
         }
 
         function triggerWinAnimation(winner) {
-            // Спалах
             let flash = document.createElement('div');
             flash.style.position = 'fixed';
             flash.style.top = '0'; flash.style.left = '0'; flash.style.width = '100vw'; flash.style.height = '100vh';
@@ -879,7 +897,6 @@
             setTimeout(() => { flash.style.opacity = '0'; }, 100);
             setTimeout(() => { flash.remove(); }, 1100);
 
-            // Конфеті
             const colors = winner === 'pig' ? ['#ff8da1', '#ffb6c1', '#d4ff00', '#ffffff'] : ['#353b3d', '#6d767a', '#ff4444', '#111111'];
             for (let i = 0; i < 100; i++) {
                 let p = document.createElement('div');
@@ -919,7 +936,6 @@
         function handleCellClick(x, y) {
             if (gameState.gameOver) return;
 
-            // Перевірка прав гравця згідно обраної ролі
             if (gameState.turn === 'pig' && myRole === 'wolf') { SFX.invalid(); return; }
             if (gameState.turn === 'wolf' && myRole === 'pig') { SFX.invalid(); return; }
 
