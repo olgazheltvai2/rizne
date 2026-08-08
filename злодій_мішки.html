@@ -45,7 +45,6 @@
             overflow: hidden;
         }
 
-        /* Прозорий контейнер для гри, щоб фон було видно */
         #game-content-wrapper {
             position: relative;
             width: 100%;
@@ -56,7 +55,67 @@
             z-index: 2;
         }
 
-        /* ВИПРАВЛЕНО: Ігрове поле - ідеально відцентроване та адаптоване */
+        /* --- Ігрова панель керування (Ролі, Черга, Адмін) --- */
+        #ui-panel {
+            position: absolute;
+            top: 2%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            backdrop-filter: blur(8px);
+            width: 95%;
+            max-width: 700px;
+            justify-content: space-between;
+            border: 3px solid #fff;
+        }
+
+        #ui-panel button {
+            padding: 8px 15px;
+            border: 3px solid transparent;
+            border-radius: 12px;
+            background: #8ab4f8;
+            color: #1a1a2e;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+
+        #ui-panel button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+        }
+
+        .role-active {
+            background: #ffeb3b !important;
+            border: 3px solid #f57f17 !important;
+        }
+
+        #turn-display {
+            font-weight: bold;
+            font-size: 1.3rem;
+            text-transform: uppercase;
+            text-align: center;
+            min-width: 150px;
+        }
+
+        .admin-buttons button {
+            background: #ff7043 !important;
+            color: white !important;
+            padding: 8px 10px;
+            font-size: 1rem;
+        }
+
+        /* --- Ігрове поле --- */
         #board {
             position: relative;
             z-index: 2;
@@ -66,14 +125,15 @@
             gap: 10px;
             width: 90vmin;
             height: 90vmin;
-            max-width: 800px;
-            max-height: 800px;
+            max-width: 750px;
+            max-height: 750px;
             background: rgba(138, 180, 248, 0.6);
             padding: 15px;
             border-radius: 24px;
             border: 8px solid #ffffff;
             box-shadow: 0 10px 40px rgba(0,0,0,0.4);
             backdrop-filter: blur(8px);
+            margin-top: 60px; /* Відступ для панелі керування */
         }
 
         .cell {
@@ -81,11 +141,10 @@
             height: 100%;
             background: rgba(255, 255, 255, 0.9);
             border-radius: 16px;
-            border: 4px solid transparent;
+            border: 5px solid transparent;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: clamp(2rem, 5vmin, 4rem);
             cursor: pointer;
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             user-select: none;
@@ -94,14 +153,14 @@
 
         .cell:hover {
             transform: scale(1.05);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
             z-index: 3;
         }
 
         .highlight {
             background: #e8f5e9;
             border-color: #4caf50;
-            box-shadow: inset 0 0 20px rgba(76, 175, 80, 0.3);
+            box-shadow: inset 0 0 20px rgba(76, 175, 80, 0.4);
             animation: pulse 1.5s infinite;
         }
 
@@ -111,7 +170,21 @@
             100% { transform: scale(1); }
         }
 
-        /* Сильні візуальні фідбеки */
+        /* ВИПРАВЛЕНО: Значно більші персонажі та мішки */
+        .piece {
+            font-size: clamp(3.5rem, 11vmin, 7rem);
+            animation: bounceIn 0.4s;
+            filter: drop-shadow(0 5px 8px rgba(0,0,0,0.4));
+            line-height: 1;
+        }
+
+        @keyframes bounceIn {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(1); }
+        }
+
+        /* --- Фідбеки --- */
         #feedback-overlay {
             position: absolute;
             inset: 0;
@@ -151,39 +224,27 @@
             100% { transform: translateX(0); }
         }
 
-        .piece {
-            animation: bounceIn 0.4s;
-            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
-            line-height: 1;
-        }
-
-        @keyframes bounceIn {
-            0% { transform: scale(0); }
-            50% { transform: scale(1.2); }
-            100% { transform: scale(1); }
-        }
-
         /* --- Theme Manager UI --- */
         #theme-btn {
             position: fixed;
             bottom: 20px;
             right: 20px;
-            width: 50px;
-            height: 50px;
-            background: rgba(255, 255, 255, 0.8);
-            border: 2px solid #333;
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 3px solid #333;
             border-radius: 50%;
-            font-size: 24px;
+            font-size: 30px;
             cursor: pointer;
             z-index: 1000;
             display: flex;
             justify-content: center;
             align-items: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
             transition: transform 0.2s;
         }
         #theme-btn:hover {
-            transform: scale(1.1);
+            transform: scale(1.15);
         }
         #theme-modal {
             display: none;
@@ -191,13 +252,13 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 80vw;
-            max-width: 800px;
+            width: 85vw;
+            max-width: 900px;
             background: white;
-            border-radius: 16px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            border-radius: 20px;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.6);
             z-index: 1001;
-            padding: 20px;
+            padding: 25px;
             flex-direction: column;
         }
         #theme-modal.active {
@@ -207,8 +268,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
-            font-size: 1.5rem;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
             font-weight: bold;
         }
         #theme-close {
@@ -216,14 +277,15 @@
             background: #ff4d4d;
             color: white;
             border: none;
-            width: 30px;
-            height: 30px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             font-weight: bold;
+            font-size: 1.2rem;
         }
         #theme-gallery {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
             gap: 15px;
             max-height: 60vh;
             overflow-y: auto;
@@ -233,10 +295,10 @@
             position: relative;
             width: 100%;
             aspect-ratio: 16/9;
-            border-radius: 8px;
+            border-radius: 12px;
             overflow: hidden;
             cursor: pointer;
-            border: 3px solid transparent;
+            border: 4px solid transparent;
             transition: border-color 0.2s;
             background-color: #eee;
         }
@@ -253,11 +315,12 @@
             bottom: 0;
             left: 0;
             right: 0;
-            background: rgba(0,0,0,0.6);
+            background: rgba(0,0,0,0.7);
             color: white;
             text-align: center;
-            padding: 4px;
-            font-size: 14px;
+            padding: 6px;
+            font-size: 16px;
+            font-weight: bold;
         }
 
         /* --- Access Control --- */
@@ -279,13 +342,18 @@
             padding: 20px;
         }
 
-        @media (max-width: 600px) {
+        @media (max-width: 700px) {
             #board {
                 width: 95vmin;
                 height: 95vmin;
                 padding: 10px;
                 gap: 5px;
                 border-width: 4px;
+                margin-top: 100px;
+            }
+            #ui-panel {
+                flex-direction: column;
+                gap: 10px;
             }
         }
     </style>
@@ -294,6 +362,18 @@
 
     <!-- Гра -->
     <div id="game-container">
+        <div id="ui-panel">
+            <div class="role-buttons">
+                <button onclick="setRole('thief')" id="btn-role-thief">🦹‍♂️ Грати за Злодія</button>
+                <button onclick="setRole('guard')" id="btn-role-guard">👮‍♂️ Грати за Охорону</button>
+            </div>
+            <div id="turn-display">Хід: 🦹‍♂️ Злодій</div>
+            <div class="admin-buttons">
+                <button onclick="removeGuard()" title="Прибрати 1 охоронця">-👮</button>
+                <button onclick="addGuard()" title="Додати 1 охоронця">+👮</button>
+            </div>
+        </div>
+
         <div id="game-content-wrapper">
             <div id="board"></div>
             <div id="feedback-overlay"></div>
@@ -330,7 +410,7 @@
             db = firebase.database();
         } catch (error) {
             console.error("Firebase init error:", error);
-            db = null; // Працюємо локально, якщо Firebase недоступний
+            db = null;
         }
 
         // --- THEME MANAGER LOGIC ---
@@ -341,7 +421,6 @@
         const baseUrl = 'https://olgazheltvai2.github.io/images/backgrounds/';
         let backgroundsLoaded = false;
 
-        // Restore local background immediately
         const savedBg = localStorage.getItem('mySavedGameBg');
         if (savedBg) document.body.style.backgroundImage = `url('${savedBg}')`;
 
@@ -371,7 +450,6 @@
                     <div class="theme-title">Фон ${index}</div>
                 `;
                 div.onclick = () => selectTheme(url);
-                // Insert sorted by index roughly
                 div.dataset.index = index;
                 const items = Array.from(themeGallery.children);
                 let inserted = false;
@@ -406,31 +484,82 @@
             });
         }
 
-        // --- GAME LOGIC ---
+        // --- GAME LOGIC & STATE ---
         const boardSize = 5;
-        let thief = { r: 0, c: 2 };
-        let guards = [
-            { r: 4, c: 0 },
-            { r: 4, c: 4 }
-        ];
-        let bags = [];
-        let selected = null;
-        let gameOver = false;
-        let isRemoteAction = false;
         let myTabId = 'tab_' + Math.random().toString(36).substr(2, 9);
+        let isRemoteAction = false;
+        let myRole = null; // 'thief' або 'guard'
+        let selected = null;
 
-        function initBags() {
-            bags = [];
+        // Єдиний об'єкт стану для зручної синхронізації
+        let gameState = {
+            thief: { r: 0, c: 2 },
+            guards: [ { r: 4, c: 0 }, { r: 4, c: 4 } ],
+            bags: [],
+            currentTurn: 'thief',
+            gameOver: false
+        };
+
+        function initBagsLocally() {
+            gameState.bags = [];
             for (let r = 0; r < boardSize; r++) {
                 for (let c = 0; c < boardSize; c++) {
                     if ((r + c) % 2 === 0) {
-                        if ((r === thief.r && c === thief.c) || 
-                            (r === guards[0].r && c === guards[0].c) || 
-                            (r === guards[1].r && c === guards[1].c)) {
+                        if ((r === gameState.thief.r && c === gameState.thief.c) || 
+                            gameState.guards.some(g => g.r === r && g.c === c)) {
                             continue;
                         }
-                        bags.push({ r, c });
+                        gameState.bags.push({ r, c });
                     }
+                }
+            }
+        }
+
+        // Ролі та Інтерфейс
+        function setRole(role) {
+            myRole = role;
+            document.getElementById('btn-role-thief').classList.toggle('role-active', role === 'thief');
+            document.getElementById('btn-role-guard').classList.toggle('role-active', role === 'guard');
+            selected = null;
+            render();
+        }
+
+        function updateTurnUI() {
+            const display = document.getElementById('turn-display');
+            if (gameState.currentTurn === 'thief') {
+                display.innerHTML = 'Хід: 🦹‍♂️ Злодія';
+                display.style.color = '#1565C0';
+            } else {
+                display.innerHTML = 'Хід: 👮‍♂️ Охорони';
+                display.style.color = '#C62828';
+            }
+        }
+
+        // Адмін функції (додавання/видалення охоронців)
+        function removeGuard() {
+            if (gameState.guards.length > 0) {
+                gameState.guards.pop();
+                pushGameState();
+                render();
+            }
+        }
+
+        function addGuard() {
+            // Шукаємо вільну клітинку з кінця поля
+            for (let r = boardSize - 1; r >= 0; r--) {
+                for (let c = boardSize - 1; c >= 0; c--) {
+                    if (gameState.thief.r === r && gameState.thief.c === c) continue;
+                    if (gameState.guards.some(g => g.r === r && g.c === c)) continue;
+                    
+                    gameState.guards.push({ r, c });
+                    
+                    // Якщо там був мішок, прибираємо його
+                    const bagIdx = gameState.bags.findIndex(b => b.r === r && b.c === c);
+                    if (bagIdx !== -1) gameState.bags.splice(bagIdx, 1);
+                    
+                    pushGameState();
+                    render();
+                    return;
                 }
             }
         }
@@ -443,23 +572,19 @@
                 for (let c = 0; c < boardSize; c++) {
                     const cell = document.createElement('div');
                     cell.className = 'cell';
-                    cell.dataset.r = r;
-                    cell.dataset.c = c;
                     cell.onclick = () => handleCellClick(r, c);
 
-                    // Підсвітка доступних ходів
-                    if (selected && isValidMove(selected, r, c)) {
+                    // Підсвітка доступних ходів (тільки для свого ходу)
+                    if (selected && myRole === gameState.currentTurn && isValidMove(selected, r, c)) {
                         cell.classList.add('highlight');
                     }
 
-                    // Малювання елементів
-                    let hasThief = (thief.r === r && thief.c === c);
-                    let hasGuard = guards.findIndex(g => g.r === r && g.c === c);
-                    let hasBag = bags.some(b => b.r === r && b.c === c);
+                    let hasThief = (gameState.thief.r === r && gameState.thief.c === c);
+                    let hasGuard = gameState.guards.findIndex(g => g.r === r && g.c === c);
+                    let hasBag = gameState.bags.some(b => b.r === r && b.c === c);
 
-                    // Візуалізація ситуації, коли охоронець наздогнав злодія
                     if (hasThief && hasGuard !== -1) {
-                        cell.innerHTML = '<div class="piece" style="font-size:1.2em;">💥</div>';
+                        cell.innerHTML = '<div class="piece" style="font-size: clamp(3rem, 9vmin, 6rem);">💥</div>';
                     } else if (hasThief) {
                         cell.innerHTML = '<div class="piece">🦹‍♂️</div>';
                         if (selected && selected.type === 'thief') cell.style.borderColor = '#2196F3';
@@ -475,6 +600,7 @@
                     board.appendChild(cell);
                 }
             }
+            updateTurnUI();
         }
 
         function pushGameState() {
@@ -483,93 +609,107 @@
                 senderId: myTabId,
                 timestamp: Date.now(),
                 type: 'state_update',
-                data: { thief, guards, bags, gameOver }
+                data: gameState
             });
         }
 
         function handleCellClick(r, c) {
-            if (gameOver) return;
+            if (gameState.gameOver) return;
+            
+            // Якщо не обрано роль, або не твоя черга — ігноруємо
+            if (!myRole || myRole !== gameState.currentTurn) return;
 
-            // Вибір злодія
-            if (thief.r === r && thief.c === c && !guards.some(g => g.r===r && g.c===c)) {
+            // 1. ВИПРАВЛЕНО: Спочатку перевіряємо, чи намагаємося ми зробити хід/атаку обраним персонажем.
+            if (selected && isValidMove(selected, r, c)) {
+                executeMove(selected, r, c);
+                return;
+            }
+
+            // 2. Якщо хід неможливий (або клікаємо на свого), пробуємо виділити персонажа.
+            if (gameState.currentTurn === 'thief' && gameState.thief.r === r && gameState.thief.c === c) {
                 selected = { type: 'thief' };
                 render();
                 return;
             }
 
-            // Вибір охоронця
-            const guardIdx = guards.findIndex(g => g.r === r && g.c === c);
-            if (guardIdx !== -1) {
-                selected = { type: 'guard', idx: guardIdx };
-                render();
-                return;
-            }
-
-            // Рух вибраного персонажа
-            if (selected && isValidMove(selected, r, c)) {
-                if (selected.type === 'thief') {
-                    // Збір усіх мішків на шляху злодія під час стрибка
-                    const stepR = r > thief.r ? 1 : (r < thief.r ? -1 : 0);
-                    const stepC = c > thief.c ? 1 : (c < thief.c ? -1 : 0);
-                    let currR = thief.r;
-                    let currC = thief.c;
-                    
-                    while (currR !== r || currC !== c) {
-                        if (stepR !== 0) currR += stepR;
-                        if (stepC !== 0) currC += stepC;
-                        
-                        // Збираємо мішок, якщо він є на цій клітинці
-                        const bagIdx = bags.findIndex(b => b.r === currR && b.c === currC);
-                        if (bagIdx !== -1) bags.splice(bagIdx, 1);
-                    }
-                    thief = { r, c };
-                    
-                } else if (selected.type === 'guard') {
-                    guards[selected.idx] = { r, c };
+            if (gameState.currentTurn === 'guard') {
+                const guardIdx = gameState.guards.findIndex(g => g.r === r && g.c === c);
+                if (guardIdx !== -1) {
+                    selected = { type: 'guard', idx: guardIdx };
+                    render();
+                    return;
                 }
-
-                selected = null;
-                checkGameState();
-                render();
-                pushGameState();
             }
+            
+            // Зняття виділення, якщо клікнули в порожнечу
+            selected = null;
+            render();
+        }
+
+        function executeMove(piece, r, c) {
+            if (piece.type === 'thief') {
+                const stepR = r > gameState.thief.r ? 1 : (r < gameState.thief.r ? -1 : 0);
+                const stepC = c > gameState.thief.c ? 1 : (c < gameState.thief.c ? -1 : 0);
+                let currR = gameState.thief.r;
+                let currC = gameState.thief.c;
+                
+                while (currR !== r || currC !== c) {
+                    if (stepR !== 0) currR += stepR;
+                    if (stepC !== 0) currC += stepC;
+                    const bagIdx = gameState.bags.findIndex(b => b.r === currR && b.c === currC);
+                    if (bagIdx !== -1) gameState.bags.splice(bagIdx, 1);
+                }
+                gameState.thief = { r, c };
+                
+            } else if (piece.type === 'guard') {
+                gameState.guards[piece.idx] = { r, c };
+            }
+
+            selected = null;
+            gameState.currentTurn = gameState.currentTurn === 'thief' ? 'guard' : 'thief';
+            
+            // Зберігаємо стан перед показом екрану перемоги, щоб інші також побачили результат
+            pushGameState(); 
+            
+            checkGameState();
+            render();
         }
 
         function isValidMove(piece, r, c) {
             if (piece.type === 'thief') {
-                // Злодій: по діагоналі на будь-яку відстань
-                if (Math.abs(thief.r - r) !== Math.abs(thief.c - c) || (thief.r === r && thief.c === c)) return false;
+                if (Math.abs(gameState.thief.r - r) !== Math.abs(gameState.thief.c - c) || (gameState.thief.r === r && gameState.thief.c === c)) return false;
 
-                const stepR = r > thief.r ? 1 : -1;
-                const stepC = c > thief.c ? 1 : -1;
-                let currR = thief.r + stepR;
-                let currC = thief.c + stepC;
+                const stepR = r > gameState.thief.r ? 1 : -1;
+                const stepC = c > gameState.thief.c ? 1 : -1;
+                let currR = gameState.thief.r + stepR;
+                let currC = gameState.thief.c + stepC;
                 
-                // Перевірка, чи не блокує шлях охоронець (через мішки стрибаємо)
                 while (currR !== r || currC !== c) {
-                    if (guards.some(otherG => otherG.r === currR && otherG.c === currC)) {
+                    if (gameState.guards.some(otherG => otherG.r === currR && otherG.c === currC)) {
                         return false; 
                     }
                     currR += stepR;
                     currC += stepC;
                 }
+                // Перевірка фінальної точки (навіть якщо злодій якимось чином намагається стрибнути на охоронця)
+                if (gameState.guards.some(g => g.r === r && g.c === c)) return false;
+                
                 return true;
 
             } else if (piece.type === 'guard') {
-                const g = guards[piece.idx];
-                // Охоронці: по вертикалі чи горизонталі на будь-яку відстань
+                const g = gameState.guards[piece.idx];
                 if (g.r !== r && g.c !== c) return false;
                 if (g.r === r && g.c === c) return false;
                 
-                // Перевірка, чи не блокує шлях інший охоронець
                 const stepR = r > g.r ? 1 : (r < g.r ? -1 : 0);
                 const stepC = c > g.c ? 1 : (c < g.c ? -1 : 0);
                 let currR = g.r + stepR;
                 let currC = g.c + stepC;
                 
                 while (currR !== r || currC !== c) {
-                    if (guards.some(otherG => otherG.r === currR && otherG.c === currC)) {
-                        return false; // Шлях заблоковано іншим охоронцем
+                    // Охоронці блокують один одного, але НЕ блокуються злодієм (дозволяє "з'їсти")
+                    if (gameState.guards.some(otherG => otherG !== g && otherG.r === currR && otherG.c === currC)) {
+                        return false;
                     }
                     currR += stepR;
                     currC += stepC;
@@ -582,18 +722,16 @@
         function checkGameState() {
             const overlay = document.getElementById('feedback-overlay');
             
-            // Якщо охоронець спіймав злодія
-            if (guards.some(g => g.r === thief.r && g.c === thief.c)) {
-                gameOver = true;
+            if (gameState.guards.some(g => g.r === gameState.thief.r && g.c === gameState.thief.c)) {
+                gameState.gameOver = true;
                 overlay.innerHTML = '<div style="font-size: 6rem; margin-bottom: 20px;">🚨🚔🚨</div><h1 style="font-size: 3rem; margin-bottom: 10px;">ОХОРОНА ПЕРЕМОГЛА!</h1><p style="font-size: 1.5rem;">Злодія спіймано!</p>';
                 overlay.className = 'lose-screen';
                 overlay.style.display = 'flex';
                 return;
             }
 
-            // Якщо злодій зібрав усі мішки
-            if (bags.length === 0) {
-                gameOver = true;
+            if (gameState.bags.length === 0) {
+                gameState.gameOver = true;
                 overlay.innerHTML = '<div style="font-size: 6rem; margin-bottom: 20px;">👑🏆👑</div><h1 style="font-size: 3rem; margin-bottom: 10px;">ЗЛОДІЙ ПЕРЕМІГ!</h1><p style="font-size: 1.5rem;">Всі скарби зібрано!</p>';
                 overlay.className = 'win-screen';
                 overlay.style.display = 'flex';
@@ -608,11 +746,9 @@
                 
                 if (action.type === 'state_update') {
                     isRemoteAction = true;
-                    thief = action.data.thief || thief;
-                    guards = action.data.guards || guards;
-                    bags = action.data.bags || bags;
-                    gameOver = action.data.gameOver || false;
+                    gameState = action.data;
                     
+                    selected = null; // Скидаємо виділення при оновленні стану
                     checkGameState();
                     render();
                     isRemoteAction = false;
@@ -620,7 +756,7 @@
             });
         }
 
-        initBags();
+        initBagsLocally();
         render();
 
         // --- УНІВЕРСАЛЬНИЙ БЛОК КОНТРОЛЮ (Ідентифікація, Радар, Блокування) ---
@@ -638,7 +774,7 @@
                 }
             }
 
-            if (!db) return; // Якщо Firebase недоступний, пропускаємо контроль
+            if (!db) return; 
 
             const blockOverlay = document.getElementById('block-overlay');
             const connectedRef = db.ref('.info/connected');
@@ -647,7 +783,6 @@
             let immunity = true;
             setTimeout(() => { immunity = false; }, 1500);
 
-            // Радар (Online/Offline)
             connectedRef.on('value', (snap) => {
                 if (snap.val() === true) {
                     userRef.set(true);
@@ -659,7 +794,6 @@
                 userRef.remove();
             });
 
-            // Блокування
             db.ref(`blocked_users/${myName}`).on('value', (snap) => {
                 if (snap.val() === true) {
                     blockOverlay.style.display = 'flex';
@@ -668,7 +802,6 @@
                 }
             });
 
-            // Force Refresh
             db.ref('force_refresh').on('value', (snap) => {
                 const val = snap.val();
                 if (val && val.timestamp && Date.now() - val.timestamp < 5000) {
@@ -676,7 +809,6 @@
                 }
             });
 
-            // Повернення в лобі
             db.ref('current_activity').on('value', (snap) => {
                 if (immunity) return;
                 const activity = snap.val();
