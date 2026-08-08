@@ -273,7 +273,7 @@
 </head>
 <body>
 
-    <!-- УНІВЕРСАЛЬНИЙ БЛОК КОНТРОЛЮ (Заглушка) -->
+    <!-- УНІВЕРСАЛЬНИЙ БЛОК КОНТРОЛЮ -->
     <div id="block-overlay">Зачекай! Зараз не твій урок.</div>
 
     <!-- THEME MANAGER UI -->
@@ -364,9 +364,16 @@
             blockOverlay.style.display = snap.val() ? 'flex' : 'none';
         });
 
-        // Примусове оновлення
+        // Примусове оновлення (ВИПРАВЛЕНО: Захист від нескінченного циклу перезавантажень)
+        let isFirstRefreshCheck = true;
         db.ref('force_refresh').on('value', (snap) => {
-            if (snap.val()) window.location.reload();
+            if (isFirstRefreshCheck) {
+                isFirstRefreshCheck = false;
+                return; // Ігноруємо значення при першому завантаженні
+            }
+            if (snap.val() === true) {
+                window.location.reload();
+            }
         });
 
         // Повернення в лобі (з імунітетом 1 сек)
@@ -405,28 +412,37 @@
             if (fbUrl) setBackground(fbUrl);
         });
 
-        // Асинхронна генерація меню
+        // Асинхронна генерація меню та перевірка до 1000 зображень
         async function loadThemes() {
-            let maxChecks = 30; // Перевіряємо перші 30 (можна збільшити до 1000 за логікою, але для швидкості меню)
-            let validUrls = [];
+            let maxChecks = 1000;
             for(let i=1; i<=maxChecks; i++) {
                 let testUrl = `${baseUrl}background_${i}.webp`;
-                // Спрощений підхід без реального fetch, щоб не забивати network. Додаємо картинки оптимістично.
-                // Оскільки файлів маніфестів нема, генеруємо кнопки. Якщо картинка бита - браузер покаже порожнечу.
-                let item = document.createElement('div');
-                item.className = 'theme-item';
-                item.style.backgroundImage = `url('${testUrl}')`;
+                let img = new Image();
                 
-                let label = document.createElement('span');
-                label.innerText = `Фон ${i}`;
-                item.appendChild(label);
+                img.onload = () => {
+                    let item = document.createElement('div');
+                    item.className = 'theme-item';
+                    item.style.backgroundImage = `url('${testUrl}')`;
+                    
+                    let label = document.createElement('span');
+                    label.innerText = `Фон ${i}`;
+                    item.appendChild(label);
 
-                item.addEventListener('click', () => {
-                    db.ref('game_theme').set(testUrl);
-                    setBackground(testUrl);
-                    themeModal.style.display = 'none';
-                });
-                themeGallery.appendChild(item);
+                    item.addEventListener('click', () => {
+                        db.ref('game_theme').set(testUrl);
+                        setBackground(testUrl);
+                        themeModal.style.display = 'none';
+                    });
+                    themeGallery.appendChild(item);
+                };
+                
+                img.onerror = () => {
+                    // Якщо натрапили на відсутній файл, можна припинити перевірку, 
+                    // щоб не створювати зайві запити, якщо фонів всього декілька десятків.
+                    if (i > 15) { i = 1001; } 
+                };
+                
+                img.src = testUrl;
             }
         }
         loadThemes();
@@ -864,9 +880,6 @@
         // 7. СТАРТ ГРИ (ПРИ ВХОДІ)
         // =========================================================================
         
-        // Згідно вимог "При вході в гру, завжди має бути все заново",
-        // спочатку генеруємо локальне поле. Але якщо в базі вже є активна гра, ми підтягнемо її.
-        // Явний рестарт виконується кнопкою на панелі.
         generateLocalRestartState();
         renderBoard();
         updatePanelUI();
@@ -881,7 +894,6 @@
                 renderBoard();
                 updatePanelUI();
             } else {
-                // Якщо бази немає або порожня - розсилаємо свій згенерований стан
                 broadcastState();
             }
         });
