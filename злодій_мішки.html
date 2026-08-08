@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Полювання на скарби</title>
+    
+    <!-- Firebase Compat SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+    <style>
+        /* 
+         * ВІЗУАЛЬНИЙ СТИЛЬ: 16:9, яскраві кольори, мультяшна деталізація 
+         */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #1a1a2e;
+            overflow: hidden;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            transition: background-image 0.5s ease-in-out;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            max-width: 177.78vh; /* 16:9 aspect ratio */
+            height: 56.25vw;
+            max-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* Прозорий контейнер для гри, щоб фон було видно */
+        #game-content-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2;
+        }
+
+        /* ВИПРАВЛЕНО: Ігрове поле - ідеально відцентроване та адаптоване */
+        #board {
+            position: relative;
+            z-index: 2;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            grid-template-rows: repeat(5, 1fr);
+            gap: 10px;
+            width: 90vmin;
+            height: 90vmin;
+            max-width: 800px;
+            max-height: 800px;
+            background: rgba(138, 180, 248, 0.6);
+            padding: 15px;
+            border-radius: 24px;
+            border: 8px solid #ffffff;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            backdrop-filter: blur(8px);
+        }
+
+        .cell {
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 16px;
+            border: 4px solid transparent;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: clamp(2rem, 5vmin, 4rem);
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+            position: relative;
+        }
+
+        .cell:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            z-index: 3;
+        }
+
+        .highlight {
+            background: #e8f5e9;
+            border-color: #4caf50;
+            box-shadow: inset 0 0 20px rgba(76, 175, 80, 0.3);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.03); }
+            100% { transform: scale(1); }
+        }
+
+        /* Сильні візуальні фідбеки */
+        #feedback-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 10;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(12px);
+            border-radius: 24px;
+            text-align: center;
+            color: white;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
+        }
+
+        .win-screen {
+            background: rgba(255, 215, 0, 0.7);
+            animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .lose-screen {
+            background: rgba(255, 0, 0, 0.7);
+            animation: shakeDrop 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            80% { transform: scale(1.1); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes shakeDrop {
+            0% { transform: translateY(-100%); }
+            40% { transform: translateY(0); }
+            60% { transform: translateX(-20px); }
+            80% { transform: translateX(20px); }
+            100% { transform: translateX(0); }
+        }
+
+        .piece {
+            animation: bounceIn 0.4s;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+            line-height: 1;
+        }
+
+        @keyframes bounceIn {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        /* --- Theme Manager UI --- */
+        #theme-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.8);
+            border: 2px solid #333;
+            border-radius: 50%;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
+        }
+        #theme-btn:hover {
+            transform: scale(1.1);
+        }
+        #theme-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80vw;
+            max-width: 800px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            z-index: 1001;
+            padding: 20px;
+            flex-direction: column;
+        }
+        #theme-modal.active {
+            display: flex;
+        }
+        #theme-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        #theme-close {
+            cursor: pointer;
+            background: #ff4d4d;
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            font-weight: bold;
+        }
+        #theme-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+        .theme-item {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16/9;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: border-color 0.2s;
+            background-color: #eee;
+        }
+        .theme-item:hover {
+            border-color: #4caf50;
+        }
+        .theme-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .theme-title {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            text-align: center;
+            padding: 4px;
+            font-size: 14px;
+        }
+
+        /* --- Access Control --- */
+        #block-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.85);
+            color: red;
+            font-size: 5vmin;
+            font-weight: bold;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            text-align: center;
+            padding: 20px;
+        }
+
+        @media (max-width: 600px) {
+            #board {
+                width: 95vmin;
+                height: 95vmin;
+                padding: 10px;
+                gap: 5px;
+                border-width: 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Гра -->
+    <div id="game-container">
+        <div id="game-content-wrapper">
+            <div id="board"></div>
+            <div id="feedback-overlay"></div>
+        </div>
+    </div>
+
+    <!-- Theme Manager UI -->
+    <button id="theme-btn">⚙️</button>
+    <div id="theme-modal">
+        <div id="theme-modal-header">
+            <span>Обери фон</span>
+            <button id="theme-close">✕</button>
+        </div>
+        <div id="theme-gallery"></div>
+    </div>
+
+    <!-- Access Control Overlay -->
+    <div id="block-overlay">Зачекай! Зараз не твій урок.</div>
+
+    <script>
+        // --- FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/",
+            projectId: "lesson-13c44"
+        };
+        
+        let app, db;
+        try {
+            if (!firebase.apps.length) {
+                app = firebase.initializeApp(firebaseConfig);
+            } else {
+                app = firebase.app();
+            }
+            db = firebase.database();
+        } catch (error) {
+            console.error("Firebase init error:", error);
+            db = null; // Працюємо локально, якщо Firebase недоступний
+        }
+
+        // --- THEME MANAGER LOGIC ---
+        const themeBtn = document.getElementById('theme-btn');
+        const themeModal = document.getElementById('theme-modal');
+        const themeClose = document.getElementById('theme-close');
+        const themeGallery = document.getElementById('theme-gallery');
+        const baseUrl = 'https://olgazheltvai2.github.io/images/backgrounds/';
+        let backgroundsLoaded = false;
+
+        // Restore local background immediately
+        const savedBg = localStorage.getItem('mySavedGameBg');
+        if (savedBg) document.body.style.backgroundImage = `url('${savedBg}')`;
+
+        themeBtn.addEventListener('click', () => {
+            themeModal.classList.add('active');
+            if (!backgroundsLoaded) loadBackgrounds();
+        });
+        themeClose.addEventListener('click', () => {
+            themeModal.classList.remove('active');
+        });
+
+        async function loadBackgrounds() {
+            backgroundsLoaded = true;
+            for (let i = 1; i <= 1000; i++) {
+                const url = `${baseUrl}background_${i}.webp`;
+                checkImage(url, i);
+            }
+        }
+
+        function checkImage(url, index) {
+            const img = new Image();
+            img.onload = () => {
+                const div = document.createElement('div');
+                div.className = 'theme-item';
+                div.innerHTML = `
+                    <img src="${url}" alt="Фон ${index}" loading="lazy">
+                    <div class="theme-title">Фон ${index}</div>
+                `;
+                div.onclick = () => selectTheme(url);
+                // Insert sorted by index roughly
+                div.dataset.index = index;
+                const items = Array.from(themeGallery.children);
+                let inserted = false;
+                for (let i = 0; i < items.length; i++) {
+                    if (parseInt(items[i].dataset.index) > index) {
+                        themeGallery.insertBefore(div, items[i]);
+                        inserted = true;
+                        break;
+                    }
+                }
+                if (!inserted) themeGallery.appendChild(div);
+            };
+            img.src = url;
+        }
+
+        function selectTheme(url) {
+            document.body.style.backgroundImage = `url('${url}')`;
+            localStorage.setItem('mySavedGameBg', url);
+            themeModal.classList.remove('active');
+            if (db) {
+                db.ref('game_theme').set({ url: url, timestamp: Date.now() });
+            }
+        }
+
+        if (db) {
+            db.ref('game_theme').on('value', snap => {
+                const data = snap.val();
+                if (data && data.url) {
+                    document.body.style.backgroundImage = `url('${data.url}')`;
+                    localStorage.setItem('mySavedGameBg', data.url);
+                }
+            });
+        }
+
+        // --- GAME LOGIC ---
+        const boardSize = 5;
+        let thief = { r: 0, c: 2 };
+        let guards = [
+            { r: 4, c: 0 },
+            { r: 4, c: 4 }
+        ];
+        let bags = [];
+        let selected = null;
+        let gameOver = false;
+        let isRemoteAction = false;
+        let myTabId = 'tab_' + Math.random().toString(36).substr(2, 9);
+
+        function initBags() {
+            bags = [];
+            for (let r = 0; r < boardSize; r++) {
+                for (let c = 0; c < boardSize; c++) {
+                    if ((r + c) % 2 === 0) {
+                        if ((r === thief.r && c === thief.c) || 
+                            (r === guards[0].r && c === guards[0].c) || 
+                            (r === guards[1].r && c === guards[1].c)) {
+                            continue;
+                        }
+                        bags.push({ r, c });
+                    }
+                }
+            }
+        }
+
+        function render() {
+            const board = document.getElementById('board');
+            board.innerHTML = '';
+
+            for (let r = 0; r < boardSize; r++) {
+                for (let c = 0; c < boardSize; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.r = r;
+                    cell.dataset.c = c;
+                    cell.onclick = () => handleCellClick(r, c);
+
+                    // Підсвітка доступних ходів
+                    if (selected && isValidMove(selected, r, c)) {
+                        cell.classList.add('highlight');
+                    }
+
+                    // Малювання елементів
+                    let hasThief = (thief.r === r && thief.c === c);
+                    let hasGuard = guards.findIndex(g => g.r === r && g.c === c);
+                    let hasBag = bags.some(b => b.r === r && b.c === c);
+
+                    // Візуалізація ситуації, коли охоронець наздогнав злодія
+                    if (hasThief && hasGuard !== -1) {
+                        cell.innerHTML = '<div class="piece" style="font-size:1.2em;">💥</div>';
+                    } else if (hasThief) {
+                        cell.innerHTML = '<div class="piece">🦹‍♂️</div>';
+                        if (selected && selected.type === 'thief') cell.style.borderColor = '#2196F3';
+                    } else if (hasGuard !== -1) {
+                        cell.innerHTML = '<div class="piece">👮‍♂️</div>';
+                        if (selected && selected.type === 'guard' && selected.idx === hasGuard) {
+                            cell.style.borderColor = '#F44336';
+                        }
+                    } else if (hasBag) {
+                        cell.innerHTML = '<div class="piece">💰</div>';
+                    }
+
+                    board.appendChild(cell);
+                }
+            }
+        }
+
+        function pushGameState() {
+            if (isRemoteAction || !db) return;
+            db.ref('game_action').set({
+                senderId: myTabId,
+                timestamp: Date.now(),
+                type: 'state_update',
+                data: { thief, guards, bags, gameOver }
+            });
+        }
+
+        function handleCellClick(r, c) {
+            if (gameOver) return;
+
+            // Вибір злодія
+            if (thief.r === r && thief.c === c && !guards.some(g => g.r===r && g.c===c)) {
+                selected = { type: 'thief' };
+                render();
+                return;
+            }
+
+            // Вибір охоронця
+            const guardIdx = guards.findIndex(g => g.r === r && g.c === c);
+            if (guardIdx !== -1) {
+                selected = { type: 'guard', idx: guardIdx };
+                render();
+                return;
+            }
+
+            // Рух вибраного персонажа
+            if (selected && isValidMove(selected, r, c)) {
+                if (selected.type === 'thief') {
+                    // Збір усіх мішків на шляху злодія під час стрибка
+                    const stepR = r > thief.r ? 1 : (r < thief.r ? -1 : 0);
+                    const stepC = c > thief.c ? 1 : (c < thief.c ? -1 : 0);
+                    let currR = thief.r;
+                    let currC = thief.c;
+                    
+                    while (currR !== r || currC !== c) {
+                        if (stepR !== 0) currR += stepR;
+                        if (stepC !== 0) currC += stepC;
+                        
+                        // Збираємо мішок, якщо він є на цій клітинці
+                        const bagIdx = bags.findIndex(b => b.r === currR && b.c === currC);
+                        if (bagIdx !== -1) bags.splice(bagIdx, 1);
+                    }
+                    thief = { r, c };
+                    
+                } else if (selected.type === 'guard') {
+                    guards[selected.idx] = { r, c };
+                }
+
+                selected = null;
+                checkGameState();
+                render();
+                pushGameState();
+            }
+        }
+
+        function isValidMove(piece, r, c) {
+            if (piece.type === 'thief') {
+                // Злодій: по діагоналі на будь-яку відстань
+                if (Math.abs(thief.r - r) !== Math.abs(thief.c - c) || (thief.r === r && thief.c === c)) return false;
+
+                const stepR = r > thief.r ? 1 : -1;
+                const stepC = c > thief.c ? 1 : -1;
+                let currR = thief.r + stepR;
+                let currC = thief.c + stepC;
+                
+                // Перевірка, чи не блокує шлях охоронець (через мішки стрибаємо)
+                while (currR !== r || currC !== c) {
+                    if (guards.some(otherG => otherG.r === currR && otherG.c === currC)) {
+                        return false; 
+                    }
+                    currR += stepR;
+                    currC += stepC;
+                }
+                return true;
+
+            } else if (piece.type === 'guard') {
+                const g = guards[piece.idx];
+                // Охоронці: по вертикалі чи горизонталі на будь-яку відстань
+                if (g.r !== r && g.c !== c) return false;
+                if (g.r === r && g.c === c) return false;
+                
+                // Перевірка, чи не блокує шлях інший охоронець
+                const stepR = r > g.r ? 1 : (r < g.r ? -1 : 0);
+                const stepC = c > g.c ? 1 : (c < g.c ? -1 : 0);
+                let currR = g.r + stepR;
+                let currC = g.c + stepC;
+                
+                while (currR !== r || currC !== c) {
+                    if (guards.some(otherG => otherG.r === currR && otherG.c === currC)) {
+                        return false; // Шлях заблоковано іншим охоронцем
+                    }
+                    currR += stepR;
+                    currC += stepC;
+                }
+                return true;
+            }
+            return false;
+        }
+
+        function checkGameState() {
+            const overlay = document.getElementById('feedback-overlay');
+            
+            // Якщо охоронець спіймав злодія
+            if (guards.some(g => g.r === thief.r && g.c === thief.c)) {
+                gameOver = true;
+                overlay.innerHTML = '<div style="font-size: 6rem; margin-bottom: 20px;">🚨🚔🚨</div><h1 style="font-size: 3rem; margin-bottom: 10px;">ОХОРОНА ПЕРЕМОГЛА!</h1><p style="font-size: 1.5rem;">Злодія спіймано!</p>';
+                overlay.className = 'lose-screen';
+                overlay.style.display = 'flex';
+                return;
+            }
+
+            // Якщо злодій зібрав усі мішки
+            if (bags.length === 0) {
+                gameOver = true;
+                overlay.innerHTML = '<div style="font-size: 6rem; margin-bottom: 20px;">👑🏆👑</div><h1 style="font-size: 3rem; margin-bottom: 10px;">ЗЛОДІЙ ПЕРЕМІГ!</h1><p style="font-size: 1.5rem;">Всі скарби зібрано!</p>';
+                overlay.className = 'win-screen';
+                overlay.style.display = 'flex';
+            }
+        }
+
+        // --- FIREBASE SYNC LISTENER ---
+        if (db) {
+            db.ref('game_action').on('value', snap => {
+                const action = snap.val();
+                if (!action || action.senderId === myTabId) return;
+                
+                if (action.type === 'state_update') {
+                    isRemoteAction = true;
+                    thief = action.data.thief || thief;
+                    guards = action.data.guards || guards;
+                    bags = action.data.bags || bags;
+                    gameOver = action.data.gameOver || false;
+                    
+                    checkGameState();
+                    render();
+                    isRemoteAction = false;
+                }
+            });
+        }
+
+        initBags();
+        render();
+
+        // --- УНІВЕРСАЛЬНИЙ БЛОК КОНТРОЛЮ (Ідентифікація, Радар, Блокування) ---
+        (function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            let myName = urlParams.get('user');
+            
+            if (myName) {
+                sessionStorage.setItem('userName', myName);
+            } else {
+                myName = sessionStorage.getItem('userName');
+                if (!myName) {
+                    myName = 'Гість_' + Math.floor(Math.random() * 1000);
+                    sessionStorage.setItem('userName', myName);
+                }
+            }
+
+            if (!db) return; // Якщо Firebase недоступний, пропускаємо контроль
+
+            const blockOverlay = document.getElementById('block-overlay');
+            const connectedRef = db.ref('.info/connected');
+            const userRef = db.ref(`online_users/${myName}/${myTabId}`);
+            
+            let immunity = true;
+            setTimeout(() => { immunity = false; }, 1500);
+
+            // Радар (Online/Offline)
+            connectedRef.on('value', (snap) => {
+                if (snap.val() === true) {
+                    userRef.set(true);
+                    userRef.onDisconnect().remove();
+                }
+            });
+
+            window.addEventListener('beforeunload', () => {
+                userRef.remove();
+            });
+
+            // Блокування
+            db.ref(`blocked_users/${myName}`).on('value', (snap) => {
+                if (snap.val() === true) {
+                    blockOverlay.style.display = 'flex';
+                } else {
+                    blockOverlay.style.display = 'none';
+                }
+            });
+
+            // Force Refresh
+            db.ref('force_refresh').on('value', (snap) => {
+                const val = snap.val();
+                if (val && val.timestamp && Date.now() - val.timestamp < 5000) {
+                    window.location.reload();
+                }
+            });
+
+            // Повернення в лобі
+            db.ref('current_activity').on('value', (snap) => {
+                if (immunity) return;
+                const activity = snap.val();
+                if (activity === 'lobby') {
+                    window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html?user=' + encodeURIComponent(myName);
+                }
+            });
+        })();
+    </script>
+</body>
+</html>
