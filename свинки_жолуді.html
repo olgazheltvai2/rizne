@@ -3,745 +3,1014 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pig & Wolves</title>
+    <title>Game: Pig vs Wolves</title>
+    <!-- Firebase SDK (compat) -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+
     <style>
         /* Скидання стилів та базові налаштування */
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: Arial, sans-serif; }
         
         body {
-            background-color: #0b1a0e;
-            width: 100vw;
-            height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            overflow: hidden;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-color: #111; /* Базовий фон, перекриється Theme Manager */
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            transition: background-image 0.5s ease-in-out;
         }
 
-        /* Головний контейнер гри зі строгим співвідношенням 16:9 (альбомна орієнтація) */
-        #game-view {
-            position: relative;
-            width: 100vw;
-            height: 56.25vw; /* 16:9 ratio */
-            max-height: 100vh;
-            max-width: 177.78vh; /* 16:9 ratio */
+        /* УНІВЕРСАЛЬНИЙ БЛОК КОНТРОЛЮ - ЗАГЛУШКА */
+        #block-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 999999;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            color: red;
+            font-size: 3rem;
+            font-weight: bold;
+            text-align: center;
+            padding: 20px;
+        }
+
+        /* ТЕМА МЕНЕДЖЕР (UI) */
+        #theme-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid white;
+            border-radius: 50%;
+            font-size: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 10000;
+            color: white;
+            transition: transform 0.2s;
+        }
+        #theme-btn:hover { transform: scale(1.1); }
+        #theme-modal {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            width: 320px;
+            max-height: 60vh;
+            background: rgba(0, 0, 0, 0.85);
+            border: 2px solid rgba(255, 255, 255, 0.2);
             border-radius: 15px;
-            box-shadow: 0 0 40px rgba(0,0,0,0.9);
+            padding: 15px;
+            display: none;
+            flex-direction: column;
+            z-index: 10000;
+            backdrop-filter: blur(10px);
+        }
+        #theme-modal h3 { color: white; text-align: center; margin-bottom: 10px; }
+        #theme-gallery {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        #theme-gallery::-webkit-scrollbar { width: 8px; }
+        #theme-gallery::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+        #theme-gallery::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.5); border-radius: 4px; }
+        .theme-item {
+            position: relative;
+            width: 100%;
+            padding-top: 56.25%; /* 16:9 Aspect Ratio */
+            border-radius: 8px;
             overflow: hidden;
-            /* Фон завантажується з репозиторію за вимогою користувача, з резервним градієнтом */
-            background-image: url('https://olgazheltvai2.github.io/images/backgrounds/game_bg.jpg'), linear-gradient(135deg, #1e3d23 0%, #0a1f10 100%);
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
             background-size: cover;
             background-position: center;
         }
-
-        /* Додатковий шар для створення ефекту глибини та легкої розмитості фону */
-        #bg-overlay {
+        .theme-item:hover { border-color: white; transform: scale(1.05); }
+        .theme-item span {
             position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.5) 100%);
-            backdrop-filter: blur(2px) saturate(1.2);
-            z-index: 1;
+            bottom: 0; left: 0; right: 0;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            text-align: center;
+            font-size: 12px;
+            padding: 3px 0;
         }
 
-        /* Контейнер для персонажа та ігрового поля */
-        #scene {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 5;
+        /* ГОЛОВНИЙ КОНТЕЙНЕР ГРИ */
+        #game-layout {
             display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 8%;
-        }
-
-        /* Живий персонаж (Ведмідь-спостерігач) */
-        #character {
-            width: 28%;
-            max-width: 350px;
-            height: auto;
-            transform-origin: bottom center;
-            animation: breathe 3.5s infinite ease-in-out;
-            filter: drop-shadow(0 15px 15px rgba(0,0,0,0.6));
-        }
-        .bear-arm-l { transform-origin: 80% 20%; animation: waveArm 5s infinite ease-in-out; }
-        .bear-ears { transform-origin: 50% 50%; animation: earWiggle 4s infinite; }
-        .bear-eyes { animation: blink 4.5s infinite; transform-origin: center; }
-        
-        @keyframes breathe { 0%, 100% { transform: scaleY(1) translateY(0); } 50% { transform: scaleY(1.03) translateY(-10px); } }
-        @keyframes waveArm { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-15deg); } }
-        @keyframes earWiggle { 0%, 90%, 100% { transform: rotate(0deg); } 95% { transform: rotate(8deg); } }
-        @keyframes blink { 0%, 95%, 100% { transform: scaleY(1); } 97% { transform: scaleY(0.1); } }
-
-        /* Ігрове поле - фіксоване, непрозоре, контрастне */
-        #board-container {
-            position: relative;
-            width: 42vw;
-            height: 42vw;
-            max-width: 500px;
-            max-height: 500px;
-            background: linear-gradient(135deg, #3d2314 0%, #1f1008 100%);
-            border-radius: 20px;
-            padding: 1.5vw;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.8), inset 0 0 15px rgba(255,255,255,0.1);
-            border: 4px solid #5c3826;
-            transition: box-shadow 0.4s ease;
-        }
-
-        /* Підсвітка чий зараз хід */
-        #board-container.turn-pig { box-shadow: 0 0 50px #ff8da1, inset 0 0 20px #ff8da1; border-color: #ffb6c1; }
-        #board-container.turn-wolf { box-shadow: 0 0 50px #a3c4d6, inset 0 0 20px #a3c4d6; border-color: #87ceeb; }
-
-        /* Грід 5х5 */
-        #grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            grid-template-rows: repeat(5, 1fr);
-            gap: 1.2%;
-            width: 100%; height: 100%;
-            position: relative;
-        }
-
-        /* Клітинки поля - повністю непрозорі та контрастні */
-        .cell {
-            background: linear-gradient(145deg, #6b8e23, #4a6616);
-            border-radius: 12px;
-            box-shadow: inset 3px 3px 6px rgba(255,255,255,0.15), inset -3px -3px 6px rgba(0,0,0,0.6), 0 5px 10px rgba(0,0,0,0.5);
-            position: relative;
-            overflow: hidden;
-        }
-
-        /* Декоративний візерунок на клітинках */
-        .cell::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-image: radial-gradient(#30420f 15%, transparent 16%);
-            background-size: 10px 10px;
-            opacity: 0.3;
-        }
-
-        /* Підсвітка можливих ходів (псевдоелемент, щоб не ламати розміри) */
-        .cell::after {
-            content: '';
-            position: absolute;
-            top: 50%; left: 50%;
-            width: 70%; height: 70%;
-            transform: translate(-50%, -50%) scale(0);
-            border-radius: 50%;
-            opacity: 0;
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            pointer-events: none;
-            z-index: 5;
-        }
-        .cell.highlight-pig::after {
-            background: radial-gradient(circle, rgba(255,182,193,0.8) 0%, transparent 70%);
-            box-shadow: 0 0 20px #ff8da1;
-            opacity: 1;
-            transform: translate(-50%, -50%) scale(1);
-            animation: pulse-dot 1s infinite alternate;
-        }
-        .cell.highlight-wolf::after {
-            background: radial-gradient(circle, rgba(163,196,214,0.8) 0%, transparent 70%);
-            box-shadow: 0 0 20px #a3c4d6;
-            opacity: 1;
-            transform: translate(-50%, -50%) scale(1);
-            animation: pulse-dot 1s infinite alternate;
-        }
-
-        @keyframes pulse-dot { 
-            0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.8; } 
-            100% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; } 
-        }
-
-        /* Клікабельний шар поверх гріда */
-        .click-layer {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            z-index: 20;
-            cursor: pointer;
-        }
-
-        /* Контейнер для сутностей */
-        #entities {
-            position: absolute;
-            top: 1.5vw; left: 1.5vw;
-            width: calc(100% - 3vw);
-            height: calc(100% - 3vw);
-            pointer-events: none;
+            gap: 30px;
+            align-items: flex-start;
             z-index: 10;
+            position: relative;
+            padding: 20px;
+            width: 100%;
+            max-width: 1200px;
+            justify-content: center;
         }
 
-        .entity {
-            position: absolute;
-            width: 20%; /* 1/5 від сітки */
-            height: 20%;
+        /* Ігрове поле (Прозоре облямування) */
+        #board-wrapper {
+            position: relative;
+        }
+        #board {
+            display: grid;
+            gap: 8px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(5px);
+        }
+
+        /* Клітинки поля (АБСОЛЮТНО НЕПРОЗОРІ ТА КОНТРАСТНІ) */
+        .cell {
+            background: #2b3a42; /* Контрастний глибокий темний колір */
+            border-radius: 12px;
+            border: 2px solid #1a2429;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
             display: flex;
             justify-content: center;
             align-items: center;
-            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        .entity svg { 
-            width: 85%; height: 85%; 
-            filter: drop-shadow(0 8px 6px rgba(0,0,0,0.6)); 
+        .cell:hover {
+            background: #3e535e; /* Трохи світліше при наведенні, БЕЗ зсувів */
+        }
+        .cell.valid-move-pig {
+            background: #4a2831;
+            box-shadow: inset 0 0 15px rgba(255, 141, 161, 0.6);
+            border-color: #ff8da1;
+        }
+        .cell.valid-move-wolf {
+            background: #203540;
+            box-shadow: inset 0 0 15px rgba(163, 196, 214, 0.6);
+            border-color: #a3c4d6;
+        }
+
+        /* Ігрові сутності (Крупніші) */
+        .entity {
+            width: 90%;
+            height: 90%;
+            position: absolute;
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            pointer-events: none;
+            z-index: 2;
+        }
+        .acorn { z-index: 1; width: 75%; height: 75%; }
+        
+        .wolf.selected { filter: drop-shadow(0 0 15px #fff); transform: scale(1.15); }
+
+        /* ПРАВА ПАНЕЛЬ (Керування) */
+        #right-panel {
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            color: white;
+            min-width: 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
         }
         
-        .acorn { z-index: 11; }
-        .wolf { z-index: 12; }
-        .pig { z-index: 13; }
-
-        .wolf.selected svg {
-            filter: drop-shadow(0 0 20px #a3c4d6) brightness(1.3);
-            transform: scale(1.15);
+        /* ПУЛЬСУЮЧИЙ ІНДИКАТОР ХОДУ */
+        #turn-display {
+            font-size: 24px;
+            text-align: center;
+            font-weight: bold;
+            padding: 15px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.1);
+            transition: all 0.3s ease;
+        }
+        .turn-pig { 
+            color: #ff8da1; 
+            text-shadow: 0 0 10px #ff8da1; 
+            box-shadow: 0 0 20px rgba(255, 141, 161, 0.5);
+            border: 2px solid #ff8da1;
+            animation: pulse-border-pig 1.5s infinite alternate;
+        }
+        .turn-wolf { 
+            color: #a3c4d6; 
+            text-shadow: 0 0 10px #a3c4d6; 
+            box-shadow: 0 0 20px rgba(163, 196, 214, 0.5);
+            border: 2px solid #a3c4d6;
+            animation: pulse-border-wolf 1.5s infinite alternate;
         }
 
-        .eaten {
-            transform: scale(0) rotate(360deg) !important;
-            opacity: 0;
-            transition: all 0.6s cubic-bezier(0.55, 0.085, 0.68, 0.53) !important;
+        @keyframes pulse-border-pig { 
+            from { box-shadow: 0 0 10px rgba(255,141,161,0.3); } 
+            to { box-shadow: 0 0 25px rgba(255,141,161,0.8); } 
+        }
+        @keyframes pulse-border-wolf { 
+            from { box-shadow: 0 0 10px rgba(163,196,214,0.3); } 
+            to { box-shadow: 0 0 25px rgba(163,196,214,0.8); } 
         }
 
-        /* Оверлей вибору ролі - стилізований */
-        #role-overlay {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(11, 26, 14, 0.85);
-            backdrop-filter: blur(8px);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
+        /* ВИБІР РОЛІ ГРАВЦЯ */
+        .role-selection {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
         }
-        .role-panel {
-            display: flex;
-            gap: 5vw;
-            padding: 4vw;
-            background: radial-gradient(circle, #3d2314 0%, #1f1008 100%);
-            border-radius: 30px;
-            border: 5px solid #7b5836;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.8);
-        }
-        .role-btn {
-            background: linear-gradient(145deg, #4a2f1d, #2b180d);
-            border: 4px solid #7b5836;
-            border-radius: 25px;
-            width: 18vw; height: 22vw;
-            max-width: 200px; max-height: 250px;
+        .role-selection h3 { font-size: 16px; margin-bottom: 10px; text-align: center; }
+        .role-selection label { display: block; margin-bottom: 8px; cursor: pointer; font-size: 14px; }
+        .role-selection input { margin-right: 8px; cursor: pointer; }
+
+        .control-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 12px;
+            border-radius: 10px;
             cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.2s;
+            text-align: center;
         }
-        .role-btn:hover { transform: translateY(-15px) scale(1.05); }
-        .role-btn.pig-btn:hover { box-shadow: 0 15px 40px #ff8da1; border-color: #ff8da1; }
-        .role-btn.wolf-btn:hover { box-shadow: 0 15px 40px #a3c4d6; border-color: #a3c4d6; }
-        .role-btn svg { width: 70%; height: 70%; pointer-events: none; filter: drop-shadow(0 10px 10px rgba(0,0,0,0.5)); }
+        .control-btn:hover { background: rgba(255, 255, 255, 0.25); }
+        #btn-restart { background: rgba(255, 80, 80, 0.3); border-color: #ff5050; }
+        #btn-restart:hover { background: rgba(255, 80, 80, 0.6); }
 
-        /* Canvas для ефектів */
-        #fx-canvas {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
+        .wolves-controls { display: flex; gap: 10px; }
+        .wolves-controls button { flex: 1; }
+
+        .players-container h3 { font-size: 18px; margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 5px; }
+        #players-list { list-style: none; max-height: 200px; overflow-y: auto; }
+        .player-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            background: rgba(255,255,255,0.05);
+            margin-bottom: 5px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .player-item button {
+            background: rgba(255,0,0,0.5);
+            border: none;
+            color: white;
+            border-radius: 3px;
+            padding: 3px 8px;
+            cursor: pointer;
+        }
+
+        /* Анімація конфеті при перемозі */
+        .confetti {
+            position: fixed;
+            width: 12px;
+            height: 12px;
+            z-index: 9999;
             pointer-events: none;
-            z-index: 50;
+            animation: fall linear forwards;
+        }
+        @keyframes fall {
+            to { transform: translateY(110vh) rotate(720deg); }
         }
 
-        /* Мінімалістичні кнопки навігації */
-        .nav-btn {
+        /* Ефекти частинок (з'їдання) */
+        .particle {
             position: absolute;
-            bottom: 3vh;
-            width: 6vh; height: 6vh;
-            background: rgba(255,255,255,0.15);
-            border: 2px solid rgba(255,255,255,0.4);
+            pointer-events: none;
             border-radius: 50%;
-            cursor: pointer;
-            display: flex; justify-content: center; align-items: center;
-            z-index: 90;
-            transition: all 0.3s;
-            backdrop-filter: blur(4px);
+            z-index: 20;
+            animation: particle-fade 0.8s ease-out forwards;
         }
-        .nav-btn:hover { 
-            background: rgba(255,255,255,0.3); 
-            transform: scale(1.15) translateY(-5px); 
-            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        @keyframes particle-fade {
+            0% { transform: scale(1) translate(0, 0); opacity: 1; }
+            100% { transform: scale(0) translate(var(--tx), var(--ty)); opacity: 0; }
         }
-        .nav-btn svg { width: 40%; height: 40%; fill: #fff; }
-        #btn-prev { left: 3vw; }
-        #btn-next { right: 3vw; }
 
+        /* Адаптивність */
+        @media (min-width: 769px) {
+            .cell { width: 100px; height: 100px; }
+            #board { grid-template-columns: repeat(5, 100px); grid-template-rows: repeat(5, 100px); }
+        }
+        @media (max-width: 768px) {
+            #game-layout { flex-direction: column; align-items: center; }
+            .cell { width: 65px; height: 65px; }
+            #board { grid-template-columns: repeat(5, 65px); grid-template-rows: repeat(5, 65px); }
+            #right-panel { width: 100%; max-width: 400px; }
+        }
     </style>
 </head>
 <body>
 
-<div id="game-view">
-    <div id="bg-overlay"></div>
-    <canvas id="fx-canvas"></canvas>
+    <!-- УНІВЕРСАЛЬНИЙ БЛОК КОНТРОЛЮ -->
+    <div id="block-overlay">Зачекай! Зараз не твій урок.</div>
 
-    <!-- Навігаційні кнопки -->
-    <div id="btn-prev" class="nav-btn" onclick="location.reload()">
-        <svg viewBox="0 0 24 24"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/></svg>
-    </div>
-    <div id="btn-next" class="nav-btn" onclick="location.reload()">
-        <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+    <!-- THEME MANAGER UI -->
+    <div id="theme-btn">⚙️</div>
+    <div id="theme-modal">
+        <h3>Обери фон</h3>
+        <div id="theme-gallery"></div>
     </div>
 
-    <div id="scene">
-        <!-- Анімований персонаж (Ведмідь) -->
-        <div id="character">
-            <svg viewBox="0 0 400 500" xmlns="http://www.w3.org/2000/svg">
-                <!-- Тіло -->
-                <path d="M 100 450 C 50 250, 150 150, 200 150 C 250 150, 350 250, 300 450 Z" fill="#5c3826" stroke="#3d2314" stroke-width="6"/>
-                <path d="M 140 450 C 120 300, 170 220, 200 220 C 230 220, 280 300, 260 450 Z" fill="#8b5a2b"/>
-                <!-- Права лапа -->
-                <path d="M 280 250 C 350 280, 380 380, 320 420 C 280 440, 260 350, 280 250 Z" fill="#5c3826" stroke="#3d2314" stroke-width="4"/>
-                <!-- Ліва лапа (махає) -->
-                <g class="bear-arm-l">
-                    <path d="M 120 250 C 50 200, 20 280, 50 350 C 80 400, 140 350, 120 250 Z" fill="#5c3826" stroke="#3d2314" stroke-width="4"/>
-                    <circle cx="60" cy="320" r="20" fill="#3d2314"/>
-                    <circle cx="45" cy="290" r="12" fill="#3d2314"/>
-                    <circle cx="80" cy="285" r="12" fill="#3d2314"/>
-                </g>
-                <!-- Голова -->
-                <g class="bear-ears">
-                    <circle cx="130" cy="110" r="40" fill="#5c3826" stroke="#3d2314" stroke-width="5"/>
-                    <circle cx="130" cy="110" r="25" fill="#8b5a2b"/>
-                    <circle cx="270" cy="110" r="40" fill="#5c3826" stroke="#3d2314" stroke-width="5"/>
-                    <circle cx="270" cy="110" r="25" fill="#8b5a2b"/>
-                </g>
-                <circle cx="200" cy="160" r="90" fill="#5c3826" stroke="#3d2314" stroke-width="6"/>
-                <!-- Мордочка -->
-                <ellipse cx="200" cy="190" rx="45" ry="35" fill="#e8c396"/>
-                <path d="M 180 180 Q 200 200 220 180 Q 200 210 180 180" fill="#3d2314"/>
-                <circle cx="200" cy="170" r="12" fill="#1a0f08"/>
-                <!-- Очі -->
-                <g class="bear-eyes">
-                    <circle cx="165" cy="135" r="12" fill="#1a0f08"/>
-                    <circle cx="168" cy="132" r="4" fill="#fff"/>
-                    <circle cx="235" cy="135" r="12" fill="#1a0f08"/>
-                    <circle cx="232" cy="132" r="4" fill="#fff"/>
-                </g>
-            </svg>
+    <!-- ІГРОВИЙ ІНТЕРФЕЙС -->
+    <div id="game-layout">
+        
+        <div id="board-wrapper">
+            <div id="board"></div>
         </div>
 
-        <!-- Ігрове поле -->
-        <div id="board-container">
-            <div id="grid"></div>
-            <div id="entities"></div>
-        </div>
-    </div>
-
-    <!-- Вибір ролі -->
-    <div id="role-overlay">
-        <div class="role-panel">
-            <div class="role-btn pig-btn" onclick="startGame('pig')">
-                <svg viewBox="0 0 100 100">
-                    <circle cx="50" cy="55" r="35" fill="#ffb6c1" stroke="#e0728c" stroke-width="3"/>
-                    <polygon points="15,35 5,10 35,25" fill="#fca3b7" stroke="#e0728c" stroke-width="2"/>
-                    <polygon points="85,35 95,10 65,25" fill="#fca3b7" stroke="#e0728c" stroke-width="2"/>
-                    <ellipse cx="50" cy="65" rx="18" ry="12" fill="#ff8da1" stroke="#e0728c" stroke-width="2"/>
-                    <circle cx="43" cy="65" r="3" fill="#ba4a62"/>
-                    <circle cx="57" cy="65" r="3" fill="#ba4a62"/>
-                    <circle cx="35" cy="45" r="5" fill="#333"/>
-                    <circle cx="65" cy="45" r="5" fill="#333"/>
-                    <circle cx="36" cy="43" r="2" fill="#fff"/>
-                    <circle cx="66" cy="43" r="2" fill="#fff"/>
-                </svg>
+        <div id="right-panel">
+            <div id="turn-display" class="turn-pig">Хід: <span id="turn-text">Свинка</span></div>
+            
+            <!-- ВИБІР РОЛІ -->
+            <div class="role-selection">
+                <h3>Я граю за:</h3>
+                <label><input type="radio" name="playerRole" value="pig"> 🐷 Свинку</label>
+                <label><input type="radio" name="playerRole" value="wolf"> 🐺 Вовків</label>
+                <label><input type="radio" name="playerRole" value="spectator" checked> 👁️ Вчитель (Усі)</label>
             </div>
-            <div class="role-btn wolf-btn" onclick="startGame('wolves')">
-                <svg viewBox="0 0 100 100">
-                    <circle cx="50" cy="55" r="35" fill="#6d767a" stroke="#4a5259" stroke-width="3"/>
-                    <polygon points="20,40 10,5 40,30" fill="#5b6266" stroke="#4a5259" stroke-width="2"/>
-                    <polygon points="80,40 90,5 60,30" fill="#5b6266" stroke="#4a5259" stroke-width="2"/>
-                    <polygon points="25,55 75,55 50,90" fill="#4a5259"/>
-                    <circle cx="35" cy="45" r="7" fill="#ffcc00"/>
-                    <circle cx="65" cy="45" r="7" fill="#ffcc00"/>
-                    <polygon points="32,42 40,45 32,45" fill="#353b3d"/>
-                    <polygon points="68,42 60,45 68,45" fill="#353b3d"/>
-                    <circle cx="50" cy="85" r="5" fill="#111"/>
-                </svg>
+
+            <button id="btn-restart" class="control-btn">Почати заново</button>
+            
+            <div>
+                <h3 style="margin-bottom: 5px; font-size: 16px; text-align: center;">Керування вовками</h3>
+                <div class="wolves-controls">
+                    <button id="btn-add-wolf" class="control-btn">+ Додати</button>
+                    <button id="btn-remove-wolf" class="control-btn">- Прибрати</button>
+                </div>
+            </div>
+
+            <div class="players-container">
+                <h3>Гравці в кімнаті:</h3>
+                <ul id="players-list">
+                    <li style="color: #aaa; font-style: italic; text-align: center;">Завантаження...</li>
+                </ul>
             </div>
         </div>
+
     </div>
-</div>
 
-<script>
-    // --- АУДІО ДВИЖОК (Синтезатор) ---
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    let audioCtx;
-    
-    function playTone(freq, type, duration, vol = 0.1) {
-        if (!audioCtx) audioCtx = new AudioCtx();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = type;
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        
-        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-        
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + duration);
-    }
+    <script>
+        // =========================================================================
+        // 1. УНІВЕРСАЛЬНИЙ БЛОК КОНТРОЛЮ ТА ІДЕНТИФІКАЦІЯ
+        // =========================================================================
+        const urlParams = new URLSearchParams(window.location.search);
+        let myName = urlParams.get('user');
 
-    const FX = {
-        pigMove: () => playTone(650, 'sine', 0.2, 0.2),
-        wolfSelect: () => playTone(350, 'square', 0.1, 0.1),
-        wolfMove: () => playTone(250, 'sawtooth', 0.25, 0.3),
-        eatAcorn: () => { playTone(1000, 'triangle', 0.1, 0.1); setTimeout(()=>playTone(1300, 'triangle', 0.15, 0.15), 80); },
-        pigDie: () => { playTone(180, 'sawtooth', 0.6, 0.4); setTimeout(()=>playTone(120, 'sawtooth', 0.8, 0.5), 250); },
-        winPig: () => { [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => setTimeout(() => playTone(f, 'sine', 0.4, 0.3), i*150)); },
-        error: () => playTone(150, 'square', 0.2, 0.3)
-    };
-
-    // --- CANVAS АНІМАЦІЇ (Частинки) ---
-    const canvas = document.getElementById('fx-canvas');
-    const ctx = canvas.getContext('2d');
-    let particles = [];
-    
-    function resizeCanvas() {
-        canvas.width = canvas.offsetWidth;
-        canvas.height = canvas.offsetHeight;
-    }
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
-
-    function spawnParticles(gridX, gridY, colorStr, amount, type) {
-        const board = document.getElementById('board-container');
-        const rect = board.getBoundingClientRect();
-        const pad = rect.width * 0.035; // padding 1.5vw
-        const cellW = (rect.width - pad*2) / 5;
-        const cellH = (rect.height - pad*2) / 5;
-        
-        const px = rect.left + pad + (gridX * cellW) + (cellW / 2);
-        const py = rect.top + pad + (gridY * cellH) + (cellH / 2);
-
-        for (let i = 0; i < amount; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = Math.random() * (type === 'explode' ? 18 : 6) + 3;
-            particles.push({
-                x: px, y: py,
-                vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed - (type === 'confetti' ? 6 : 0),
-                size: Math.random() * 10 + 5,
-                color: colorStr,
-                life: 1,
-                decay: Math.random() * 0.02 + 0.015,
-                type: type,
-                angle: Math.random() * 360,
-                rotSpeed: (Math.random() - 0.5) * 10
-            });
-        }
-    }
-
-    function animateParticles() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        for (let i = particles.length - 1; i >= 0; i--) {
-            let p = particles[i];
-            p.x += p.vx;
-            p.y += p.vy;
-            if (p.type === 'confetti') p.vy += 0.25; // Гравітація
-            p.life -= p.decay;
-            p.angle += p.rotSpeed;
-            
-            ctx.globalAlpha = Math.max(0, p.life);
-            ctx.fillStyle = p.color;
-            ctx.save();
-            ctx.translate(p.x, p.y);
-            ctx.rotate(p.angle * Math.PI / 180);
-            
-            if (p.type === 'confetti') {
-                ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size);
-            } else {
-                ctx.beginPath();
-                ctx.arc(0, 0, p.size, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            ctx.restore();
-            ctx.globalAlpha = 1;
-            
-            if (p.life <= 0) particles.splice(i, 1);
-        }
-        requestAnimationFrame(animateParticles);
-    }
-    animateParticles();
-
-    // --- ЛОГІКА ГРИ ---
-    const SVG_PIG = `<svg viewBox="0 0 100 100"><circle cx="50" cy="55" r="35" fill="#ffb6c1" stroke="#e0728c" stroke-width="2"/><polygon points="15,35 5,10 35,25" fill="#fca3b7" stroke="#e0728c" stroke-width="2"/><polygon points="85,35 95,10 65,25" fill="#fca3b7" stroke="#e0728c" stroke-width="2"/><ellipse cx="50" cy="65" rx="18" ry="12" fill="#ff8da1" stroke="#e0728c" stroke-width="2"/><circle cx="43" cy="65" r="3" fill="#ba4a62"/><circle cx="57" cy="65" r="3" fill="#ba4a62"/><circle cx="35" cy="45" r="5" fill="#333"/><circle cx="65" cy="45" r="5" fill="#333"/><circle cx="36" cy="43" r="2" fill="#fff"/><circle cx="66" cy="43" r="2" fill="#fff"/></svg>`;
-    const SVG_WOLF = `<svg viewBox="0 0 100 100"><circle cx="50" cy="55" r="35" fill="#6d767a" stroke="#4a5259" stroke-width="2"/><polygon points="20,40 10,5 40,30" fill="#5b6266" stroke="#4a5259" stroke-width="2"/><polygon points="80,40 90,5 60,30" fill="#5b6266" stroke="#4a5259" stroke-width="2"/><polygon points="25,55 75,55 50,90" fill="#4a5259"/><circle cx="35" cy="45" r="7" fill="#ffcc00"/><circle cx="65" cy="45" r="7" fill="#ffcc00"/><polygon points="32,42 40,45 32,45" fill="#353b3d"/><polygon points="68,42 60,45 68,45" fill="#353b3d"/><circle cx="50" cy="85" r="5" fill="#111"/></svg>`;
-    const SVG_ACORN = `<svg viewBox="0 0 100 100"><path d="M 25 45 Q 25 90 50 90 Q 75 90 75 45 Z" fill="#8B5A2B"/><path d="M 20 45 C 20 20, 80 20, 80 45 Z" fill="#5E3A19"/><path d="M 50 25 C 50 10, 55 5, 65 5" fill="none" stroke="#5E3A19" stroke-width="5" stroke-linecap="round"/></svg>`;
-
-    const GRID_SIZE = 5;
-    
-    let state = {
-        turn: '', 
-        pig: {x: 2, y: 2, eaten: false},
-        wolves: [{x: 0, y: 0, moved: false}, {x: 4, y: 4, moved: false}],
-        acorns: [],
-        selectedWolfIdx: -1,
-        active: false
-    };
-
-    function generateGrid() {
-        const grid = document.getElementById('grid');
-        grid.innerHTML = '';
-        for (let y = 0; y < GRID_SIZE; y++) {
-            for (let x = 0; x < GRID_SIZE; x++) {
-                let cell = document.createElement('div');
-                cell.className = 'cell';
-                cell.id = `cell-${x}-${y}`;
-                
-                let clickLayer = document.createElement('div');
-                clickLayer.className = 'click-layer';
-                clickLayer.onclick = () => handleCellClick(x, y);
-                cell.appendChild(clickLayer);
-                
-                grid.appendChild(cell);
+        if (myName) {
+            sessionStorage.setItem('gameUserName', myName);
+        } else {
+            myName = sessionStorage.getItem('gameUserName');
+            if (!myName) {
+                myName = 'Гість_' + Math.floor(Math.random() * 1000);
+                sessionStorage.setItem('gameUserName', myName);
             }
         }
-    }
-
-    function initAcorns() {
-        let cells = [];
-        for (let x = 0; x < GRID_SIZE; x++) {
-            for (let y = 0; y < GRID_SIZE; y++) {
-                if ((x===2&&y===2) || (x===0&&y===0) || (x===4&&y===4)) continue;
-                cells.push({x, y});
-            }
-        }
-        // Рандомізація та вибір 10 жолудів
-        cells.sort(() => Math.random() - 0.5);
-        state.acorns = cells.slice(0, 10);
-    }
-
-    function renderEntities() {
-        const container = document.getElementById('entities');
-        container.innerHTML = '';
         
-        // Малюємо жолуді
-        state.acorns.forEach(a => {
-            let el = createEntityEl('acorn', SVG_ACORN, a.x, a.y);
-            container.appendChild(el);
+        const myTabId = 'tab_' + Math.random().toString(36).substr(2, 9);
+        const mySenderId = myName + '_' + myTabId;
+
+        // Ініціалізація Firebase
+        const firebaseConfig = {
+            databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/",
+            projectId: "lesson-13c44"
+        };
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+
+        // Радар присутності
+        const connectedRef = db.ref('.info/connected');
+        const myPresenceRef = db.ref(`online_users/${myName}/${myTabId}`);
+
+        connectedRef.on('value', (snap) => {
+            if (snap.val() === true) {
+                myPresenceRef.set(true);
+                myPresenceRef.onDisconnect().remove();
+            }
         });
 
-        // Малюємо свинку
-        if (!state.pig.eaten) {
-            let pEl = createEntityEl('pig', SVG_PIG, state.pig.x, state.pig.y);
-            container.appendChild(pEl);
+        window.addEventListener('beforeunload', () => {
+            myPresenceRef.remove();
+        });
+
+        // Блокування доступу
+        const blockOverlay = document.getElementById('block-overlay');
+        db.ref(`blocked_users/${myName}`).on('value', (snap) => {
+            blockOverlay.style.display = snap.val() ? 'flex' : 'none';
+        });
+
+        // Примусове оновлення (Захист від нескінченного циклу перезавантажень)
+        let isFirstRefreshCheck = true;
+        db.ref('force_refresh').on('value', (snap) => {
+            if (isFirstRefreshCheck) {
+                isFirstRefreshCheck = false;
+                return; 
+            }
+            if (snap.val() === true) {
+                window.location.reload();
+            }
+        });
+
+        // Повернення в лобі (з імунітетом 1 сек)
+        let isImmune = true;
+        setTimeout(() => { isImmune = false; }, 1000);
+        db.ref('current_activity').on('value', (snap) => {
+            if (!isImmune && snap.val() === 'lobby') {
+                window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html?user=' + encodeURIComponent(myName);
+            }
+        });
+
+        // =========================================================================
+        // 2. THEME MANAGER (СИСТЕМА ДИНАМІЧНИХ ФОНІВ)
+        // =========================================================================
+        const themeBtn = document.getElementById('theme-btn');
+        const themeModal = document.getElementById('theme-modal');
+        const themeGallery = document.getElementById('theme-gallery');
+        const baseUrl = 'https://olgazheltvai2.github.io/images/backgrounds/';
+        
+        themeBtn.addEventListener('click', () => {
+            themeModal.style.display = themeModal.style.display === 'flex' ? 'none' : 'flex';
+        });
+
+        function setBackground(url) {
+            document.body.style.backgroundImage = `url('${url}')`;
+            localStorage.setItem('mySavedGameBg', url);
         }
 
-        // Малюємо вовків
-        state.wolves.forEach((w, idx) => {
-            let wEl = createEntityEl('wolf', SVG_WOLF, w.x, w.y);
-            if (state.selectedWolfIdx === idx) wEl.classList.add('selected');
-            container.appendChild(wEl);
+        const savedBg = localStorage.getItem('mySavedGameBg');
+        if (savedBg) setBackground(savedBg);
+        
+        db.ref('game_theme').on('value', (snap) => {
+            const fbUrl = snap.val();
+            if (fbUrl) setBackground(fbUrl);
         });
-    }
 
-    function createEntityEl(cls, svg, x, y) {
-        let div = document.createElement('div');
-        div.className = `entity ${cls}`;
-        div.innerHTML = svg;
-        // Позиціювання у відсотках для адаптивності
-        div.style.transform = `translate(${x * 100}%, ${y * 100}%)`;
-        return div;
-    }
+        async function loadThemes() {
+            let maxChecks = 1000;
+            for(let i=1; i<=maxChecks; i++) {
+                let testUrl = `${baseUrl}background_${i}.webp`;
+                let img = new Image();
+                
+                img.onload = () => {
+                    let item = document.createElement('div');
+                    item.className = 'theme-item';
+                    item.style.backgroundImage = `url('${testUrl}')`;
+                    
+                    let label = document.createElement('span');
+                    label.innerText = `Фон ${i}`;
+                    item.appendChild(label);
 
-    // Тороїдальне загортання координат
-    const wrap = (val) => (val % GRID_SIZE + GRID_SIZE) % GRID_SIZE;
+                    item.addEventListener('click', () => {
+                        db.ref('game_theme').set(testUrl);
+                        setBackground(testUrl);
+                        themeModal.style.display = 'none';
+                    });
+                    themeGallery.appendChild(item);
+                };
+                
+                img.onerror = () => {
+                    if (i > 15) { i = 1001; } 
+                };
+                
+                img.src = testUrl;
+            }
+        }
+        loadThemes();
 
-    const dirs = [
-        {dx: 0, dy: -1}, {dx: 0, dy: 1}, {dx: -1, dy: 0}, {dx: 1, dy: 0},
-        {dx: -1, dy: -1}, {dx: 1, dy: -1}, {dx: -1, dy: 1}, {dx: 1, dy: 1}
-    ];
-
-    // Оновлена логіка: Свинка завжди ходить рівно на 3 кроки в одному напрямку
-    function getValidPigMoves() {
-        let valid = [];
-        for (let d of dirs) {
-            let blocked = false;
-            let path = [];
-            let cx = state.pig.x;
-            let cy = state.pig.y;
-            
-            for (let s = 1; s <= 3; s++) {
-                cx = wrap(cx + d.dx);
-                cy = wrap(cy + d.dy);
-                // Вовки є перешкодами на будь-якому етапі стрибка
-                if (state.wolves.some(w => w.x === cx && w.y === cy)) {
-                    blocked = true; 
-                    break;
+        // =========================================================================
+        // 3. СПИСОК ГРАВЦІВ (ПРАВА ПАНЕЛЬ)
+        // =========================================================================
+        const playersListEl = document.getElementById('players-list');
+        db.ref('online_users').on('value', (snap) => {
+            playersListEl.innerHTML = '';
+            const users = snap.val() || {};
+            let hasUsers = false;
+            for (const [uName, tabs] of Object.entries(users)) {
+                if (Object.keys(tabs).length > 0) {
+                    hasUsers = true;
+                    let li = document.createElement('li');
+                    li.className = 'player-item';
+                    
+                    let nameSpan = document.createElement('span');
+                    nameSpan.innerText = uName + (uName === myName ? ' (Ви)' : '');
+                    
+                    let removeBtn = document.createElement('button');
+                    removeBtn.innerText = '❌';
+                    removeBtn.title = 'Видалити гравця';
+                    removeBtn.onclick = () => {
+                        db.ref(`online_users/${uName}`).remove();
+                    };
+                    
+                    li.appendChild(nameSpan);
+                    if(uName !== myName) li.appendChild(removeBtn);
+                    playersListEl.appendChild(li);
                 }
-                path.push({x: cx, y: cy});
             }
-            if (!blocked) {
-                valid.push({ endX: cx, endY: cy, path: path });
+            if (!hasUsers) {
+                playersListEl.innerHTML = '<li style="text-align:center;color:#aaa;">Немає гравців</li>';
             }
-        }
-        return valid;
-    }
-
-    // Вовки ходять на 1 клітинку
-    function getValidWolfMoves(wIdx) {
-        const wolf = state.wolves[wIdx];
-        let valid = [];
-        for (let d of dirs) {
-            let cx = wrap(wolf.x + d.dx);
-            let cy = wrap(wolf.y + d.dy);
-            
-            let otherW = state.wolves[wIdx === 0 ? 1 : 0];
-            if (otherW.x === cx && otherW.y === cy) continue; // Не наступати на іншого вовка
-            
-            valid.push({x: cx, y: cy});
-        }
-        return valid;
-    }
-
-    function updateHighlight() {
-        document.querySelectorAll('.cell').forEach(c => {
-            c.classList.remove('highlight-pig', 'highlight-wolf');
         });
-        
-        if (!state.active) return;
 
-        if (state.turn === 'pig') {
-            getValidPigMoves().forEach(m => {
-                document.getElementById(`cell-${m.endX}-${m.endY}`).classList.add('highlight-pig');
-            });
-        } else {
-            if (state.selectedWolfIdx !== -1) {
-                getValidWolfMoves(state.selectedWolfIdx).forEach(m => {
-                    document.getElementById(`cell-${m.x}-${m.y}`).classList.add('highlight-wolf');
-                });
-            }
+        // =========================================================================
+        // 4. ІГРОВА ЛОГІКА, СУТНОСТІ ТА АУДІО
+        // =========================================================================
+        
+        const SVGs = {
+            piglet: `
+                <svg class="entity pig" viewBox="0 0 100 100">
+                    <ellipse cx="50" cy="85" rx="35" ry="10" fill="rgba(0,0,0,0.3)" />
+                    <polygon points="20,40 10,15 35,30" fill="#fca3b7" stroke="#e0728c" stroke-width="2"/>
+                    <polygon points="80,40 90,15 65,30" fill="#fca3b7" stroke="#e0728c" stroke-width="2"/>
+                    <circle cx="50" cy="55" r="35" fill="#ffb6c1" stroke="#e0728c" stroke-width="2"/>
+                    <ellipse cx="50" cy="65" rx="15" ry="10" fill="#ff8da1" stroke="#e0728c" stroke-width="2"/>
+                    <circle cx="45" cy="65" r="2" fill="#ba4a62"/>
+                    <circle cx="55" cy="65" r="2" fill="#ba4a62"/>
+                    <circle cx="38" cy="45" r="4" fill="#333"/>
+                    <circle cx="39" cy="44" r="1.5" fill="#fff"/>
+                    <circle cx="62" cy="45" r="4" fill="#333"/>
+                    <circle cx="63" cy="44" r="1.5" fill="#fff"/>
+                    <path d="M 45 25 Q 50 15 55 25" fill="none" stroke="#e0728c" stroke-width="3" stroke-linecap="round"/>
+                </svg>`,
+            wolf: `
+                <svg class="entity wolf" viewBox="0 0 100 100">
+                    <ellipse cx="50" cy="85" rx="35" ry="10" fill="rgba(0,0,0,0.3)" />
+                    <path d="M 70 70 Q 90 90 95 60 Q 80 50 70 70" fill="#4a5259"/>
+                    <polygon points="25,45 15,10 40,35" fill="#5b6266" stroke="#353b3d" stroke-width="2"/>
+                    <polygon points="75,45 85,10 60,35" fill="#5b6266" stroke="#353b3d" stroke-width="2"/>
+                    <circle cx="50" cy="55" r="32" fill="#6d767a" stroke="#4a5259" stroke-width="2"/>
+                    <polygon points="30,55 70,55 50,85" fill="#5b6266"/>
+                    <circle cx="38" cy="48" r="5" fill="#ffcc00" filter="drop-shadow(0 0 3px #ffaa00)"/>
+                    <polygon points="35,43 42,46 35,46" fill="#353b3d"/>
+                    <circle cx="62" cy="48" r="5" fill="#ffcc00" filter="drop-shadow(0 0 3px #ffaa00)"/>
+                    <polygon points="65,43 58,46 65,46" fill="#353b3d"/>
+                    <circle cx="50" cy="80" r="4" fill="#111"/>
+                </svg>`,
+            acorn: `
+                <svg class="entity acorn" viewBox="0 0 100 100">
+                    <ellipse cx="50" cy="80" rx="15" ry="5" fill="rgba(0,0,0,0.3)" />
+                    <path d="M 30 45 Q 30 85 50 85 Q 70 85 70 45 Z" fill="#8B5A2B"/>
+                    <path d="M 35 45 Q 35 80 50 80 Q 65 80 65 45 Z" fill="#A06B33"/>
+                    <path d="M 25 45 C 25 25, 75 25, 75 45 Z" fill="#5E3A19" stroke="#3E2611" stroke-width="2"/>
+                    <path d="M 30 40 L 70 40" stroke="#3E2611" stroke-width="1.5" stroke-dasharray="2,2"/>
+                    <path d="M 50 28 C 50 15, 55 10, 60 10" fill="none" stroke="#5E3A19" stroke-width="4" stroke-linecap="round"/>
+                </svg>`
+        };
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playTone(freq, type, duration, vol = 0.1) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
         }
-    }
 
-    function updateUI() {
-        const board = document.getElementById('board-container');
-        board.className = state.turn === 'pig' ? 'turn-pig' : 'turn-wolf';
-    }
+        const SFX = {
+            movePig: () => playTone(500, 'sine', 0.15, 0.2),
+            moveWolf: () => playTone(200, 'triangle', 0.2, 0.3),
+            eatAcorn: () => { playTone(800, 'square', 0.1, 0.1); setTimeout(() => playTone(1200, 'square', 0.15, 0.1), 80); },
+            select: () => playTone(600, 'sine', 0.1, 0.1),
+            invalid: () => playTone(150, 'sawtooth', 0.2, 0.2),
+            pigWin: () => { [440, 554, 659, 880, 1108].forEach((f, i) => setTimeout(() => playTone(f, 'triangle', 0.3, 0.2), i * 120)); },
+            wolfWin: () => { [300, 250, 200, 150, 100].forEach((f, i) => setTimeout(() => playTone(f, 'sawtooth', 0.4, 0.3), i * 200)); }
+        };
 
-    function handleCellClick(x, y) {
-        if (!state.active) return;
+        const BOARD_SIZE = 5;
+        let boardEl = document.getElementById('board');
+        let turnDisplay = document.getElementById('turn-display');
+        let turnText = document.getElementById('turn-text');
         
-        if (state.turn === 'pig') {
-            let moves = getValidPigMoves();
-            let chosenMove = moves.find(m => m.endX === x && m.endY === y);
+        let gameState = {
+            pig: { x: 2, y: 2 },
+            wolves: [{ x: 0, y: 0 }, { x: 4, y: 4 }],
+            acorns: [],
+            turn: 'pig',
+            selectedWolf: null,
+            gameOver: false,
+            winner: null
+        };
+
+        // Локальна роль гравця
+        let myRole = 'spectator';
+        document.querySelectorAll('input[name="playerRole"]').forEach(el => {
+            el.addEventListener('change', (e) => {
+                myRole = e.target.value;
+            });
+        });
+
+        // =========================================================================
+        // 5. FIREBASE СИНХРОНІЗАЦІЯ ДІЙ ТА СТАНУ ГРИ
+        // =========================================================================
+        let isRemoteAction = false;
+        
+        function broadcastState() {
+            if (isRemoteAction) return;
+            db.ref('game_action').set({
+                senderId: mySenderId,
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                type: 'SYNC_STATE',
+                data: gameState
+            });
+        }
+
+        db.ref('game_action').on('value', snap => {
+            const val = snap.val();
+            if (!val) return;
+            if (val.senderId === mySenderId) return; 
             
-            if (chosenMove) {
-                // Рух свинки
-                state.pig.x = x; state.pig.y = y;
-                FX.pigMove();
+            isRemoteAction = true;
+            if (val.type === 'SYNC_STATE' && val.data) {
+                gameState = val.data;
                 
-                // З'їдання жолудів на всьому шляху стрибка
-                chosenMove.path.forEach(step => {
-                    let aIdx = state.acorns.findIndex(a => a.x === step.x && a.y === step.y);
-                    if (aIdx !== -1) {
-                        state.acorns.splice(aIdx, 1);
-                        FX.eatAcorn();
-                        spawnParticles(step.x, step.y, '#ffd700', 12, 'explode');
-                    }
-                });
-                
-                state.turn = 'wolves';
-                state.wolves.forEach(w => w.moved = false);
-                state.selectedWolfIdx = -1;
-                
-                checkWin();
-            } else {
-                FX.error();
+                if(!gameState.wolves) gameState.wolves = [];
+                if(!gameState.acorns) gameState.acorns = [];
+
+                renderBoard();
+                updatePanelUI();
             }
-        } else {
-            // Вибір вовка
-            let wIdx = state.wolves.findIndex(w => w.x === x && w.y === y);
-            if (wIdx !== -1 && !state.wolves[wIdx].moved) {
-                state.selectedWolfIdx = wIdx;
-                FX.wolfSelect();
-                renderEntities();
-                updateHighlight();
+            isRemoteAction = false;
+        });
+
+        // =========================================================================
+        // 6. ФУНКЦІЇ УПРАВЛІННЯ ГРОЮ
+        // =========================================================================
+        
+        function generateLocalRestartState() {
+            let emptyCells = [];
+            for (let y = 0; y < BOARD_SIZE; y++) {
+                for (let x = 0; x < BOARD_SIZE; x++) {
+                    if ((x === 2 && y === 2) || (x === 0 && y === 0) || (x === 4 && y === 4)) continue;
+                    emptyCells.push({x, y});
+                }
+            }
+            emptyCells.sort(() => Math.random() - 0.5);
+            
+            gameState = {
+                pig: { x: 2, y: 2 },
+                wolves: [{ x: 0, y: 0 }, { x: 4, y: 4 }],
+                acorns: emptyCells.slice(0, 10),
+                turn: 'pig',
+                selectedWolf: null,
+                gameOver: false,
+                winner: null
+            };
+        }
+
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            SFX.select();
+            generateLocalRestartState();
+            renderBoard();
+            updatePanelUI();
+            broadcastState();
+        });
+
+        document.getElementById('btn-add-wolf').addEventListener('click', () => {
+            SFX.select();
+            if(gameState.gameOver) return;
+            let emptyCells = [];
+            for(let y=0; y<BOARD_SIZE; y++){
+                for(let x=0; x<BOARD_SIZE; x++){
+                    if(!hasWolf(x,y) && !(gameState.pig.x===x && gameState.pig.y===y)) {
+                        emptyCells.push({x,y});
+                    }
+                }
+            }
+            if(emptyCells.length > 0) {
+                let cell = emptyCells[Math.floor(Math.random()*emptyCells.length)];
+                gameState.wolves.push(cell);
+                renderBoard();
+                broadcastState();
+            }
+        });
+
+        document.getElementById('btn-remove-wolf').addEventListener('click', () => {
+            SFX.select();
+            if(gameState.gameOver || gameState.wolves.length <= 1) return; 
+            gameState.wolves.pop();
+            if (gameState.selectedWolf >= gameState.wolves.length) {
+                gameState.selectedWolf = null;
+            }
+            renderBoard();
+            broadcastState();
+        });
+
+        function renderBoard() {
+            boardEl.innerHTML = '';
+            let showPig = true;
+            if (gameState.gameOver && gameState.winner === 'wolf') {
+                showPig = false; // Свинка зникає, якщо вовки перемогли
+            }
+
+            for (let y = 0; y < BOARD_SIZE; y++) {
+                for (let x = 0; x < BOARD_SIZE; x++) {
+                    let cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.x = x;
+                    cell.dataset.y = y;
+                    
+                    cell.addEventListener('click', () => handleCellClick(x, y));
+                    
+                    if (gameState.acorns.some(a => a.x === x && a.y === y)) {
+                        cell.innerHTML += SVGs.acorn;
+                    }
+                    
+                    if (showPig && gameState.pig.x === x && gameState.pig.y === y) {
+                        cell.innerHTML += SVGs.piglet;
+                    }
+                    
+                    let wolfIdx = gameState.wolves.findIndex(w => w.x === x && w.y === y);
+                    if (wolfIdx > -1) {
+                        let wSvg = document.createElement('div');
+                        wSvg.innerHTML = SVGs.wolf;
+                        wSvg.firstChild.nextSibling.classList.add(`wolf-idx-${wolfIdx}`);
+                        if (gameState.selectedWolf === wolfIdx && gameState.turn === 'wolf') {
+                            wSvg.firstChild.nextSibling.classList.add('selected');
+                        }
+                        cell.appendChild(wSvg.firstChild.nextSibling);
+                    }
+                    
+                    boardEl.appendChild(cell);
+                }
+            }
+            highlightValidMoves();
+        }
+
+        function updatePanelUI() {
+            if (gameState.gameOver) {
+                turnText.innerText = "Гру завершено!";
+                turnDisplay.className = "";
+                turnDisplay.style.color = "#fff";
+                turnDisplay.style.borderColor = "transparent";
+                turnDisplay.style.boxShadow = "none";
+                turnDisplay.style.animation = "none";
                 return;
             }
+
+            if (gameState.turn === 'pig') {
+                turnText.innerText = "Свинка";
+                turnDisplay.className = "turn-pig";
+                turnDisplay.style.color = ""; turnDisplay.style.borderColor = ""; turnDisplay.style.boxShadow = ""; turnDisplay.style.animation = "";
+            } else {
+                turnText.innerText = "Вовки (на вибір)";
+                turnDisplay.className = "turn-wolf";
+                turnDisplay.style.color = ""; turnDisplay.style.borderColor = ""; turnDisplay.style.boxShadow = ""; turnDisplay.style.animation = "";
+            }
+        }
+
+        function getCellEl(x, y) {
+            return document.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`);
+        }
+
+        // --- ЛОГІКА "ПАКМАН" ПЕРЕМІЩЕННЯ ---
+        
+        // Свинка ходить СУВОРО на 2 клітинки по прямій
+        function getValidPigMoves(px, py) {
+            let moves = [];
+            let directions = [{dx: -2, dy: 0}, {dx: 2, dy: 0}, {dx: 0, dy: -2}, {dx: 0, dy: 2}];
+            directions.forEach(d => {
+                let fixed_nx = (((px + d.dx) % BOARD_SIZE) + BOARD_SIZE) % BOARD_SIZE;
+                let fixed_ny = (((py + d.dy) % BOARD_SIZE) + BOARD_SIZE) % BOARD_SIZE;
+                moves.push({x: fixed_nx, y: fixed_ny});
+            });
+            return moves;
+        }
+
+        // Вовк ходить СУВОРО на 1 клітинку (усі 8 напрямків)
+        function getValidWolfMoves(wx, wy) {
+            let moves = [];
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    if (dx === 0 && dy === 0) continue;
+                    let fixed_nx = (((wx + dx) % BOARD_SIZE) + BOARD_SIZE) % BOARD_SIZE;
+                    let fixed_ny = (((wy + dy) % BOARD_SIZE) + BOARD_SIZE) % BOARD_SIZE;
+                    moves.push({x: fixed_nx, y: fixed_ny});
+                }
+            }
+            return moves;
+        }
+
+        function highlightValidMoves() {
+            document.querySelectorAll('.cell').forEach(c => {
+                c.classList.remove('valid-move-pig', 'valid-move-wolf');
+            });
             
-            // Рух обраного вовка
-            if (state.selectedWolfIdx !== -1) {
-                let moves = getValidWolfMoves(state.selectedWolfIdx);
-                if (moves.some(m => m.x === x && m.y === y)) {
-                    state.wolves[state.selectedWolfIdx].x = x;
-                    state.wolves[state.selectedWolfIdx].y = y;
-                    state.wolves[state.selectedWolfIdx].moved = true;
-                    FX.wolfMove();
-                    
-                    state.selectedWolfIdx = -1;
-                    
-                    if (!checkWin()) {
-                        if (state.wolves.every(w => w.moved)) {
-                            state.turn = 'pig';
-                        }
+            if (gameState.gameOver) return;
+
+            if (gameState.turn === 'pig') {
+                getValidPigMoves(gameState.pig.x, gameState.pig.y).forEach(pos => {
+                    if (!hasWolf(pos.x, pos.y)) {
+                        getCellEl(pos.x, pos.y).classList.add('valid-move-pig');
                     }
-                } else {
-                    FX.error();
+                });
+            } else if (gameState.turn === 'wolf') {
+                if (gameState.selectedWolf !== null && gameState.selectedWolf !== undefined) {
+                    let w = gameState.wolves[gameState.selectedWolf];
+                    if (w) {
+                        getValidWolfMoves(w.x, w.y).forEach(pos => {
+                            if (!hasWolf(pos.x, pos.y, gameState.selectedWolf)) {
+                                getCellEl(pos.x, pos.y).classList.add('valid-move-wolf');
+                            }
+                        });
+                    }
                 }
             }
         }
-        
-        if (state.active) {
-            renderEntities();
-            updateHighlight();
-            updateUI();
-        }
-    }
 
-    function checkWin() {
-        // Перемога вовків (з'їли свинку)
-        if (state.wolves.some(w => w.x === state.pig.x && w.y === state.pig.y)) {
-            state.active = false;
-            state.pig.eaten = true;
-            FX.pigDie();
-            
-            renderEntities(); 
-            const pigEl = document.querySelector('.pig');
-            if (pigEl) pigEl.classList.add('eaten');
-            
-            spawnParticles(state.pig.x, state.pig.y, '#ff4444', 40, 'explode');
-            setTimeout(() => {
-                for(let i=0; i<150; i++) spawnParticles(2, 2, ['#353b3d', '#4a5259', '#a3c4d6'][Math.floor(Math.random()*3)], 1, 'confetti');
-            }, 600);
-            return true;
+        function hasWolf(x, y, ignoreIdx = -1) {
+            return gameState.wolves.some((w, i) => i !== ignoreIdx && w.x === x && w.y === y);
         }
-        // Перемога свинки (з'їла всі жолуді)
-        if (state.acorns.length === 0) {
-            state.active = false;
-            FX.winPig();
-            
-            spawnParticles(state.pig.x, state.pig.y, '#ffb6c1', 30, 'explode');
-            setTimeout(() => {
-                for(let i=0; i<200; i++) spawnParticles(2, 2, ['#ff8da1', '#ffd700', '#ffffff'][Math.floor(Math.random()*3)], 1, 'confetti');
-            }, 300);
-            return true;
-        }
-        return false;
-    }
 
-    function startGame(firstRole) {
-        if (!audioCtx) audioCtx = new AudioCtx();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
+        function createParticles(x, y, color) {
+            let cell = getCellEl(x, y);
+            if(!cell) return;
+            let rect = cell.getBoundingClientRect();
+            
+            for (let i = 0; i < 15; i++) {
+                let p = document.createElement('div');
+                p.className = 'particle';
+                p.style.backgroundColor = color;
+                p.style.width = Math.random() * 8 + 4 + 'px';
+                p.style.height = p.style.width;
+                p.style.left = (rect.left + rect.width / 2) + 'px';
+                p.style.top = (rect.top + rect.height / 2) + 'px';
+                
+                let angle = Math.random() * Math.PI * 2;
+                let dist = Math.random() * 60 + 20;
+                p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+                p.style.setProperty('--ty', Math.sin(angle) * dist + 'px');
+                
+                document.body.appendChild(p);
+                setTimeout(() => p.remove(), 800);
+            }
+        }
+
+        function triggerWinAnimation(winner) {
+            // Спалах
+            let flash = document.createElement('div');
+            flash.style.position = 'fixed';
+            flash.style.top = '0'; flash.style.left = '0'; flash.style.width = '100vw'; flash.style.height = '100vh';
+            flash.style.backgroundColor = winner === 'pig' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 68, 68, 0.6)';
+            flash.style.zIndex = '9998';
+            flash.style.transition = 'opacity 1s';
+            document.body.appendChild(flash);
+            setTimeout(() => { flash.style.opacity = '0'; }, 100);
+            setTimeout(() => { flash.remove(); }, 1100);
+
+            // Конфеті
+            const colors = winner === 'pig' ? ['#ff8da1', '#ffb6c1', '#d4ff00', '#ffffff'] : ['#353b3d', '#6d767a', '#ff4444', '#111111'];
+            for (let i = 0; i < 100; i++) {
+                let p = document.createElement('div');
+                p.className = 'confetti';
+                p.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                p.style.left = Math.random() * 100 + 'vw';
+                p.style.top = -20 + 'px';
+                p.style.animationDuration = (Math.random() * 3 + 2) + 's';
+                p.style.animationDelay = (Math.random() * 0.5) + 's';
+                document.body.appendChild(p);
+                setTimeout(() => p.remove(), 6000);
+            }
+        }
+
+        function checkWinConditions() {
+            if (gameState.wolves.some(w => w.x === gameState.pig.x && w.y === gameState.pig.y)) {
+                gameState.gameOver = true;
+                gameState.winner = 'wolf';
+                SFX.wolfWin();
+                createParticles(gameState.pig.x, gameState.pig.y, '#353b3d');
+                createParticles(gameState.pig.x, gameState.pig.y, '#ff4444');
+                triggerWinAnimation('wolf');
+                return true;
+            }
+            if (gameState.acorns.length === 0) {
+                gameState.gameOver = true;
+                gameState.winner = 'pig';
+                SFX.pigWin();
+                createParticles(gameState.pig.x, gameState.pig.y, '#ff8da1');
+                createParticles(gameState.pig.x, gameState.pig.y, '#d4ff00');
+                triggerWinAnimation('pig');
+                return true;
+            }
+            return false;
+        }
+
+        function handleCellClick(x, y) {
+            if (gameState.gameOver) return;
+
+            // Перевірка прав гравця згідно обраної ролі
+            if (gameState.turn === 'pig' && myRole === 'wolf') { SFX.invalid(); return; }
+            if (gameState.turn === 'wolf' && myRole === 'pig') { SFX.invalid(); return; }
+
+            if (gameState.turn === 'pig') {
+                let validMoves = getValidPigMoves(gameState.pig.x, gameState.pig.y);
+                let isValidMove = validMoves.some(m => m.x === x && m.y === y);
+                
+                if (isValidMove && !hasWolf(x, y)) {
+                    gameState.pig.x = x;
+                    gameState.pig.y = y;
+                    SFX.movePig();
+                    
+                    let acornIdx = gameState.acorns.findIndex(a => a.x === x && a.y === y);
+                    if (acornIdx > -1) {
+                        gameState.acorns.splice(acornIdx, 1);
+                        SFX.eatAcorn();
+                        createParticles(x, y, '#ffcc00');
+                    }
+
+                    checkWinConditions();
+                    
+                    if (!gameState.gameOver) {
+                        gameState.turn = 'wolf';
+                        gameState.selectedWolf = null;
+                    }
+
+                    renderBoard();
+                    updatePanelUI();
+                    broadcastState();
+                } else {
+                    SFX.invalid();
+                }
+
+            } else if (gameState.turn === 'wolf') {
+                let clickedWolfIdx = gameState.wolves.findIndex(w => w.x === x && w.y === y);
+                
+                if (clickedWolfIdx > -1) {
+                    gameState.selectedWolf = clickedWolfIdx;
+                    SFX.select();
+                    renderBoard();
+                    return;
+                }
+
+                if (gameState.selectedWolf !== null) {
+                    let w = gameState.wolves[gameState.selectedWolf];
+                    let validMoves = getValidWolfMoves(w.x, w.y);
+                    let isValidMove = validMoves.some(m => m.x === x && m.y === y);
+                    
+                    if (isValidMove && !hasWolf(x, y, gameState.selectedWolf)) {
+                        w.x = x;
+                        w.y = y;
+                        SFX.moveWolf();
+                        gameState.selectedWolf = null;
+
+                        checkWinConditions();
+
+                        if (!gameState.gameOver) {
+                            gameState.turn = 'pig';
+                        }
+
+                        renderBoard();
+                        updatePanelUI();
+                        broadcastState();
+                    } else {
+                        SFX.invalid();
+                    }
+                }
+            }
+        }
+
+        // =========================================================================
+        // 7. СТАРТ ГРИ (ПРИ ВХОДІ)
+        // =========================================================================
         
-        document.getElementById('role-overlay').style.display = 'none';
+        generateLocalRestartState();
+        renderBoard();
+        updatePanelUI();
         
-        state.turn = firstRole;
-        state.active = true;
-        
-        generateGrid();
-        initAcorns();
-        renderEntities();
-        updateHighlight();
-        updateUI();
-    }
-</script>
+        db.ref('game_action').once('value').then(snap => {
+            const val = snap.val();
+            if (val && val.type === 'SYNC_STATE' && val.data) {
+                gameState = val.data;
+                if(!gameState.wolves) gameState.wolves = [];
+                if(!gameState.acorns) gameState.acorns = [];
+                renderBoard();
+                updatePanelUI();
+            } else {
+                broadcastState();
+            }
+        });
+
+    </script>
 </body>
 </html>
