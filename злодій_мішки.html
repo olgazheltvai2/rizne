@@ -40,17 +40,18 @@
             overflow: hidden;
         }
 
-        /* Змінено на горизонтальне розташування: зліва поле, справа панель */
+        /* Горизонтальне розташування з великим відступом */
         #game-content-wrapper {
             position: relative;
-            width: 95vw;
-            max-width: 1400px;
-            height: 90vh;
+            width: 100%;
+            max-width: 1600px;
+            height: 100vh;
             display: flex;
             flex-direction: row;
             justify-content: center;
             align-items: center;
-            gap: 30px;
+            gap: 60px; /* Панель відсунуто далі від поля */
+            padding: 20px;
             z-index: 2;
         }
 
@@ -66,7 +67,7 @@
             backdrop-filter: blur(8px);
             width: 320px;
             border: 4px solid #ffffff;
-            flex-shrink: 0;
+            flex-shrink: 0; /* Панель зберігає свій розмір */
             max-height: 90vh;
             overflow-y: auto;
         }
@@ -167,32 +168,42 @@
         }
 
         /* --- Ігрове поле --- */
+        #board-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            max-width: 800px;
+            /* Обмежуємо висоту, щоб завжди було видно */
+            max-height: 85vh; 
+            aspect-ratio: 1 / 1;
+        }
+
         #board {
             position: relative;
             z-index: 2;
             display: grid;
             grid-template-columns: repeat(5, 1fr);
             grid-template-rows: repeat(5, 1fr);
-            gap: 10px;
-            width: 80vmin;
-            height: 80vmin;
-            max-width: 800px;
-            max-height: 800px;
-            background: rgba(138, 180, 248, 0.6);
-            padding: 15px;
+            gap: 2%; /* Відносні відступи, щоб сітка не розлазилась */
+            width: 100%;
+            height: 100%;
+            background: rgba(138, 180, 248, 0.4); /* Максимально прозорий фон */
+            padding: 3%;
             border-radius: 24px;
-            border: 8px solid #ffffff;
+            border: 6px solid #ffffff;
             box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-            backdrop-filter: blur(8px);
-            flex-shrink: 0;
+            backdrop-filter: blur(5px);
         }
 
         .cell {
             width: 100%;
             height: 100%;
+            min-width: 0; /* Важливо для запобігання вилізання */
+            min-height: 0;
             background: rgba(255, 255, 255, 0.9);
-            border-radius: 16px;
-            border: 5px solid transparent;
+            border-radius: 12px;
+            border: 4px solid transparent;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -222,16 +233,11 @@
         }
 
         .piece {
-            font-size: clamp(3rem, 10vmin, 6.5rem);
-            animation: bounceIn 0.4s;
-            filter: drop-shadow(0 5px 8px rgba(0,0,0,0.4));
+            font-size: 8vmin;
+            max-font-size: 5.5rem;
             line-height: 1;
-        }
-
-        @keyframes bounceIn {
-            0% { transform: scale(0); }
-            50% { transform: scale(1.3); }
-            100% { transform: scale(1); }
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
+            /* Анімацію прибрано, щоб уникнути блимання при кожному виділенні */
         }
 
         /* --- Фідбеки --- */
@@ -244,7 +250,7 @@
             justify-content: center;
             align-items: center;
             backdrop-filter: blur(12px);
-            border-radius: 16px; /* Внутрішній радіус дошки */
+            border-radius: 16px;
             text-align: center;
             color: white;
             text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
@@ -397,7 +403,7 @@
                 flex-direction: column;
                 height: 100vh;
                 padding-top: 10px;
-                gap: 10px;
+                gap: 20px;
                 overflow-y: auto;
             }
             #ui-panel {
@@ -406,13 +412,12 @@
                 flex-direction: row;
                 flex-wrap: wrap;
                 padding: 15px;
+                flex-shrink: 0;
             }
-            #board {
+            #board-container {
                 width: 92vmin;
-                height: 92vmin;
-                padding: 10px;
-                gap: 5px;
-                border-width: 4px;
+                max-height: 92vmin;
+                flex-shrink: 0;
             }
             .role-buttons {
                 flex-direction: row;
@@ -431,8 +436,10 @@
         <div id="game-content-wrapper">
             
             <!-- Ігрове поле -->
-            <div id="board">
-                <div id="feedback-overlay"></div>
+            <div id="board-container">
+                <div id="board">
+                    <div id="feedback-overlay"></div>
+                </div>
             </div>
 
             <!-- Панель керування -->
@@ -452,9 +459,7 @@
 
                 <div id="players-radar">
                     <h4>Гравці онлайн:</h4>
-                    <div id="players-list">
-                        <!-- Список гравців генеруватиметься тут -->
-                    </div>
+                    <div id="players-list"></div>
                 </div>
             </div>
 
@@ -524,7 +529,7 @@
 
         async function loadBackgrounds() {
             backgroundsLoaded = true;
-            for (let i = 1; i <= 100; i++) { // Зменшено до 100 для швидкодії, цикл генерує асинхронно
+            for (let i = 1; i <= 100; i++) { 
                 const url = `${baseUrl}background_${i}.webp`;
                 checkImage(url, i);
             }
@@ -581,7 +586,6 @@
         let myRole = null; 
         let selected = null;
 
-        // Початковий стан гри
         function getInitialState() {
             let state = {
                 thief: { r: 0, c: 2 },
@@ -590,7 +594,6 @@
                 currentTurn: 'thief',
                 gameOver: false
             };
-            // Генеруємо мішки
             for (let r = 0; r < boardSize; r++) {
                 for (let c = 0; c < boardSize; c++) {
                     if ((r + c) % 2 === 0) {
@@ -607,12 +610,11 @@
 
         let gameState = getInitialState();
 
-        // Функція для надійної перевірки даних, щоб не було undefined
         function sanitizeState() {
             if (!gameState) gameState = getInitialState();
             if (!gameState.thief) gameState.thief = { r: 0, c: 2 };
             if (!gameState.guards) gameState.guards = [];
-            if (!gameState.bags) gameState.bags = []; // Це ключове виправлення для зникаючих мішків!
+            if (!gameState.bags) gameState.bags = []; 
             if (!gameState.currentTurn) gameState.currentTurn = 'thief';
         }
 
@@ -666,7 +668,6 @@
                     if (gameState.guards.some(g => g.r === r && g.c === c)) continue;
                     
                     gameState.guards.push({ r, c });
-                    
                     const bagIdx = gameState.bags.findIndex(b => b.r === r && b.c === c);
                     if (bagIdx !== -1) gameState.bags.splice(bagIdx, 1);
                     
@@ -681,7 +682,6 @@
             sanitizeState();
             const board = document.getElementById('board');
             
-            // Зберігаємо оверлей, видаляємо старі клітинки
             const overlay = document.getElementById('feedback-overlay');
             board.innerHTML = '';
             board.appendChild(overlay);
@@ -701,7 +701,7 @@
                     let hasBag = gameState.bags.some(b => b.r === r && b.c === c);
 
                     if (hasThief && hasGuard !== -1) {
-                        cell.innerHTML = '<div class="piece" style="font-size: clamp(2.5rem, 8vmin, 5.5rem);">💥</div>';
+                        cell.innerHTML = '<div class="piece" style="font-size: 5vmin;">💥</div>';
                     } else if (hasThief) {
                         cell.innerHTML = '<div class="piece">🦹‍♂️</div>';
                         if (selected && selected.type === 'thief') cell.style.borderColor = '#2196F3';
@@ -718,7 +718,7 @@
                 }
             }
             updateTurnUI();
-            checkGameState(); // Перевіряємо, чи потрібно показати перемогу
+            checkGameState(); 
         }
 
         function pushGameState() {
@@ -737,13 +737,11 @@
             if (gameState.gameOver) return;
             if (!myRole || myRole !== gameState.currentTurn) return;
 
-            // Спочатку перевіряємо, чи намагаємося ми зробити хід/атаку
             if (selected && isValidMove(selected, r, c)) {
                 executeMove(selected, r, c);
                 return;
             }
 
-            // Якщо хід неможливий, пробуємо виділити персонажа
             if (gameState.currentTurn === 'thief' && gameState.thief.r === r && gameState.thief.c === c) {
                 selected = { type: 'thief' };
                 render();
@@ -792,10 +790,14 @@
 
         function isValidMove(piece, r, c) {
             if (piece.type === 'thief') {
-                if (Math.abs(gameState.thief.r - r) !== Math.abs(gameState.thief.c - c) || (gameState.thief.r === r && gameState.thief.c === c)) return false;
+                // Дозволяємо рух по горизонталі, вертикалі або діагоналі
+                const dr = Math.abs(gameState.thief.r - r);
+                const dc = Math.abs(gameState.thief.c - c);
+                if (dr !== 0 && dc !== 0 && dr !== dc) return false;
+                if (dr === 0 && dc === 0) return false;
 
-                const stepR = r > gameState.thief.r ? 1 : -1;
-                const stepC = c > gameState.thief.c ? 1 : -1;
+                const stepR = r > gameState.thief.r ? 1 : (r < gameState.thief.r ? -1 : 0);
+                const stepC = c > gameState.thief.c ? 1 : (c < gameState.thief.c ? -1 : 0);
                 let currR = gameState.thief.r + stepR;
                 let currC = gameState.thief.c + stepC;
                 
@@ -807,7 +809,6 @@
                     currC += stepC;
                 }
                 if (gameState.guards.some(g => g.r === r && g.c === c)) return false;
-                
                 return true;
 
             } else if (piece.type === 'guard') {
@@ -856,12 +857,13 @@
             }
         }
 
-        // --- FIREBASE SYNC & РАДАР ГРАВЦІВ ---
+        // --- FIREBASE SYNC, RESET & РАДАР ГРАВЦІВ ---
         if (db) {
-            // Ініціалізація стану, якщо його ще немає в БД
+            // Перевірка: якщо остання дія була більше ніж годину тому, затерти стару гру
             db.ref('game_action').once('value').then(snap => {
-                if (!snap.exists()) {
-                    pushGameState();
+                const action = snap.val();
+                if (!action || (Date.now() - action.timestamp > 1000 * 60 * 60)) {
+                    restartGame();
                 }
             });
 
@@ -872,7 +874,7 @@
                 if (action.type === 'state_update') {
                     isRemoteAction = true;
                     gameState = action.data;
-                    sanitizeState(); // Захист від порожніх масивів
+                    sanitizeState(); 
                     
                     selected = null; 
                     render();
@@ -880,7 +882,6 @@
                 }
             });
 
-            // Радар та блокування гравців (Адмінка)
             const playersList = document.getElementById('players-list');
             
             db.ref('online_users').on('value', snap => {
@@ -912,10 +913,9 @@
             });
         }
 
-        // Первинний рендер
         render();
 
-        // --- УНІВЕРСАЛЬНИЙ БЛОК КОНТРОЛЮ (Ідентифікація, Радар, Блокування) ---
+        // --- УНІВЕРСАЛЬНИЙ БЛОК КОНТРОЛЮ ---
         (function() {
             if (!db) return; 
 
