@@ -501,7 +501,7 @@
                 } else {
                     consecutiveMisses++;
                     // Якщо 3 картинки поспіль не знайдено, зупиняємо цикл, 
-                    // щоб GitHub не заблокував (вирішує проблему "чорного кота")
+                    // щоб GitHub не заблокував
                     if (consecutiveMisses >= 3) {
                         break; 
                     }
@@ -800,14 +800,13 @@
             return document.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`);
         }
 
-        // --- ЛОГІКА "ПАКМАН" ПЕРЕМІЩЕННЯ ТА ДІАГОНАЛІ ДЛЯ СВИНКИ ---
+        // --- ЛОГІКА "ПАКМАН" ПЕРЕМІЩЕННЯ ДЛЯ СВИНКИ ---
         
         function getValidPigMoves(px, py) {
             let moves = [];
-            // Свинка ходить суворо на 2 клітинки: по прямій та діагоналі
+            // Свинка ходить суворо на 2 клітинки: тільки по вертикалі та горизонталі
             let directions = [
-                {dx: -2, dy: 0}, {dx: 2, dy: 0}, {dx: 0, dy: -2}, {dx: 0, dy: 2}, // Прямо
-                {dx: -2, dy: -2}, {dx: 2, dy: -2}, {dx: -2, dy: 2}, {dx: 2, dy: 2} // Діагоналі
+                {dx: -2, dy: 0}, {dx: 2, dy: 0}, {dx: 0, dy: -2}, {dx: 0, dy: 2} // Прямо
             ];
             directions.forEach(d => {
                 let fixed_nx = (((px + d.dx) % BOARD_SIZE) + BOARD_SIZE) % BOARD_SIZE;
