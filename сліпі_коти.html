@@ -551,11 +551,17 @@
         });
 
         btnClearPhantoms.onclick = () => {
-            // Видаляємо всіх з Firebase (очищуємо вузол)
-            db.ref('online_users').remove();
-            // Миттєво перереєстровуємо себе, щоб не зникнути зі списку
-            const newTabId = Math.random().toString(36).substr(2, 9);
-            db.ref(`online_users/${myName}/${newTabId}`).set(true);
+            // Видаляємо всіх користувачів, ОКРІМ себе. Це зберігає ваш onDisconnect() цілим.
+            db.ref('online_users').once('value', snap => {
+                const users = snap.val();
+                if (users) {
+                    for (let userName in users) {
+                        if (userName !== myName) {
+                            db.ref(`online_users/${userName}`).remove();
+                        }
+                    }
+                }
+            });
         };
     }
 
