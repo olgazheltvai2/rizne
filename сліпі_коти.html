@@ -28,7 +28,7 @@
             align-items: center;
             height: 100vh;
             overflow: hidden;
-            font-family: Arial, sans-serif; /* Встановлено шрифт Arial */
+            font-family: Arial, sans-serif;
         }
 
         /* Головний контейнер: максимально прозорий */
@@ -96,7 +96,7 @@
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
             background: #000000;
-            opacity: 0;
+            opacity: 1;
             pointer-events: none;
             transition: opacity 0.4s ease;
             z-index: 30;
@@ -676,11 +676,13 @@
         myRole = 'mouse';
         document.getElementById('role-mouse').classList.add('active-role');
         document.getElementById('role-cat').classList.remove('active-role');
+        updateUI(); // Негайне оновлення видимості при зміні ролі
     };
     document.getElementById('role-cat').onclick = () => {
         myRole = 'cat';
         document.getElementById('role-cat').classList.add('active-role');
         document.getElementById('role-mouse').classList.remove('active-role');
+        updateUI(); // Негайне оновлення видимості при зміні ролі
     };
 
     // --- Мережева синхронізація дій ---
@@ -859,13 +861,20 @@
     }
 
     function updateUI() {
+        // Скидаємо всі підсвітки і робимо туман скрізь за замовчуванням
         for(let y=0; y<SIZE; y++) {
             for(let x=0; x<SIZE; x++) {
                 cells[y][x].el.classList.remove('highlight-mouse', 'highlight-cat');
                 delete cells[y][x].el.dataset.catMove; 
+                cells[y][x].fog.style.opacity = '1'; 
             }
         }
 
+        // За замовчуванням приховуємо мишу і сир
+        state.cheeses.forEach(c => c.el.style.opacity = '0');
+        if (state.mouse && state.mouse.el) state.mouse.el.style.opacity = '0';
+
+        // Індикатор ходу
         if (state.turn === 'mouse') {
             turnIndicator.innerHTML = SVG_MOUSE;
             turnIndicator.classList.remove('cat-turn-active');
@@ -874,43 +883,62 @@
             turnIndicator.classList.add('cat-turn-active');
         }
 
-        if (state.gameOver) return;
-
-        if (state.turn === 'mouse') {
+        if (state.gameOver) {
+            // При завершенні гри показуємо все
             for(let y=0; y<SIZE; y++) {
                 for(let x=0; x<SIZE; x++) {
                     cells[y][x].fog.style.opacity = '0';
                 }
             }
             state.cheeses.forEach(c => c.el.style.opacity = '1');
-            state.mouse.el.style.opacity = '1';
+            if(state.mouse && state.mouse.el) state.mouse.el.style.opacity = '1';
+            return;
+        }
 
-            const moves = getValidMouseMoves();
-            moves.forEach(m => cells[m.y][m.x].el.classList.add('highlight-mouse'));
-
-        } else {
+        // Застосовуємо логіку видимості в залежності від обраної ролі
+        if (myRole === 'mouse') {
+            // Миша бачить все поле без туману
             for(let y=0; y<SIZE; y++) {
                 for(let x=0; x<SIZE; x++) {
-                    cells[y][x].fog.style.opacity = '1';
+                    cells[y][x].fog.style.opacity = '0';
                 }
             }
-            state.cheeses.forEach(c => c.el.style.opacity = '0');
-            state.mouse.el.style.opacity = '0';
+            state.cheeses.forEach(c => c.el.style.opacity = '1');
+            if (state.mouse && state.mouse.el) state.mouse.el.style.opacity = '1';
 
+            if (state.turn === 'mouse') {
+                const moves = getValidMouseMoves();
+                moves.forEach(m => cells[m.y][m.x].el.classList.add('highlight-mouse'));
+            }
+        } else if (myRole === 'cat') {
+            // Кіт бачить ТІЛЬКИ клітинки де він є, або ті, куди може піти
             const catMoves = getAllValidCatMoves();
             
-            catMoves.forEach(m => {
-                cells[m.y][m.x].el.classList.add('highlight-cat');
-                cells[m.y][m.x].fog.style.opacity = '0'; 
-                
-                cells[m.y][m.x].el.dataset.catMove = state.cats.indexOf(m.catRef);
+            // Відкриваємо клітинки, на яких безпосередньо стоять коти
+            state.cats.forEach(c => {
+                cells[c.y][c.x].fog.style.opacity = '0';
+                const cheeseIdx = state.cheeses.findIndex(ch => ch.x === c.x && ch.y === c.y);
+                if (cheeseIdx !== -1) state.cheeses[cheeseIdx].el.style.opacity = '1';
+                if (state.mouse && state.mouse.x === c.x && state.mouse.y === c.y) state.mouse.el.style.opacity = '1';
+            });
 
+            // Відкриваємо клітинки, куди коти можуть походити
+            catMoves.forEach(m => {
+                cells[m.y][m.x].fog.style.opacity = '0';
+                
                 const cheeseIdx = state.cheeses.findIndex(c => c.x === m.x && c.y === m.y);
                 if (cheeseIdx !== -1) state.cheeses[cheeseIdx].el.style.opacity = '1';
-                if (state.mouse.x === m.x && state.mouse.y === m.y) state.mouse.el.style.opacity = '1';
+                if (state.mouse && state.mouse.x === m.x && state.mouse.y === m.y) state.mouse.el.style.opacity = '1';
+
+                // Підсвічуємо хід, лише якщо зараз черга кота
+                if (state.turn === 'cat') {
+                    cells[m.y][m.x].el.classList.add('highlight-cat');
+                    cells[m.y][m.x].el.dataset.catMove = state.cats.indexOf(m.catRef);
+                }
             });
             
-            if (catMoves.length === 0) {
+            // Якщо зараз хід котів, але ходити нікуди - передаємо хід миші
+            if (state.turn === 'cat' && catMoves.length === 0) {
                 state.turn = 'mouse';
                 setTimeout(updateUI, 100);
             }
