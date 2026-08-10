@@ -194,6 +194,7 @@
             transition: all 0.2s;
             box-shadow: 0 4px 0 #1A252F, 0 6px 10px rgba(0,0,0,0.5);
             position: relative;
+            color: white;
         }
 
         .icon-btn:active {
@@ -267,7 +268,7 @@
         }
         #theme-btn:hover { transform: scale(1.1); }
         
-        #theme-modal {
+        #theme-modal, #players-modal {
             display: none;
             position: fixed;
             top: 50%; left: 50%;
@@ -282,6 +283,7 @@
             max-height: 60vh;
             overflow-y: auto;
             box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            color: white;
         }
         
         #theme-grid {
@@ -318,13 +320,51 @@
             font-size: 12px;
             padding: 4px;
         }
-        #close-theme {
+        .close-modal {
             position: absolute;
             top: 10px;
             right: 15px;
             color: white;
             font-size: 24px;
             cursor: pointer;
+        }
+
+        #players-list-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .player-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .btn-kick {
+            background: #d32f2f;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #btn-clear-phantoms {
+            margin-top: 15px;
+            width: 100%;
+            padding: 10px;
+            background: #C62828;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            font-family: Arial, sans-serif;
         }
 
         /* Універсальний екран-заглушка */
@@ -364,6 +404,14 @@
         <!-- Індикатор ходу -->
         <div id="turn-indicator"></div>
 
+        <!-- Кнопка гравців -->
+        <button class="icon-btn" id="btn-players" title="Підключені гравці">
+            <svg viewBox="0 0 100 100">
+                <circle cx="50" cy="35" r="20" fill="#FFF"/>
+                <path d="M20 90 Q50 60 80 90" fill="none" stroke="#FFF" stroke-width="12" stroke-linecap="round"/>
+            </svg>
+        </button>
+
         <!-- Кнопка додавання кота -->
         <button class="icon-btn" id="btn-add-cat" title="Додати кота">
             <svg viewBox="0 0 100 100">
@@ -374,8 +422,8 @@
             </svg>
         </button>
 
-        <!-- Кнопка видалення гравця (кота) -->
-        <button class="icon-btn" id="btn-remove-player" title="Прибрати кота">
+        <!-- Кнопка видалення гравця (кота на полі) -->
+        <button class="icon-btn" id="btn-remove-player" title="Прибрати кота з поля">
             <svg viewBox="0 0 100 100">
                 <circle cx="50" cy="50" r="45" fill="#C62828"/>
                 <path d="M25 50h50" stroke="#FFF" stroke-width="12" stroke-linecap="round"/>
@@ -393,10 +441,18 @@
     </div>
 </div>
 
+<!-- Модальне вікно списку гравців -->
+<div id="players-modal">
+    <div class="close-modal" id="close-players">&times;</div>
+    <h2 style="text-align:center; margin-bottom:10px;">Онлайн гравці</h2>
+    <div id="players-list-container"></div>
+    <button id="btn-clear-phantoms">Очистити всіх фантомів (Скинути онлайн)</button>
+</div>
+
 <!-- Theme Manager UI -->
 <div id="theme-btn">⚙️</div>
 <div id="theme-modal">
-    <div id="close-theme">&times;</div>
+    <div class="close-modal" id="close-theme">&times;</div>
     <div id="theme-grid"></div>
 </div>
 
@@ -460,6 +516,47 @@
                 window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html?user=' + encodeURIComponent(myName);
             }
         });
+
+        // Модальне вікно керування гравцями
+        const playersBtn = document.getElementById('btn-players');
+        const playersModal = document.getElementById('players-modal');
+        const closePlayers = document.getElementById('close-players');
+        const playersListContainer = document.getElementById('players-list-container');
+        const btnClearPhantoms = document.getElementById('btn-clear-phantoms');
+
+        playersBtn.onclick = () => playersModal.style.display = 'block';
+        closePlayers.onclick = () => playersModal.style.display = 'none';
+
+        db.ref('online_users').on('value', snap => {
+            playersListContainer.innerHTML = '';
+            const users = snap.val() || {};
+            for (let userName in users) {
+                const div = document.createElement('div');
+                div.className = 'player-item';
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = userName + (userName === myName ? " (Ви)" : "");
+                
+                const kickBtn = document.createElement('button');
+                kickBtn.className = 'btn-kick';
+                kickBtn.textContent = 'Видалити';
+                kickBtn.onclick = () => {
+                    db.ref(`online_users/${userName}`).remove();
+                };
+                
+                div.appendChild(nameSpan);
+                div.appendChild(kickBtn);
+                playersListContainer.appendChild(div);
+            }
+        });
+
+        btnClearPhantoms.onclick = () => {
+            // Видаляємо всіх з Firebase (очищуємо вузол)
+            db.ref('online_users').remove();
+            // Миттєво перереєстровуємо себе, щоб не зникнути зі списку
+            const newTabId = Math.random().toString(36).substr(2, 9);
+            db.ref(`online_users/${myName}/${newTabId}`).set(true);
+        };
     }
 
     // --- СИСТЕМА ДИНАМІЧНИХ ФОНІВ (Theme Manager) ---
@@ -895,6 +992,25 @@
             return;
         }
 
+        // ЗАПОБІГАННЯ ПІДВИСАННЮ: Перевіряємо чи може миша походити
+        if (state.turn === 'mouse') {
+            const moves = getValidMouseMoves();
+            if (moves.length === 0) {
+                winGame('cats'); // Миша в пастці, коти перемагають
+                return;
+            }
+        }
+
+        // ЗАПОБІГАННЯ ПІДВИСАННЮ: Перевіряємо чи можуть коти походити
+        if (state.turn === 'cat') {
+            const catMoves = getAllValidCatMoves();
+            if (catMoves.length === 0) {
+                state.turn = 'mouse'; // Коти заблоковані, передаємо хід миші
+                setTimeout(updateUI, 100);
+                return;
+            }
+        }
+
         // Застосовуємо логіку видимості в залежності від обраної ролі
         if (myRole === 'mouse') {
             // Миша бачить все поле без туману
@@ -936,12 +1052,6 @@
                     cells[m.y][m.x].el.dataset.catMove = state.cats.indexOf(m.catRef);
                 }
             });
-            
-            // Якщо зараз хід котів, але ходити нікуди - передаємо хід миші
-            if (state.turn === 'cat' && catMoves.length === 0) {
-                state.turn = 'mouse';
-                setTimeout(updateUI, 100);
-            }
         }
     }
 
