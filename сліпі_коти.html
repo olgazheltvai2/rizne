@@ -551,18 +551,14 @@
             }
         });
 
-        // НОВИЙ АЛГОРИТМ ПІНГУ ДЛЯ ОЧИЩЕННЯ ФАНТОМІВ
-        // Кожен підключений клієнт слухає гілку trigger_ping
+        // АЛГОРИТМ ПІНГУ ДЛЯ ОЧИЩЕННЯ ФАНТОМІВ
         db.ref('trigger_ping').on('value', snap => {
             if (snap.val()) {
-                // Відновлюємо свою присутність, якщо нас випадково видалили
                 presenceRef.set(true);
             }
         });
 
         btnClearPhantoms.onclick = () => {
-            // Видаляємо всіх без виключення (фантомів і реальних),
-            // і одразу відправляємо сигнал перереєстрації
             db.ref('online_users').remove().then(() => {
                 db.ref('trigger_ping').set(Date.now());
             });
@@ -813,7 +809,8 @@
                 numCatsConfig = val.data.numCats;
                 applyState(val.data.seedState);
             } else if (val.type === 'ACTION') {
-                handleCellClickLogic(val.data.x, val.data.y, true);
+                // Передаємо також індекс кота для усунення розсинхрону
+                handleCellClickLogic(val.data.x, val.data.y, true, val.data.catIdx);
             } else if (val.type === 'ADD_CAT') {
                 numCatsConfig = val.data.numCats;
                 applyState(val.data.seedState);
@@ -1059,13 +1056,15 @@
                 // Підсвічуємо хід, лише якщо зараз черга кота
                 if (state.turn === 'cat') {
                     cells[m.y][m.x].el.classList.add('highlight-cat');
+                    // Dataset додається виключно для локальної взаємодії з кліком
                     cells[m.y][m.x].el.dataset.catMove = state.cats.indexOf(m.catRef);
                 }
             });
         }
     }
 
-    function handleCellClickLogic(x, y, fromRemote) {
+    // НОВА ЛОГІКА: Незалежна від інтерфейсу обробка ходів
+    function handleCellClickLogic(x, y, fromRemote, remoteCatIdx = -1) {
         if (state.gameOver) return;
         
         // Перевірка ролей для локальних кліків
@@ -1107,14 +1106,26 @@
                 state.turn = 'cat';
                 updateUI();
             }
-        } else {
-            const cellEl = cells[y][x].el;
-            if (cellEl.dataset.catMove !== undefined) {
-                if (!fromRemote) sendAction('ACTION', {x, y});
+        } else { // Хід кота
+            let movingCatIdx = -1;
+            
+            // Якщо хід прийшов по мережі, ми точно знаємо який кіт ходить
+            if (fromRemote && remoteCatIdx !== undefined && remoteCatIdx !== -1) {
+                movingCatIdx = remoteCatIdx;
+            } 
+            // Якщо хід локальний, дивимось на який з підсвічених варіантів клікнув гравець
+            else if (!fromRemote) {
+                const cellEl = cells[y][x].el;
+                if (cellEl.dataset.catMove !== undefined) {
+                    movingCatIdx = parseInt(cellEl.dataset.catMove);
+                }
+            }
 
-                const catIdx = parseInt(cellEl.dataset.catMove);
-                const cat = state.cats[catIdx];
-                
+            // Якщо знайдено валідного кота для ходу
+            if (movingCatIdx !== -1 && state.cats[movingCatIdx]) {
+                if (!fromRemote) sendAction('ACTION', {x, y, catIdx: movingCatIdx});
+
+                const cat = state.cats[movingCatIdx];
                 cat.x = x;
                 cat.y = y;
                 updateEntityPos(cat.el, x, y);
