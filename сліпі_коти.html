@@ -488,6 +488,7 @@
         // Радар
         const tabId = Math.random().toString(36).substr(2, 9);
         const presenceRef = db.ref(`online_users/${myName}/${tabId}`);
+        
         db.ref('.info/connected').on('value', snap => {
             if (snap.val()) {
                 presenceRef.set(true);
@@ -550,17 +551,20 @@
             }
         });
 
+        // НОВИЙ АЛГОРИТМ ПІНГУ ДЛЯ ОЧИЩЕННЯ ФАНТОМІВ
+        // Кожен підключений клієнт слухає гілку trigger_ping
+        db.ref('trigger_ping').on('value', snap => {
+            if (snap.val()) {
+                // Відновлюємо свою присутність, якщо нас випадково видалили
+                presenceRef.set(true);
+            }
+        });
+
         btnClearPhantoms.onclick = () => {
-            // Видаляємо всіх користувачів, ОКРІМ себе. Це зберігає ваш onDisconnect() цілим.
-            db.ref('online_users').once('value', snap => {
-                const users = snap.val();
-                if (users) {
-                    for (let userName in users) {
-                        if (userName !== myName) {
-                            db.ref(`online_users/${userName}`).remove();
-                        }
-                    }
-                }
+            // Видаляємо всіх без виключення (фантомів і реальних),
+            // і одразу відправляємо сигнал перереєстрації
+            db.ref('online_users').remove().then(() => {
+                db.ref('trigger_ping').set(Date.now());
             });
         };
     }
