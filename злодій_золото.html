@@ -237,7 +237,6 @@
             max-font-size: 5.5rem;
             line-height: 1;
             filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
-            /* Анімацію прибрано, щоб уникнути блимання при кожному виділенні */
         }
 
         /* --- Фідбеки --- */
@@ -461,6 +460,10 @@
                     <h4>Гравці онлайн:</h4>
                     <div id="players-list"></div>
                 </div>
+                
+                <div style="text-align: center; color: #888; font-size: 0.85rem; margin-top: 10px; font-weight: bold;">
+                    Версія гри: 2.0
+                </div>
             </div>
 
         </div>
@@ -666,6 +669,7 @@
                 for (let c = boardSize - 1; c >= 0; c--) {
                     if (gameState.thief.r === r && gameState.thief.c === c) continue;
                     if (gameState.guards.some(g => g.r === r && g.c === c)) continue;
+                    // Охоронець не може з'явитися на останньому мішку
                     if (gameState.bags.length === 1 && gameState.bags[0].r === r && gameState.bags[0].c === c) continue;
                     
                     gameState.guards.push({ r, c });
@@ -768,15 +772,16 @@
                 const stepC = c > gameState.thief.c ? 1 : (c < gameState.thief.c ? -1 : 0);
                 let currR = gameState.thief.r;
                 let currC = gameState.thief.c;
-                let eaten = false; // Прапорець, щоб з'їсти лише 1 мішок за хід
+                let eaten = false;
                 
                 while (currR !== r || currC !== c) {
                     if (stepR !== 0) currR += stepR;
                     if (stepC !== 0) currC += stepC;
                     const bagIdx = gameState.bags.findIndex(b => b.r === currR && b.c === currC);
+                    // З'їдаємо лише один мішок, навіть якщо їх кілька
                     if (bagIdx !== -1 && !eaten) {
                         gameState.bags.splice(bagIdx, 1);
-                        eaten = true; // Мішок з'їдено, більше цього ходу не їмо
+                        eaten = true;
                     }
                 }
                 gameState.thief = { r, c };
@@ -804,15 +809,26 @@
                 const stepC = c > gameState.thief.c ? 1 : (c < gameState.thief.c ? -1 : 0);
                 let currR = gameState.thief.r + stepR;
                 let currC = gameState.thief.c + stepC;
+                let bagsInPath = 0;
                 
                 while (currR !== r || currC !== c) {
                     if (gameState.guards.some(otherG => otherG.r === currR && otherG.c === currC)) {
                         return false; 
                     }
+                    if (gameState.bags.some(b => b.r === currR && b.c === currC)) {
+                        bagsInPath++;
+                    }
                     currR += stepR;
                     currC += stepC;
                 }
                 if (gameState.guards.some(g => g.r === r && g.c === c)) return false;
+                if (gameState.bags.some(b => b.r === r && b.c === c)) {
+                    bagsInPath++;
+                }
+
+                // Заборона робити хід, якщо на шляху більше ніж 1 мішок
+                if (bagsInPath > 1) return false;
+
                 return true;
 
             } else if (piece.type === 'guard') {
