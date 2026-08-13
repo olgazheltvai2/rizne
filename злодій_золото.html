@@ -666,6 +666,7 @@
                 for (let c = boardSize - 1; c >= 0; c--) {
                     if (gameState.thief.r === r && gameState.thief.c === c) continue;
                     if (gameState.guards.some(g => g.r === r && g.c === c)) continue;
+                    if (gameState.bags.length === 1 && gameState.bags[0].r === r && gameState.bags[0].c === c) continue;
                     
                     gameState.guards.push({ r, c });
                     const bagIdx = gameState.bags.findIndex(b => b.r === r && b.c === c);
@@ -767,12 +768,16 @@
                 const stepC = c > gameState.thief.c ? 1 : (c < gameState.thief.c ? -1 : 0);
                 let currR = gameState.thief.r;
                 let currC = gameState.thief.c;
+                let eaten = false; // Прапорець, щоб з'їсти лише 1 мішок за хід
                 
                 while (currR !== r || currC !== c) {
                     if (stepR !== 0) currR += stepR;
                     if (stepC !== 0) currC += stepC;
                     const bagIdx = gameState.bags.findIndex(b => b.r === currR && b.c === currC);
-                    if (bagIdx !== -1) gameState.bags.splice(bagIdx, 1);
+                    if (bagIdx !== -1 && !eaten) {
+                        gameState.bags.splice(bagIdx, 1);
+                        eaten = true; // Мішок з'їдено, більше цього ходу не їмо
+                    }
                 }
                 gameState.thief = { r, c };
                 
@@ -814,6 +819,11 @@
                 const g = gameState.guards[piece.idx];
                 if (g.r !== r && g.c !== c) return false;
                 if (g.r === r && g.c === c) return false;
+                
+                // Заборона ставати на останній мішок
+                if (gameState.bags.length === 1 && gameState.bags[0].r === r && gameState.bags[0].c === c) {
+                    return false;
+                }
                 
                 const stepR = r > g.r ? 1 : (r < g.r ? -1 : 0);
                 const stepC = c > g.c ? 1 : (c < g.c ? -1 : 0);
