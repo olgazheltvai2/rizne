@@ -790,11 +790,10 @@
 
         function isValidMove(piece, r, c) {
             if (piece.type === 'thief') {
-                // Дозволяємо рух по горизонталі, вертикалі або діагоналі
+                // Дозволяємо рух ТІЛЬКИ по діагоналі
                 const dr = Math.abs(gameState.thief.r - r);
                 const dc = Math.abs(gameState.thief.c - c);
-                if (dr !== 0 && dc !== 0 && dr !== dc) return false;
-                if (dr === 0 && dc === 0) return false;
+                if (dr !== dc || dr === 0) return false;
 
                 const stepR = r > gameState.thief.r ? 1 : (r < gameState.thief.r ? -1 : 0);
                 const stepC = c > gameState.thief.c ? 1 : (c < gameState.thief.c ? -1 : 0);
