@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Комплексний Урок: Настрій, Погода, Сезони, Календар</title>
+    
+    <!-- Підключення Firebase (compat) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+    <style>
+        /* ================= УНІВЕРСАЛЬНІ СТИЛІ ТА СИСТЕМА ФОНІВ ================= */
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+        body, html { width: 100vw; height: 100vh; overflow: hidden; background-color: #0b192c; background-size: cover; background-position: center; background-repeat: no-repeat; font-family: Arial, sans-serif; transition: background-image 0.5s ease; }
+        
+        #block-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 999999; justify-content: center; align-items: center; color: red; font-size: 5vw; font-weight: bold; text-align: center; font-family: Arial, sans-serif; backdrop-filter: blur(10px); }
+
+        #theme-btn { position: fixed; bottom: 20px; right: 20px; font-size: 40px; cursor: pointer; z-index: 10000; text-shadow: 0 0 15px rgba(0,0,0,0.8); transition: transform 0.3s; }
+        #theme-btn:hover { transform: scale(1.1) rotate(45deg); }
+        
+        #theme-modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 85%; max-height: 60vh; background: rgba(0,0,0,0.8); border: 2px solid #fff; border-radius: 20px; z-index: 10001; overflow-y: auto; padding: 30px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; backdrop-filter: blur(10px); }
+        .theme-thumb { position: relative; width: 100%; aspect-ratio: 16/9; background-size: cover; background-position: center; cursor: pointer; border-radius: 10px; border: 3px solid transparent; transition: border-color 0.3s, transform 0.3s; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        .theme-thumb:hover { border-color: #ffeb3b; transform: scale(1.05); }
+        .theme-text { position: absolute; bottom: 8px; left: 8px; color: #fff; font-weight: bold; background: rgba(0,0,0,0.6); padding: 4px 8px; border-radius: 5px; font-size: 16px; font-family: Arial, sans-serif; }
+        #theme-close { display: none; position: fixed; top: 15px; right: 25px; color: #fff; cursor: pointer; font-size: 40px; z-index: 10002; text-shadow: 0 0 10px rgba(0,0,0,0.8); }
+
+        /* ================= МАЙСТЕР-НАВІГАЦІЯ (ЕТАПИ) ================= */
+        #master-nav { position: fixed; top: 15px; left: 50%; transform: translateX(-50%); z-index: 9000; display: flex; gap: 20px; }
+        .master-btn { font-family: Arial, sans-serif; padding: 12px 25px; font-size: 18px; font-weight: bold; border-radius: 30px; border: 2px solid rgba(255,255,255,0.5); background: rgba(0,0,0,0.5); color: #fff; cursor: pointer; backdrop-filter: blur(5px); box-shadow: 0 5px 15px rgba(0,0,0,0.3); transition: all 0.3s; }
+        .master-btn:hover { background: rgba(255,255,255,0.2); border-color: #fff; }
+        
+        .game-step { display: none; width: 100%; height: 100%; position: absolute; top:0; left:0; }
+        .game-step.active { display: flex; flex-direction: column; justify-content: center; align-items: center; }
+
+        /* ================= СТИЛІ: НАСТРІЙ (КРОК 1) ================= */
+        #step-mood .aspect-ratio-container { position: relative; width: 100vw; height: 56.25vw; max-height: 100vh; max-width: 177.78vh; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        #step-mood .game-area { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -40%); width: 85%; height: 65%; z-index: 10; display: flex; justify-content: space-evenly; align-items: flex-end; padding: 30px; background: rgba(11, 25, 44, 0.4); border-radius: 40px; box-shadow: inset 0 10px 30px rgba(255, 255, 255, 0.05), 0 30px 60px rgba(0,0,0,0.6); border-bottom: 15px solid rgba(22, 36, 71, 0.6); backdrop-filter: blur(8px); }
+        #step-mood .station { display: flex; flex-direction: column; align-items: center; gap: 20px; width: 16%; }
+        #step-mood .smiley-wrapper { width: 100%; aspect-ratio: 1/1; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); filter: drop-shadow(0 15px 15px rgba(0,0,0,0.5)); }
+        #step-mood .bounce { animation: bounceSmiley 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes bounceSmiley { 0%, 100% { transform: translateY(0) scale(1) rotate(0deg); } 50% { transform: translateY(-25px) scale(1.2) rotate(5deg); } }
+        #step-mood .flask-wrapper { width: 100%; aspect-ratio: 1/1.5; cursor: pointer; position: relative; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); filter: drop-shadow(0 20px 20px rgba(0,0,0,0.6)); }
+        #step-mood .flask-wrapper:hover { transform: scale(1.08) translateY(-8px); }
+        #step-mood .success-anim { animation: successPulse 0.7s ease-out; }
+        @keyframes successPulse { 0% { transform: scale(1); filter: drop-shadow(0 20px 20px rgba(0,0,0,0.6)) brightness(1); } 50% { transform: scale(1.15) translateY(-20px); filter: drop-shadow(0 0 40px currentColor) brightness(1.6); } 100% { transform: scale(1); filter: drop-shadow(0 20px 20px rgba(0,0,0,0.6)) brightness(1); } }
+        .particle { position: absolute; border-radius: 50%; pointer-events: none; z-index: 100; animation: floatUp 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; box-shadow: 0 0 12px currentColor, inset 0 0 6px rgba(255,255,255,0.9); }
+        @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-180px) scale(0); opacity: 0; } }
+
+        /* ================= СТИЛІ: ПОГОДА (КРОК 2) ================= */
+        #step-weather #weather-grid { position: relative; z-index: 10; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(3, 1fr); gap: 20px; width: 90%; max-width: 1000px; height: 85%; padding: 30px; background: rgba(20, 50, 100, 0.3); border-radius: 30px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.2); backdrop-filter: blur(12px); border: 2px solid rgba(255, 255, 255, 0.3); }
+        @media (max-width: 800px) { #step-weather #weather-grid { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(4, 1fr); } }
+        #step-weather .weather-card { position: relative; border-radius: 20px; cursor: pointer; display: flex; justify-content: center; align-items: center; background: linear-gradient(145deg, rgba(255,255,255,0.15), rgba(0,0,0,0.15)); box-shadow: 5px 5px 15px rgba(0,0,0,0.2), inset 2px 2px 5px rgba(255,255,255,0.4); transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); overflow: visible; }
+        #step-weather .weather-card:hover { transform: translateY(-10px) scale(1.05); box-shadow: 10px 15px 25px rgba(0,0,0,0.3), inset 2px 2px 10px rgba(255,255,255,0.6); background: linear-gradient(145deg, rgba(255,255,255,0.25), rgba(0,0,0,0.1)); }
+        #step-weather .weather-card.selected { transform: scale(1.1); background: radial-gradient(circle, rgba(255, 223, 0, 0.6) 0%, rgba(255, 150, 0, 0.4) 100%); border: 3px solid #ffea00; box-shadow: 0 0 30px rgba(255, 234, 0, 0.8), inset 0 0 15px rgba(255, 255, 255, 0.8); animation: pulseGlow 2s infinite alternate; }
+        @keyframes pulseGlow { 0% { box-shadow: 0 0 20px rgba(255, 234, 0, 0.6), inset 0 0 10px rgba(255, 255, 255, 0.5); } 100% { box-shadow: 0 0 40px rgba(255, 234, 0, 1), inset 0 0 20px rgba(255, 255, 255, 0.9); } }
+        #step-weather .icon-container { width: 80%; height: 80%; pointer-events: none; }
+        #step-weather .spin { animation: spin 10s linear infinite; } @keyframes spin { 100% { transform: rotate(360deg); } }
+        #step-weather .swing { transform-origin: top center; animation: swing 3s ease-in-out infinite alternate; } @keyframes swing { 0% { transform: rotate(-10deg); } 100% { transform: rotate(10deg); } }
+        #step-weather .drop { animation: drop 1s linear infinite; } @keyframes drop { 0% { transform: translateY(-10px); opacity: 0; } 50% { opacity: 1; } 100% { transform: translateY(20px); opacity: 0; } }
+        #step-weather .flash { animation: flash 4s infinite; } @keyframes flash { 0%, 95%, 98% { opacity: 0; } 96%, 99%, 100% { opacity: 1; } }
+        .weather-particle { position: absolute; pointer-events: none; border-radius: 50%; animation: explode 0.8s ease-out forwards; }
+        @keyframes explode { 0% { transform: scale(1) translate(0, 0); opacity: 1; } 100% { transform: scale(0) translate(var(--tx), var(--ty)); opacity: 0; } }
+
+        /* ================= СТИЛІ: ПОРА РОКУ (КРОК 3) ================= */
+        #step-season #scene-container { position: relative; width: 100%; height: 100%; overflow: hidden; }
+        #step-season #main-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5;}
+        #step-season #season-title { position: absolute; top: 12%; left: 50%; transform: translateX(-50%); font-size: 10vw; font-weight: 900; color: white; text-transform: uppercase; letter-spacing: 0.1em; text-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(255, 255, 255, 0.5); z-index: 10; transition: opacity 0.5s ease, transform 0.5s ease, color 1.5s ease; font-family: Arial, sans-serif; }
+        #step-season .title-animate { animation: bounceIn 1s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes bounceIn { 0% { transform: translateX(-50%) scale(0.5); opacity: 0; } 50% { transform: translateX(-50%) scale(1.1); opacity: 1; } 100% { transform: translateX(-50%) scale(1); opacity: 1; } }
+        #step-season .season-controls { position: absolute; bottom: 8%; width: 100%; display: flex; justify-content: center; gap: 40px; z-index: 20; }
+        #step-season .season-btn { font-family: Arial, sans-serif; background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(10px); border: 2px solid rgba(255, 255, 255, 0.5); color: white; padding: 15px 40px; font-size: 24px; font-weight: bold; border-radius: 50px; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        #step-season .season-btn:hover { background: rgba(255, 255, 255, 0.4); transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        #step-season .season-element { transition: fill 1.5s ease, stroke 1.5s ease, opacity 1.5s ease; }
+        #step-season #sun { transform-origin: 200px 200px; transition: transform 2s ease; }
+        #step-season .sun-rays { transform-origin: 200px 200px; animation: spin 20s linear infinite; }
+        #step-season .cloud { animation: floatClouds 60s linear infinite; }
+        #step-season .cloud:nth-child(2) { animation-duration: 80s; animation-delay: -30s; }
+        #step-season .cloud:nth-child(3) { animation-duration: 50s; animation-delay: -15s; }
+        @keyframes floatClouds { from { transform: translateX(-300px); } to { transform: translateX(2200px); } }
+        #step-season #tree-leaves { transform-origin: 400px 600px; transition: fill 1.5s ease, opacity 1s ease; animation: treeSway 5s ease-in-out infinite alternate; }
+        @keyframes treeSway { 0% { transform: skewX(-2deg); } 100% { transform: skewX(2deg); } }
+
+        /* ================= СТИЛІ: ЧИСЛО ТА КАЛЕНДАР (КРОК 4) ================= */
+        #step-calendar #task-board { position: relative; width: 85%; height: 80%; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 20px; background: rgba(120, 40, 140, 0.25); border-radius: 40px; padding: 30px; box-shadow: inset 0 0 40px rgba(255, 100, 255, 0.2), 0 20px 50px rgba(0,0,0,0.5); backdrop-filter: blur(15px); border: 2px solid rgba(255, 150, 255, 0.3); overflow: hidden; z-index: 10;}
+        #step-calendar .board-frame { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1; }
+        #step-calendar .game-item { cursor: pointer; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); display: flex; justify-content: center; align-items: center; text-align: center; font-weight: bold; color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.7); position: relative; font-family: Arial, sans-serif;}
+        #step-calendar .game-item:hover { transform: scale(1.1) translateY(-5px); filter: drop-shadow(0px 10px 15px rgba(255, 200, 255, 0.4)); z-index: 10; }
+        #step-calendar .game-item:active { transform: scale(0.95); }
+        #step-calendar .game-item.selected { transform: scale(1.15); filter: drop-shadow(0 0 20px #ffeb3b) brightness(1.2); z-index: 10; }
+        #step-calendar .item-time { width: 250px; height: 200px; font-size: 32px; }
+        #step-calendar .item-day { width: 220px; height: 90px; font-size: 26px; }
+        #step-calendar .item-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; }
+        #step-calendar .combined-layout { display: flex; width: 100%; height: 100%; gap: 30px; }
+        #step-calendar .dates-section { flex: 1.2; display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; align-content: center; padding: 20px; background: rgba(0, 0, 0, 0.3); border-radius: 30px; border: 1px dashed rgba(255,255,255,0.3); }
+        #step-calendar .months-section { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; align-content: center; padding: 20px; background: rgba(0, 0, 0, 0.3); border-radius: 30px; border: 1px dashed rgba(255,255,255,0.3); }
+        #step-calendar .item-date { width: 100%; aspect-ratio: 1; font-size: 24px; color: #fff; text-shadow: 1px 1px 2px #000; }
+        #step-calendar .item-month { width: 100%; height: 80px; font-size: 18px; color: #fff; text-shadow: 1px 1px 2px #000; }
+        #step-calendar #cal-nav-controls { position: absolute; bottom: 30px; right: 40px; display: flex; gap: 20px; z-index: 30; }
+        #step-calendar .cal-nav-btn { background: transparent; border: none; cursor: pointer; width: 70px; height: 70px; transition: transform 0.2s, filter 0.2s; position: relative; }
+        #step-calendar .cal-nav-btn:hover { transform: scale(1.2); filter: brightness(1.2); }
+        #step-calendar .cal-nav-btn:active { transform: scale(0.9); }
+    </style>
+</head>
+<body>
+
+    <!-- Універсальний блок контролю -->
+    <div id="block-overlay">Зачекай! Зараз не твій урок.</div>
+
+    <!-- Theme Manager -->
+    <div id="theme-btn" onclick="openThemeManager()">⚙️</div>
+    <div id="theme-close" onclick="closeThemeManager()">✖</div>
+    <div id="theme-modal"></div>
+
+    <!-- Майстер-навігація -->
+    <div id="master-nav">
+        <button id="btn-master-prev" class="master-btn" style="display:none;" onclick="changeMasterStep(-1)">НАЗАД</button>
+        <button id="btn-master-next" class="master-btn" onclick="changeMasterStep(1)">НАСТУПНИЙ ЕТАП</button>
+    </div>
+
+    <!-- ================= КРОК 1: НАСТРІЙ ================= -->
+    <div id="step-mood" class="game-step active">
+        <div class="aspect-ratio-container">
+            <div class="game-area" id="gameBoard"></div>
+        </div>
+    </div>
+
+    <!-- ================= КРОК 2: ПОГОДА ================= -->
+    <div id="step-weather" class="game-step">
+        <div id="weather-grid"></div>
+    </div>
+
+    <!-- ================= КРОК 3: ПОРА РОКУ ================= -->
+    <div id="step-season" class="game-step">
+        <div id="scene-container">
+            <div id="season-title">ЗИМА</div>
+            <svg id="main-svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="15" result="blur" />
+                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                    </filter>
+                    <filter id="drop-shadow">
+                        <feDropShadow dx="0" dy="10" stdDeviation="10" flood-opacity="0.3"/>
+                    </filter>
+                    <linearGradient id="hill1-grad" x1="0" y1="0" x2="0" y2="1">
+                        <stop class="season-element hill1-top" offset="0%" stop-color="#fff" />
+                        <stop class="season-element hill1-bot" offset="100%" stop-color="#e0e0e0" />
+                    </linearGradient>
+                    <linearGradient id="hill2-grad" x1="0" y1="0" x2="0" y2="1">
+                        <stop class="season-element hill2-top" offset="0%" stop-color="#f5f5f5" />
+                        <stop class="season-element hill2-bot" offset="100%" stop-color="#cccccc" />
+                    </linearGradient>
+                </defs>
+                <g id="sky-elements">
+                    <g id="sun" transform="translate(0, 0)">
+                        <circle cx="200" cy="200" r="80" class="season-element sun-core" fill="#FFFBE6" filter="url(#glow)"/>
+                        <g class="season-element sun-rays" stroke="#FFD700" stroke-width="8" stroke-linecap="round" opacity="0.5">
+                            <line x1="200" y1="80" x2="200" y2="40" /> <line x1="200" y1="320" x2="200" y2="360" />
+                            <line x1="80" y1="200" x2="40" y2="200" /> <line x1="320" y1="200" x2="360" y2="200" />
+                            <line x1="115" y1="115" x2="85" y2="85" /> <line x1="285" y1="285" x2="315" y2="315" />
+                            <line x1="115" y1="285" x2="85" y2="315" /> <line x1="285" y1="115" x2="315" y2="85" />
+                        </g>
+                    </g>
+                    <g class="cloud" opacity="0.8"> <path d="M 200 300 Q 230 250 280 270 Q 330 230 380 270 Q 430 260 450 300 Q 480 340 430 360 L 230 360 Q 180 340 200 300 Z" fill="#ffffff" filter="url(#drop-shadow)" opacity="0.6"/> </g>
+                    <g class="cloud" opacity="0.6" transform="scale(0.7) translate(1000, 100)"> <path d="M 200 300 Q 230 250 280 270 Q 330 230 380 270 Q 430 260 450 300 Q 480 340 430 360 L 230 360 Q 180 340 200 300 Z" fill="#ffffff" filter="url(#drop-shadow)"/> </g>
+                    <g class="cloud" opacity="0.7" transform="scale(1.2) translate(500, -50)"> <path d="M 200 300 Q 230 250 280 270 Q 330 230 380 270 Q 430 260 450 300 Q 480 340 430 360 L 230 360 Q 180 340 200 300 Z" fill="#ffffff" filter="url(#drop-shadow)"/> </g>
+                </g>
+                <g id="landscape" opacity="0.9">
+                    <path class="season-element" d="M 0 700 Q 500 500 1000 700 T 2000 650 L 2000 1100 L 0 1100 Z" fill="url(#hill2-grad)" />
+                    <path d="M 380 900 Q 400 700 350 550 Q 380 650 400 550 Q 420 650 450 550 Q 400 700 420 900 Z" fill="#5C4033" filter="url(#drop-shadow)"/>
+                    <path d="M 380 650 Q 320 600 280 500" stroke="#5C4033" stroke-width="15" stroke-linecap="round" fill="none"/>
+                    <path d="M 410 680 Q 480 620 520 530" stroke="#5C4033" stroke-width="12" stroke-linecap="round" fill="none"/>
+                    <g id="tree-leaves" fill="#ffffff" opacity="0.9" filter="url(#drop-shadow)">
+                        <circle cx="350" cy="500" r="120" /> <circle cx="450" cy="480" r="110" />
+                        <circle cx="400" cy="400" r="140" /> <circle cx="280" cy="450" r="90" />
+                        <circle cx="520" cy="420" r="80" />
+                    </g>
+                    <path class="season-element" d="M -100 850 Q 400 700 1000 850 T 2100 800 L 2100 1100 L -100 1100 Z" fill="url(#hill1-grad)" filter="url(#drop-shadow)"/>
+                </g>
+                <g id="particles-layer"></g>
+            </svg>
+            <div class="season-controls">
+                <button class="season-btn" onclick="handleSeasonChange(-1)">НАЗАД</button>
+                <button class="season-btn" onclick="handleSeasonChange(1)">ДАЛІ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= КРОК 4: ЧИСЛО ТА КАЛЕНДАР ================= -->
+    <div id="step-calendar" class="game-step">
+        <div id="task-board"></div>
+        <div id="cal-nav-controls">
+            <button class="cal-nav-btn" id="cal-btn-back" onclick="handleCalendarNav('prev')">
+                <svg viewBox="0 0 100 100">
+                    <path d="M 50 5 L 95 50 L 50 95 L 5 50 Z" fill="#9c27b0" stroke="#ce93d8" stroke-width="4"/>
+                    <path d="M 60 30 L 35 50 L 60 70" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+            <button class="cal-nav-btn" id="cal-btn-next" onclick="handleCalendarNav('next')">
+                <svg viewBox="0 0 100 100">
+                    <path d="M 50 5 L 95 50 L 50 95 L 5 50 Z" fill="#00bcd4" stroke="#80deea" stroke-width="4"/>
+                    <path d="M 40 30 L 65 50 L 40 70" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ================= ГЛОБАЛЬНИЙ АУДІО КОНТЕКСТ =================
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+        function initAudio() { if (!audioCtx) audioCtx = new AudioContext(); if (audioCtx.state === 'suspended') audioCtx.resume(); }
+        document.body.addEventListener('click', initAudio, { once: true });
+
+        // ================= FIREBASE ТА ІДЕНТИФІКАЦІЯ =================
+        const firebaseConfig = { databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/", projectId: "lesson-13c44" };
+        let db;
+        try { firebase.initializeApp(firebaseConfig); db = firebase.database(); } catch(e) { console.warn("Firebase offline mode"); }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        let myName = urlParams.get('user') || sessionStorage.getItem('userName');
+        if (!myName) myName = 'Гість_' + Math.floor(Math.random() * 1000);
+        sessionStorage.setItem('userName', myName);
+
+        const tabId = Math.random().toString(36).substr(2, 9);
+        const senderId = myName + '_' + tabId;
+        let isRemoteAction = false;
+        let immunity = true; setTimeout(() => immunity = false, 1000);
+
+        if (db) {
+            // Радар
+            db.ref('.info/connected').on('value', s => {
+                if(s.val()) {
+                    const ref = db.ref('online_users/' + myName + '/' + tabId);
+                    ref.set(true); ref.onDisconnect().remove();
+                }
+            });
+            window.addEventListener('beforeunload', () => db.ref('online_users/' + myName + '/' + tabId).remove());
+
+            // Блокування та оновлення
+            db.ref('force_refresh').on('value', s => { if(s.val()) window.location.reload(); });
+            db.ref('blocked_users/' + myName).on('value', s => { document.getElementById('block-overlay').style.display = s.val() ? 'flex' : 'none'; });
+            
+            // Повернення в лоббі
+            db.ref('current_activity').on('value', s => {
+                if(!immunity && s.val() === 'lobby') window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html?user=' + encodeURIComponent(myName);
+            });
+
+            // Синхронізація фону
+            db.ref('game_theme').on('value', s => {
+                if(s.val()) { document.body.style.backgroundImage = `url(${s.val()})`; localStorage.setItem('mySavedGameBg', s.val()); }
+            });
+        } else {
+            const savedBg = localStorage.getItem('mySavedGameBg');
+            if(savedBg) document.body.style.backgroundImage = `url(${savedBg})`;
+        }
+
+        // ================= СИНХРОНІЗАЦІЯ ДІЙ =================
+        function sendAction(data) {
+            if(!db || isRemoteAction) return;
+            data.senderId = senderId;
+            data.timestamp = firebase.database.ServerValue.TIMESTAMP;
+            db.ref('game_action').set(data);
+        }
+
+        if (db) {
+            let lastTimestamp = 0;
+            db.ref('game_action').on('value', s => {
+                const data = s.val();
+                if(!data || data.senderId === senderId || data.timestamp <= lastTimestamp) return;
+                lastTimestamp = data.timestamp;
+                isRemoteAction = true;
+                processRemoteAction(data);
+                setTimeout(() => isRemoteAction = false, 50);
+            });
+        }
+
+        function processRemoteAction(data) {
+            if (data.type === 'master_step') changeMasterStep(data.dir, true);
+            else if (data.type === 'mood_flask') processFlaskClick(data.index, null, true);
+            else if (data.type === 'weather_card') processWeatherClick(data.id, true);
+            else if (data.type === 'season_nav') handleSeasonChange(data.dir, true);
+            else if (data.type === 'calendar_nav') handleCalendarNav(data.dir, true);
+            else if (data.type === 'calendar_item') selectCalendarItem(data.idx, data.group, true);
+        }
+
+        // ================= THEME MANAGER =================
+        let themesLoaded = false;
+        async function openThemeManager() {
+            document.getElementById('theme-modal').style.display = 'grid';
+            document.getElementById('theme-close').style.display = 'block';
+            if (themesLoaded) return;
+            const modal = document.getElementById('theme-modal');
+            modal.innerHTML = '';
+            for (let i = 1; i <= 1000; i++) {
+                const url = `https://olgazheltvai2.github.io/images/backgrounds/background_${i}.webp`;
+                try {
+                    const test = new Image();
+                    test.src = url;
+                    await new Promise((resolve, reject) => { test.onload = resolve; test.onerror = reject; });
+                    const div = document.createElement('div');
+                    div.className = 'theme-thumb';
+                    div.style.backgroundImage = `url(${url})`;
+                    div.innerHTML = `<div class="theme-text">Фон ${i}</div>`;
+                    div.onclick = () => {
+                        document.body.style.backgroundImage = `url(${url})`;
+                        localStorage.setItem('mySavedGameBg', url);
+                        if(db) db.ref('game_theme').set(url);
+                    };
+                    modal.appendChild(div);
+                } catch (e) { break; } // Зупиняємось на першому 404
+            }
+            themesLoaded = true;
+        }
+        function closeThemeManager() {
+            document.getElementById('theme-modal').style.display = 'none';
+            document.getElementById('theme-close').style.display = 'none';
+        }
+
+        // ================= МАЙСТЕР-НАВІГАЦІЯ =================
+        const steps = ['step-mood', 'step-weather', 'step-season', 'step-calendar'];
+        const stepNames = ['ПОГОДА', 'ПОРА РОКУ', 'КАЛЕНДАР', ''];
+        let currentMasterStep = 0;
+
+        function updateMasterNav() {
+            document.querySelectorAll('.game-step').forEach((el, i) => {
+                el.classList.toggle('active', i === currentMasterStep);
+            });
+            document.getElementById('btn-master-prev').style.display = currentMasterStep > 0 ? 'block' : 'none';
+            document.getElementById('btn-master-next').style.display = currentMasterStep < steps.length - 1 ? 'block' : 'none';
+            if (currentMasterStep < steps.length - 1) {
+                document.getElementById('btn-master-next').innerText = "ДАЛІ: " + stepNames[currentMasterStep];
+            }
+        }
+
+        function changeMasterStep(dir, fromRemote = false) {
+            initAudio();
+            currentMasterStep += dir;
+            if (currentMasterStep < 0) currentMasterStep = 0;
+            if (currentMasterStep >= steps.length) currentMasterStep = steps.length - 1;
+            updateMasterNav();
+            if (!fromRemote) sendAction({ type: 'master_step', dir: dir });
+        }
+
+        // ================= КРОК 1: НАСТРІЙ =================
+        const flaskColors = ['#ffca28', '#29b6f6', '#ef5350', '#ab47bc', '#66bb6a'];
+        const emotions = [
+            `<circle cx="50" cy="50" r="45" fill="url(#grad-happy)"/><path d="M 28 35 Q 35 25 42 35" fill="none" stroke="#4e342e" stroke-width="4.5" stroke-linecap="round"/><path d="M 58 35 Q 65 25 72 35" fill="none" stroke="#4e342e" stroke-width="4.5" stroke-linecap="round"/><path d="M 22 55 Q 50 85 78 55" fill="none" stroke="#4e342e" stroke-width="5.5" stroke-linecap="round"/><path d="M 32 62 Q 50 80 68 62 Z" fill="#e53935"/>`,
+            `<circle cx="50" cy="50" r="45" fill="url(#grad-sad)"/><path d="M 25 42 Q 35 32 45 42" fill="none" stroke="#01579b" stroke-width="4.5" stroke-linecap="round"/><path d="M 75 42 Q 65 32 55 42" fill="none" stroke="#01579b" stroke-width="4.5" stroke-linecap="round"/><circle cx="35" cy="52" r="6" fill="#01579b"/><circle cx="65" cy="52" r="6" fill="#01579b"/><path d="M 30 75 Q 50 55 70 75" fill="none" stroke="#01579b" stroke-width="5" stroke-linecap="round"/><circle cx="30" cy="65" r="3" fill="#81d4fa"/>`,
+            `<circle cx="50" cy="50" r="45" fill="url(#grad-angry)"/><path d="M 18 28 L 45 45" stroke="#3e2723" stroke-width="6" stroke-linecap="round"/><path d="M 82 28 L 55 45" stroke="#3e2723" stroke-width="6" stroke-linecap="round"/><circle cx="35" cy="55" r="5" fill="#3e2723"/><circle cx="65" cy="55" r="5" fill="#3e2723"/><path d="M 28 75 Q 50 65 72 75" fill="none" stroke="#3e2723" stroke-width="6" stroke-linecap="round"/>`,
+            `<circle cx="50" cy="50" r="45" fill="url(#grad-surprised)"/><path d="M 28 28 Q 35 15 42 28" fill="none" stroke="#311b92" stroke-width="4" stroke-linecap="round"/><path d="M 58 28 Q 65 15 72 28" fill="none" stroke="#311b92" stroke-width="4" stroke-linecap="round"/><circle cx="35" cy="45" r="7" fill="#311b92"/><circle cx="65" cy="45" r="7" fill="#311b92"/><ellipse cx="50" cy="72" rx="12" ry="18" fill="none" stroke="#311b92" stroke-width="6"/>`,
+            `<circle cx="50" cy="50" r="45" fill="url(#grad-neutral)"/><path d="M 28 40 Q 35 35 42 40" fill="none" stroke="#1b5e20" stroke-width="4.5" stroke-linecap="round"/><path d="M 58 40 Q 65 35 72 40" fill="none" stroke="#1b5e20" stroke-width="4.5" stroke-linecap="round"/><circle cx="35" cy="50" r="5.5" fill="#1b5e20"/><circle cx="65" cy="50" r="5.5" fill="#1b5e20"/><path d="M 32 70 L 68 70" stroke="#1b5e20" stroke-width="6" stroke-linecap="round"/>`
+        ];
+        const flaskStates = [0, 0, 0, 0, 0];
+        
+        function initMoodGame() {
+            const gb = document.getElementById('gameBoard');
+            for (let i = 0; i < 5; i++) {
+                const station = document.createElement('div'); station.className = 'station';
+                const flask = document.createElement('div'); flask.className = 'flask-wrapper'; flask.id = `flask-${i}`;
+                let liquidRects = '';
+                for(let j = 0; j < 10; j++) liquidRects += `<rect id="liquid-${i}-${j}" x="0" y="${140 - ((j + 1) * 13)}" width="100" height="14" fill="${flaskColors[i]}" opacity="0" style="transition: opacity 0.25s"/>`;
+                flask.innerHTML = `<svg viewBox="0 0 100 150" width="100%" height="100%"><defs><clipPath id="flask-clip-${i}"><path d="M 40 15 L 60 15 L 60 50 L 90 140 L 10 140 L 40 50 Z" /></clipPath><linearGradient id="glass-glare" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="rgba(255,255,255,0.1)"/><stop offset="30%" stop-color="rgba(255,255,255,0.7)"/><stop offset="100%" stop-color="rgba(255,255,255,0.0)"/></linearGradient></defs><path d="M 40 10 L 60 10 L 60 50 L 90 140 L 10 140 L 40 50 Z" fill="rgba(255,255,255,0.1)"/><g clip-path="url(#flask-clip-${i})">${liquidRects}</g><path d="M 32 10 L 68 10" stroke="#b0bec5" stroke-width="6" stroke-linecap="round"/><path d="M 40 10 L 60 10 L 60 50 L 90 140 L 10 140 L 40 50 Z" fill="none" stroke="#cfd8dc" stroke-width="4" stroke-linejoin="round"/><path d="M 45 20 L 45 45 L 20 130" fill="none" stroke="url(#glass-glare)" stroke-width="6" stroke-linecap="round"/></svg>`;
+                const smiley = document.createElement('div'); smiley.className = 'smiley-wrapper'; smiley.id = `smiley-${i}`;
+                smiley.innerHTML = `<svg viewBox="0 0 100 100" width="100%" height="100%"><defs><radialGradient id="grad-happy" cx="30%" cy="30%" r="70%"><stop offset="0%" stop-color="#ffee58"/><stop offset="100%" stop-color="#f57f17"/></radialGradient><radialGradient id="grad-sad" cx="30%" cy="30%" r="70%"><stop offset="0%" stop-color="#81d4fa"/><stop offset="100%" stop-color="#0277bd"/></radialGradient><radialGradient id="grad-angry" cx="30%" cy="30%" r="70%"><stop offset="0%" stop-color="#ef9a9a"/><stop offset="100%" stop-color="#c62828"/></radialGradient><radialGradient id="grad-surprised" cx="30%" cy="30%" r="70%"><stop offset="0%" stop-color="#ce93d8"/><stop offset="100%" stop-color="#6a1b9a"/></radialGradient><radialGradient id="grad-neutral" cx="30%" cy="30%" r="70%"><stop offset="0%" stop-color="#a5d6a7"/><stop offset="100%" stop-color="#2e7d32"/></radialGradient></defs>${emotions[i]}</svg>`;
+                flask.addEventListener('click', (e) => { initAudio(); processFlaskClick(i, e, false); });
+                flask.style.color = flaskColors[i];
+                station.appendChild(smiley); station.appendChild(flask); gb.appendChild(station);
+            }
+        }
+        function playLiquidSound(level) { if(!audioCtx) return; const osc = audioCtx.createOscillator(), gain = audioCtx.createGain(); osc.frequency.value = 250 + (level * 60); osc.type = 'sine'; osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.13, audioCtx.currentTime + 0.05); gain.gain.exponentialRampToValueAtTime(0.003, audioCtx.currentTime + 0.25); osc.stop(audioCtx.currentTime + 0.25); }
+        function playSuccessSound() { if(!audioCtx) return; const freqs = [440, 554.37, 659.25, 880]; freqs.forEach((f, i) => { setTimeout(() => { const osc = audioCtx.createOscillator(), gain = audioCtx.createGain(); osc.frequency.value = f; osc.type = 'triangle'; osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.05); gain.gain.exponentialRampToValueAtTime(0.003, audioCtx.currentTime + 0.4); osc.stop(audioCtx.currentTime + 0.4); }, i * 80); }); }
+        
+        function processFlaskClick(index, event, fromRemote) {
+            if(!fromRemote) sendAction({ type: 'mood_flask', index: index });
+            const cl = flaskStates[index];
+            let x = event ? event.clientX : window.innerWidth/2, y = event ? event.clientY : window.innerHeight/2;
+            if (cl === 10) {
+                for (let j = 0; j < 10; j++) document.getElementById(`liquid-${index}-${j}`).setAttribute('opacity', '0');
+                flaskStates[index] = 0; playLiquidSound(0); moodParticles(x, y, flaskColors[index]);
+            } else {
+                document.getElementById(`liquid-${index}-${cl}`).setAttribute('opacity', '0.9');
+                flaskStates[index]++;
+                const s = document.getElementById(`smiley-${index}`); s.classList.remove('bounce'); void s.offsetWidth; s.classList.add('bounce');
+                if (flaskStates[index] === 10) {
+                    playSuccessSound(); document.getElementById(`flask-${index}`).classList.add('success-anim'); moodExplosion(x, y, flaskColors[index]);
+                    setTimeout(() => document.getElementById(`flask-${index}`).classList.remove('success-anim'), 700);
+                } else { playLiquidSound(flaskStates[index]); moodParticles(x, y, flaskColors[index]); }
+            }
+        }
+        function moodParticles(x, y, color) { for(let i=0; i<5; i++) { const p = document.createElement('div'); p.className='particle'; let s = Math.random()*14+6; p.style.width=s+'px'; p.style.height=s+'px'; p.style.backgroundColor=color; p.style.color=color; p.style.left=(x-s/2+(Math.random()*50-25))+'px'; p.style.top=(y-s/2+(Math.random()*20-10))+'px'; document.body.appendChild(p); setTimeout(()=>p.remove(),800); } }
+        function moodExplosion(x, y, color) { for(let i=0; i<25; i++) { const p = document.createElement('div'); p.className='particle'; let s = Math.random()*18+8; p.style.width=s+'px'; p.style.height=s+'px'; p.style.backgroundColor=color; p.style.color=color; let ang = Math.random()*Math.PI*2; let dist = Math.random()*100+40; p.style.left=(x+Math.cos(ang)*dist)+'px'; p.style.top=(y+Math.sin(ang)*dist)+'px'; p.style.animation=`floatUp ${Math.random()*0.6+0.4}s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards`; document.body.appendChild(p); setTimeout(()=>p.remove(),1000); } }
+
+        // ================= КРОК 2: ПОГОДА =================
+        const weatherData = [
+            { id: 'sunny', color: '#FFD700', svg: `<svg viewBox="0 0 100 100" class="icon-container"><defs><radialGradient id="sunGrad" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#FFF59D"/><stop offset="60%" stop-color="#FBC02D"/><stop offset="100%" stop-color="#F57F17"/></radialGradient></defs><g class="spin" style="transform-origin: 50px 50px;">${Array.from({length: 12}).map((_, i) => `<path d="M50,10 L55,25 L45,25 Z" fill="#F9A825" transform="rotate(${i * 30} 50 50)"/>`).join('')}</g><circle cx="50" cy="50" r="22" fill="url(#sunGrad)"/><circle cx="50" cy="50" r="22" fill="none" stroke="#F9A825" stroke-width="2"/></svg>` },
+            { id: 'cloudy', color: '#E0E0E0', svg: `<svg viewBox="0 0 100 100" class="icon-container swing"><defs><linearGradient id="cloudGrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="100%" stop-color="#B0BEC5"/></linearGradient></defs><g transform="translate(10, 30)"><circle cx="25" cy="30" r="15" fill="url(#cloudGrad)"/><circle cx="45" cy="20" r="20" fill="url(#cloudGrad)"/><circle cx="65" cy="30" r="15" fill="url(#cloudGrad)"/><rect x="25" y="30" width="40" height="15" rx="5" fill="url(#cloudGrad)"/></g><g transform="translate(30, 15) scale(0.7)" opacity="0.8"><circle cx="25" cy="30" r="15" fill="url(#cloudGrad)"/><circle cx="45" cy="20" r="20" fill="url(#cloudGrad)"/><circle cx="65" cy="30" r="15" fill="url(#cloudGrad)"/><rect x="25" y="30" width="40" height="15" rx="5" fill="url(#cloudGrad)"/></g></svg>` },
+            { id: 'rain', color: '#4FC3F7', svg: `<svg viewBox="0 0 100 100" class="icon-container"><defs><linearGradient id="darkCloud" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#90A4AE"/><stop offset="100%" stop-color="#455A64"/></linearGradient><linearGradient id="dropGrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#81D4FA"/><stop offset="100%" stop-color="#0277BD"/></linearGradient></defs><g transform="translate(20, 20)"><circle cx="20" cy="30" r="18" fill="url(#darkCloud)"/><circle cx="40" cy="20" r="22" fill="url(#darkCloud)"/><circle cx="60" cy="30" r="18" fill="url(#darkCloud)"/><rect x="20" y="28" width="40" height="20" rx="10" fill="url(#darkCloud)"/></g><g stroke="url(#dropGrad)" stroke-width="3" stroke-linecap="round"><line x1="35" y1="55" x2="30" y2="70" class="drop" style="animation-delay: 0s;"/><line x1="50" y1="60" x2="45" y2="75" class="drop" style="animation-delay: 0.3s;"/><line x1="65" y1="55" x2="60" y2="70" class="drop" style="animation-delay: 0.6s;"/><line x1="42" y1="75" x2="37" y2="90" class="drop" style="animation-delay: 0.1s;"/><line x1="58" y1="80" x2="53" y2="95" class="drop" style="animation-delay: 0.4s;"/></g></svg>` },
+            { id: 'thunderstorm', color: '#9C27B0', svg: `<svg viewBox="0 0 100 100" class="icon-container"><defs><linearGradient id="stormCloud" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#546E7A"/><stop offset="100%" stop-color="#263238"/></linearGradient></defs><g transform="translate(15, 20)"><circle cx="25" cy="30" r="20" fill="url(#stormCloud)"/><circle cx="45" cy="18" r="25" fill="url(#stormCloud)"/><circle cx="65" cy="30" r="20" fill="url(#stormCloud)"/><rect x="25" y="25" width="40" height="25" rx="10" fill="url(#stormCloud)"/></g><path d="M45,55 L35,75 L48,75 L42,95 L65,65 L50,65 Z" fill="#FFEB3B" class="flash"/></svg>` },
+            { id: 'snow', color: '#E3F2FD', svg: `<svg viewBox="0 0 100 100" class="icon-container"><defs><linearGradient id="snowCloud" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="100%" stop-color="#90CAF9"/></linearGradient></defs><g transform="translate(20, 15)"><circle cx="20" cy="30" r="18" fill="url(#snowCloud)"/><circle cx="40" cy="20" r="22" fill="url(#snowCloud)"/><circle cx="60" cy="30" r="18" fill="url(#snowCloud)"/><rect x="20" y="28" width="40" height="20" rx="10" fill="url(#snowCloud)"/></g><g stroke="#FFFFFF" stroke-width="2" class="spin" style="transform-origin: 35px 70px;"><line x1="35" y1="60" x2="35" y2="80"/><line x1="25" y1="70" x2="45" y2="70"/><line x1="28" y1="63" x2="42" y2="77"/><line x1="28" y1="77" x2="42" y2="63"/></g><g stroke="#FFFFFF" stroke-width="2" class="spin" style="transform-origin: 65px 75px; animation-duration: 7s;"><line x1="65" y1="67" x2="65" y2="83"/><line x1="57" y1="75" x2="73" y2="75"/><line x1="59" y1="69" x2="71" y2="81"/><line x1="59" y1="81" x2="71" y2="69"/></g></svg>` },
+            { id: 'windy', color: '#B2EBF2', svg: `<svg viewBox="0 0 100 100" class="icon-container"><g fill="none" stroke="#00BCD4" stroke-width="4" stroke-linecap="round"><path d="M10,30 Q40,20 70,30 T85,15" stroke-dasharray="100" stroke-dashoffset="0"><animate attributeName="stroke-dashoffset" values="100; -100" dur="2s" repeatCount="indefinite"/></path><path d="M20,50 Q50,60 80,50 T95,65" stroke-dasharray="100" stroke-dashoffset="0"><animate attributeName="stroke-dashoffset" values="100; -100" dur="2.5s" repeatCount="indefinite"/></path><path d="M15,70 Q35,80 60,70 T75,85" stroke-dasharray="80" stroke-dashoffset="0"><animate attributeName="stroke-dashoffset" values="80; -80" dur="1.8s" repeatCount="indefinite"/></path></g><path d="M70,40 Q75,35 80,40 Q75,45 70,40 Z" fill="#81C784" class="swing"/><path d="M40,75 Q45,70 50,75 Q45,80 40,75 Z" fill="#AED581" class="swing" style="animation-delay: 0.5s"/></svg>` },
+            { id: 'fog', color: '#CFD8DC', svg: `<svg viewBox="0 0 100 100" class="icon-container"><defs><linearGradient id="fogGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="rgba(255,255,255,0)"/><stop offset="50%" stop-color="rgba(236,239,241,0.8)"/><stop offset="100%" stop-color="rgba(255,255,255,0)"/></linearGradient></defs><rect x="10" y="30" width="80" height="8" rx="4" fill="url(#fogGrad)"><animate attributeName="x" values="0; 20; 0" dur="4s" repeatCount="indefinite"/></rect><rect x="20" y="45" width="70" height="10" rx="5" fill="url(#fogGrad)"><animate attributeName="x" values="25; 5; 25" dur="5s" repeatCount="indefinite"/></rect><rect x="5" y="62" width="90" height="12" rx="6" fill="url(#fogGrad)"><animate attributeName="x" values="-5; 15; -5" dur="6s" repeatCount="indefinite"/></rect><rect x="15" y="80" width="60" height="8" rx="4" fill="url(#fogGrad)"><animate attributeName="x" values="20; 0; 20" dur="3s" repeatCount="indefinite"/></rect></svg>` },
+            { id: 'hail', color: '#B0BEC5', svg: `<svg viewBox="0 0 100 100" class="icon-container"><defs><radialGradient id="hailBall" cx="30%" cy="30%" r="70%"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="100%" stop-color="#90A4AE"/></radialGradient><linearGradient id="hailCloud" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#78909C"/><stop offset="100%" stop-color="#37474F"/></linearGradient></defs><g transform="translate(15, 10)"><circle cx="25" cy="25" r="18" fill="url(#hailCloud)"/><circle cx="45" cy="15" r="22" fill="url(#hailCloud)"/><circle cx="65" cy="25" r="18" fill="url(#hailCloud)"/><rect x="25" y="20" width="40" height="23" rx="10" fill="url(#hailCloud)"/></g><circle cx="35" cy="60" r="4" fill="url(#hailBall)" class="drop" style="animation-delay: 0s;"/><circle cx="50" cy="55" r="5" fill="url(#hailBall)" class="drop" style="animation-delay: 0.4s;"/><circle cx="65" cy="65" r="3.5" fill="url(#hailBall)" class="drop" style="animation-delay: 0.2s;"/><circle cx="42" cy="75" r="4.5" fill="url(#hailBall)" class="drop" style="animation-delay: 0.6s;"/><circle cx="58" cy="80" r="3" fill="url(#hailBall)" class="drop" style="animation-delay: 0.1s;"/><circle cx="30" cy="85" r="5" fill="url(#hailBall)" class="drop" style="animation-delay: 0.5s;"/></svg>` },
+            { id: 'rainbow', color: '#FF69B4', svg: `<svg viewBox="0 0 100 100" class="icon-container swing"><defs><clipPath id="halfClip"><rect x="0" y="0" width="100" height="60"/></clipPath><linearGradient id="rbCloud" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="100%" stop-color="#ECEFF1"/></linearGradient></defs><g clip-path="url(#halfClip)"><circle cx="50" cy="60" r="45" fill="none" stroke="#F44336" stroke-width="5"/><circle cx="50" cy="60" r="40" fill="none" stroke="#FF9800" stroke-width="5"/><circle cx="50" cy="60" r="35" fill="none" stroke="#FFEB3B" stroke-width="5"/><circle cx="50" cy="60" r="30" fill="none" stroke="#4CAF50" stroke-width="5"/><circle cx="50" cy="60" r="25" fill="none" stroke="#2196F3" stroke-width="5"/><circle cx="50" cy="60" r="20" fill="none" stroke="#9C27B0" stroke-width="5"/></g><g transform="translate(0, 45)"><circle cx="15" cy="15" r="12" fill="url(#rbCloud)"/><circle cx="28" cy="10" r="15" fill="url(#rbCloud)"/><circle cx="40" cy="15" r="12" fill="url(#rbCloud)"/></g><g transform="translate(45, 45)"><circle cx="15" cy="15" r="12" fill="url(#rbCloud)"/><circle cx="28" cy="10" r="15" fill="url(#rbCloud)"/><circle cx="40" cy="15" r="12" fill="url(#rbCloud)"/></g></svg>` },
+            { id: 'heat', color: '#FF5722', svg: `<svg viewBox="0 0 100 100" class="icon-container"><defs><radialGradient id="heatSun" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="30%" stop-color="#FFEB3B"/><stop offset="80%" stop-color="#FF5722"/><stop offset="100%" stop-color="#D84315"/></radialGradient></defs><g class="spin" style="transform-origin: 50px 40px; animation-duration: 5s;"><circle cx="50" cy="40" r="28" fill="none" stroke="#FF5722" stroke-width="2" stroke-dasharray="10 5"/><circle cx="50" cy="40" r="34" fill="none" stroke="#FF9800" stroke-width="1.5" stroke-dasharray="5 15"/></g><circle cx="50" cy="40" r="22" fill="url(#heatSun)"><animate attributeName="r" values="22; 25; 22" dur="1s" repeatCount="indefinite"/></circle><path d="M10,80 L30,75 L40,85 L55,70 L70,85 L90,75" fill="none" stroke="#5D4037" stroke-width="2"/><path d="M30,75 L25,90 M55,70 L60,95 M70,85 L85,95" fill="none" stroke="#5D4037" stroke-width="2"/><path d="M10,95 L40,90 L60,95" fill="none" stroke="#5D4037" stroke-width="1"/></svg>` },
+            { id: 'ice', color: '#00BCD4', svg: `<svg viewBox="0 0 100 100" class="icon-container"><defs><linearGradient id="iceGrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#E0F7FA"/><stop offset="100%" stop-color="#00ACC1"/></linearGradient></defs><path d="M10,20 L90,20 L85,35 L15,35 Z" fill="url(#iceGrad)"/><g fill="url(#iceGrad)"><polygon points="15,35 25,35 20,70"><animate attributeName="points" values="15,35 25,35 20,70; 15,35 25,35 20,75; 15,35 25,35 20,70" dur="3s" repeatCount="indefinite"/></polygon><polygon points="30,35 45,35 37,85"><animate attributeName="points" values="30,35 45,35 37,85; 30,35 45,35 37,90; 30,35 45,35 37,85" dur="2.5s" repeatCount="indefinite"/></polygon><polygon points="50,35 65,35 57,60"/><polygon points="70,35 85,35 77,80"><animate attributeName="points" values="70,35 85,35 77,80; 70,35 85,35 77,85; 70,35 85,35 77,80" dur="4s" repeatCount="indefinite"/></polygon></g><path d="M35,40 L40,40 L38,60 Z" fill="#FFFFFF" opacity="0.6"/><path d="M75,40 L80,40 L78,65 Z" fill="#FFFFFF" opacity="0.6"/></svg>` },
+            { id: 'sunset', color: '#FF7043', svg: `<svg viewBox="0 0 100 100" class="icon-container"><defs><linearGradient id="sunsetGrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#FF5252"/><stop offset="50%" stop-color="#FF4081"/><stop offset="100%" stop-color="#7C4DFF"/></linearGradient><radialGradient id="sunHalf" cx="50%" cy="100%" r="100%"><stop offset="0%" stop-color="#FFF176"/><stop offset="100%" stop-color="#FF9800"/></radialGradient><clipPath id="horizonClip"><rect x="0" y="0" width="100" height="65"/></clipPath></defs><rect x="10" y="10" width="80" height="80" rx="40" fill="url(#sunsetGrad)"/><g clip-path="url(#horizonClip)"><circle cx="50" cy="65" r="25" fill="url(#sunHalf)"><animate attributeName="cy" values="75; 60; 75" dur="10s" repeatCount="indefinite"/></circle><path d="M20,30 Q25,25 30,30 Q35,25 40,30 Q30,35 20,30 Z" fill="#311B92" transform="scale(0.5) translate(20, 20)"/><path d="M60,20 Q65,15 70,20 Q75,15 80,20 Q70,25 60,20 Z" fill="#311B92" transform="scale(0.3) translate(150, 40)"/></g><path d="M10,65 L90,65 L80,90 L20,90 Z" fill="#311B92" opacity="0.8"/><path d="M20,67 L80,67" stroke="#FF9800" stroke-width="1.5" opacity="0.8"/><path d="M30,73 L70,73" stroke="#FF9800" stroke-width="1" opacity="0.5"/><path d="M40,79 L60,79" stroke="#FF9800" stroke-width="0.5" opacity="0.3"/></svg>` }
+        ];
+
+        function initWeather() {
+            const grid = document.getElementById('weather-grid');
+            weatherData.forEach(type => {
+                const card = document.createElement('div'); card.className = 'weather-card'; card.dataset.id = type.id; card.innerHTML = type.svg;
+                card.onclick = () => { initAudio(); processWeatherClick(type.id, false); };
+                grid.appendChild(card);
+            });
+        }
+        function playWeatherSound(type) { if(!audioCtx) return; const osc = audioCtx.createOscillator(), gain = audioCtx.createGain(); osc.connect(gain); gain.connect(audioCtx.destination); const now = audioCtx.currentTime; if (type === 'select') { osc.type = 'sine'; osc.frequency.setValueAtTime(440, now); osc.frequency.exponentialRampToValueAtTime(880, now + 0.1); osc.frequency.exponentialRampToValueAtTime(1320, now + 0.3); gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(0.3, now + 0.05); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4); osc.start(now); osc.stop(now + 0.4); } else { osc.type = 'sine'; osc.frequency.setValueAtTime(600, now); osc.frequency.exponentialRampToValueAtTime(200, now + 0.2); gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2); osc.start(now); osc.stop(now + 0.2); } }
+        function processWeatherClick(id, fromRemote) {
+            if(!fromRemote) sendAction({ type: 'weather_card', id: id });
+            const card = document.querySelector(`.weather-card[data-id="${id}"]`);
+            if(!card) return;
+            const type = weatherData.find(w => w.id === id);
+            if (card.classList.contains('selected')) { card.classList.remove('selected'); playWeatherSound('deselect'); }
+            else { card.classList.add('selected'); playWeatherSound('select'); weatherExplode(card, type.color); }
+        }
+        function weatherExplode(el, color) { const rect = el.getBoundingClientRect(); const x = rect.left + rect.width/2; const y = rect.top + rect.height/2; for (let i = 0; i < 12; i++) { const p = document.createElement('div'); p.className = 'weather-particle'; const ang = Math.random() * Math.PI * 2; const dist = Math.random() * 80 + 30; p.style.setProperty('--tx', `${Math.cos(ang) * dist}px`); p.style.setProperty('--ty', `${Math.sin(ang) * dist}px`); p.style.left = `${x}px`; p.style.top = `${y}px`; p.style.width = `${Math.random() * 10 + 5}px`; p.style.height = p.style.width; p.style.backgroundColor = color; p.style.boxShadow = `0 0 10px ${color}`; document.body.appendChild(p); setTimeout(() => p.remove(), 800); } }
+
+        // ================= КРОК 3: ПОРА РОКУ =================
+        const seasons = [
+            { name: "ЗИМА", color: "#E0FFFF", hill1Top: "#ffffff", hill1Bot: "#e0e0e0", hill2Top: "#f5f5f5", hill2Bot: "#cccccc", treeLeaves: "#ffffff", treeOpacity: 0.9, sunCore: "#F0F8FF", sunRaysOpacity: 0, sunPos: "translate(-50px, -50px) scale(0.8)", particleType: "snow" },
+            { name: "ВЕСНА", color: "#FF69B4", hill1Top: "#98FB98", hill1Bot: "#3CB371", hill2Top: "#90EE90", hill2Bot: "#2E8B57", treeLeaves: "#FFB6C1", treeOpacity: 1, sunCore: "#FFFBE6", sunRaysOpacity: 0.5, sunPos: "translate(0px, 0px) scale(1)", particleType: "petals" },
+            { name: "ЛІТО", color: "#FFD700", hill1Top: "#7CFC00", hill1Bot: "#32CD32", hill2Top: "#6B8E23", hill2Bot: "#228B22", treeLeaves: "#006400", treeOpacity: 1, sunCore: "#FFD700", sunRaysOpacity: 0.8, sunPos: "translate(100px, -20px) scale(1.2)", particleType: "none" },
+            { name: "ОСІНЬ", color: "#FF4500", hill1Top: "#DAA520", hill1Bot: "#B8860B", hill2Top: "#CD853F", hill2Bot: "#8B4513", treeLeaves: "#FF4500", treeOpacity: 0.8, sunCore: "#FF8C00", sunRaysOpacity: 0.3, sunPos: "translate(-200px, 100px) scale(0.9)", particleType: "leaves" }
+        ];
+        let currentSeasonIdx = 0; let animFrameId; let seasonParticles = [];
+        
+        function applySeason(index) {
+            const config = seasons[index];
+            document.querySelector('.hill1-top').setAttribute("stop-color", config.hill1Top);
+            document.querySelector('.hill1-bot').setAttribute("stop-color", config.hill1Bot);
+            document.querySelector('.hill2-top').setAttribute("stop-color", config.hill2Top);
+            document.querySelector('.hill2-bot').setAttribute("stop-color", config.hill2Bot);
+            document.getElementById('tree-leaves').setAttribute("fill", config.treeLeaves);
+            document.getElementById('tree-leaves').setAttribute("opacity", config.treeOpacity);
+            document.querySelector('.sun-core').setAttribute("fill", config.sunCore);
+            document.querySelector('.sun-rays').setAttribute("opacity", config.sunRaysOpacity);
+            document.getElementById('sun').style.transform = config.sunPos;
+            
+            const title = document.getElementById('season-title');
+            title.classList.remove('title-animate'); void title.offsetWidth;
+            title.textContent = config.name; title.style.color = config.color; title.classList.add('title-animate');
+            
+            if (animFrameId) cancelAnimationFrame(animFrameId);
+            initSeasonParticles(config.particleType);
+            if (config.particleType !== "none") animateSeasonParticles();
+        }
+        function playSeasonSound(isNext) { if(!audioCtx) return; const osc = audioCtx.createOscillator(), gain = audioCtx.createGain(); osc.connect(gain); gain.connect(audioCtx.destination); const now = audioCtx.currentTime; gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(0.3, now + 0.1); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8); if (isNext) { osc.type = 'sine'; osc.frequency.setValueAtTime(400, now); osc.frequency.exponentialRampToValueAtTime(1200, now + 0.5); } else { osc.type = 'triangle'; osc.frequency.setValueAtTime(800, now); osc.frequency.exponentialRampToValueAtTime(200, now + 0.5); } osc.start(now); osc.stop(now + 1); }
+        function handleSeasonChange(dir, fromRemote = false) {
+            initAudio();
+            if(!fromRemote) sendAction({ type: 'season_nav', dir: dir });
+            currentSeasonIdx = (currentSeasonIdx + dir + seasons.length) % seasons.length;
+            applySeason(currentSeasonIdx); playSeasonSound(dir > 0);
+        }
+        function initSeasonParticles(type) {
+            const layer = document.getElementById('particles-layer'); layer.innerHTML = ''; seasonParticles = []; if (type === "none") return;
+            const count = type === "snow" ? 100 : 40;
+            for (let i = 0; i < count; i++) {
+                let el = document.createElementNS("http://www.w3.org/2000/svg", type === "snow" ? "circle" : "path");
+                let p = { x: Math.random() * 2000, y: Math.random() * -1080 - 100, speed: Math.random() * 2 + 1, size: Math.random() * 5 + 3, angle: Math.random() * 360, spinSpeed: Math.random() * 5 - 2.5, el: el, type: type };
+                if (type === "snow") { el.setAttribute("r", p.size); el.setAttribute("fill", "#ffffff"); el.setAttribute("opacity", Math.random() * 0.5 + 0.3); } 
+                else if (type === "leaves") { p.speed = Math.random() * 3 + 2; el.setAttribute("d", "M 0 0 Q 10 -10 20 0 Q 10 10 0 0 Z"); const colors = ["#FF4500", "#FF8C00", "#DAA520", "#8B4513"]; el.setAttribute("fill", colors[Math.floor(Math.random() * colors.length)]); el.setAttribute("transform", `translate(${p.x}, ${p.y}) scale(${p.size/10})`); } 
+                else if (type === "petals") { p.speed = Math.random() * 1.5 + 1; el.setAttribute("d", "M 0 0 Q 5 -5 10 0 Q 5 5 0 0 Z"); el.setAttribute("fill", "#FFB6C1"); el.setAttribute("opacity", 0.8); }
+                seasonParticles.push(p); layer.appendChild(el);
+            }
+        }
+        function animateSeasonParticles() {
+            seasonParticles.forEach(p => {
+                p.y += p.speed;
+                if (p.type === "snow") p.x += Math.sin(p.y / 100) * 1;
+                if (p.type === "leaves") p.x += Math.sin(p.y / 150) * 3 + 1;
+                if (p.type === "petals") p.x += Math.sin(p.y / 100) * 2 + 0.5;
+                p.angle += p.spinSpeed;
+                if (p.y > 1100) { p.y = -50; p.x = Math.random() * 2000; }
+                if (p.type === "snow") { p.el.setAttribute("cx", p.x); p.el.setAttribute("cy", p.y); } 
+                else { p.el.setAttribute("transform", `translate(${p.x}, ${p.y}) rotate(${p.angle}) scale(${p.size/10})`); }
+            });
+            animFrameId = requestAnimationFrame(animateSeasonParticles);
+        }
+
+        // ================= КРОК 4: КАЛЕНДАР =================
+        const calLevels = [
+            { type: 'time', items: ['Ранок', 'День', 'Вечір', 'Ніч'] },
+            { type: 'day', items: ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота', 'Неділя'], svg: `<svg class="item-bg" viewBox="0 0 220 90" preserveAspectRatio="none"><defs><linearGradient id="ribbonGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ff4081"/><stop offset="100%" stop-color="#c51162"/></linearGradient></defs><path d="M 10 10 L 210 10 L 200 45 L 210 80 L 10 80 L 20 45 Z" fill="url(#ribbonGrad)" stroke="#fff" stroke-width="2"/><path d="M 15 15 L 200 15 M 15 75 L 200 75" stroke="rgba(255,255,255,0.4)" stroke-width="1" stroke-dasharray="4 4"/></svg>` },
+            { type: 'combined', dates: Array.from({length: 31}, (_, i) => (i + 1).toString()), months: ['Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень', 'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень'], svgDate: `<svg class="item-bg" viewBox="0 0 60 60"><defs><radialGradient id="gemGrad" cx="30%" cy="30%" r="70%"><stop offset="0%" stop-color="#00e5ff"/><stop offset="100%" stop-color="#006064"/></radialGradient></defs><polygon points="30,2 58,15 58,45 30,58 2,45 2,15" fill="url(#gemGrad)" stroke="#fff" stroke-width="2"/><polygon points="30,10 48,20 48,40 30,50 12,40 12,20" fill="rgba(255,255,255,0.2)"/></svg>`, svgMonth: `<svg class="item-bg" viewBox="0 0 150 80" preserveAspectRatio="none"><defs><linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#69f0ae"/><stop offset="100%" stop-color="#00c853"/></linearGradient></defs><path d="M 10 40 Q 75 -10 140 40 Q 75 90 10 40 Z" fill="url(#leafGrad)" stroke="#fff" stroke-width="2"/><path d="M 20 40 Q 75 20 130 40" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2"/></svg>` }
+        ];
+        let currentCalIndex = 0;
+        
+        function playCalTone(freq, type, duration, vol=0.1) { if(!audioCtx) return; const osc = audioCtx.createOscillator(), gain = audioCtx.createGain(); osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime); gain.gain.setValueAtTime(vol, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration); osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + duration); }
+        function calPlaySelect() { playCalTone(523.25, 'triangle', 0.1, 0.1); setTimeout(() => playCalTone(659.25, 'triangle', 0.2, 0.1), 100); }
+        function calPlayBack() { playCalTone(349.23, 'square', 0.1, 0.05); setTimeout(() => playCalTone(261.63, 'square', 0.2, 0.05), 100); }
+
+        function renderCalendarLevel(index) {
+            const board = document.getElementById('task-board'); board.innerHTML = `<svg class="board-frame" viewBox="0 0 1000 600" preserveAspectRatio="none"><rect x="5" y="5" width="990" height="590" rx="35" fill="none" stroke="rgba(255, 255, 255, 0.2)" stroke-width="4" stroke-dasharray="15 15"/><circle cx="40" cy="40" r="10" fill="rgba(255,255,255,0.3)"/><circle cx="960" cy="40" r="10" fill="rgba(255,255,255,0.3)"/><circle cx="40" cy="560" r="10" fill="rgba(255,255,255,0.3)"/><circle cx="960" cy="560" r="10" fill="rgba(255,255,255,0.3)"/></svg>`;
+            document.getElementById('cal-btn-back').style.display = index === 0 ? 'none' : 'block';
+            document.getElementById('cal-btn-next').style.display = index === calLevels.length - 1 ? 'none' : 'block';
+            const level = calLevels[index];
+
+            if (level.type === 'combined') {
+                const layout = document.createElement('div'); layout.className = 'combined-layout';
+                const datesSec = document.createElement('div'); datesSec.className = 'dates-section';
+                level.dates.forEach((d, i) => datesSec.appendChild(createCalSelection(d, level.svgDate, 'item-date', i, '.item-date', 'date')));
+                const monthsSec = document.createElement('div'); monthsSec.className = 'months-section';
+                level.months.forEach((m, i) => monthsSec.appendChild(createCalSelection(m, level.svgMonth, 'item-month', i, '.item-month', 'month')));
+                layout.appendChild(datesSec); layout.appendChild(monthsSec); layout.style.opacity = '0'; board.appendChild(layout);
+                setTimeout(() => { layout.style.transition = 'opacity 0.8s ease'; layout.style.opacity = '1'; }, 50);
+            } else {
+                level.items.forEach((item, i) => {
+                    const el = document.createElement('div'); el.className = `game-item item-${level.type}`;
+                    let svgStr = level.type === 'time' ? getCalTimeSvg(i) : level.svg;
+                    el.innerHTML = `${svgStr} <span>${item}</span>`;
+                    el.style.opacity = '0'; el.style.transform = 'scale(0.3) rotate(-10deg)';
+                    setTimeout(() => { el.style.opacity = '1'; el.style.transform = 'scale(1) rotate(0deg)'; }, i * 100);
+                    el.onclick = () => { initAudio(); calPlaySelect(); el.style.transform = 'scale(1.2) translateY(-10px)'; setTimeout(() => handleCalendarNav('next'), 500); };
+                    board.appendChild(el);
+                });
+            }
+        }
+        function createCalSelection(text, svg, className, index, groupSel, groupName) {
+            const el = document.createElement('div'); el.className = `game-item ${className}`; el.innerHTML = `${svg} <span>${text}</span>`; el.dataset.idx = index; el.dataset.group = groupName;
+            el.style.opacity = '0'; el.style.transform = 'scale(0.5)'; setTimeout(() => { el.style.opacity = '1'; el.style.transform = 'scale(1)'; }, index * 20);
+            el.onclick = () => { initAudio(); selectCalendarItem(index, groupName, false); }; return el;
+        }
+        function selectCalendarItem(index, groupName, fromRemote) {
+            if(!fromRemote) sendAction({ type: 'calendar_item', idx: index, group: groupName });
+            calPlaySelect();
+            const groupSel = groupName === 'date' ? '.item-date' : '.item-month';
+            document.querySelectorAll(groupSel).forEach(sib => sib.classList.remove('selected'));
+            const el = document.querySelector(`${groupSel}[data-idx="${index}"]`);
+            if(el) el.classList.add('selected');
+        }
+        function handleCalendarNav(dir, fromRemote = false) {
+            initAudio();
+            if(!fromRemote) sendAction({ type: 'calendar_nav', dir: dir });
+            if (dir === 'next' && currentCalIndex < calLevels.length - 1) { currentCalIndex++; renderCalendarLevel(currentCalIndex); }
+            else if (dir === 'prev' && currentCalIndex > 0) { calPlayBack(); currentCalIndex--; renderCalendarLevel(currentCalIndex); }
+        }
+        function getCalTimeSvg(index) {
+            const bgColors = ['#00b4db', '#2980b9', '#e65c00', '#141e30'];
+            let icon = '';
+            if(index===0) icon=`<circle cx="125" cy="120" r="50" fill="#fff176"/><path d="M 125 50 L 125 30 M 125 190 L 125 210 M 55 120 L 35 120 M 195 120 L 215 120" stroke="#fff176" stroke-width="8" stroke-linecap="round"/><path d="M 0 170 Q 125 100 250 170 L 250 200 L 0 200 Z" fill="#4caf50" opacity="0.9"/>`;
+            else if(index===1) icon=`<circle cx="125" cy="80" r="55" fill="#ffeb3b"/><path d="M 50 140 Q 80 100 120 130 Q 160 90 200 140 Z" fill="#fff" opacity="0.8"/><circle cx="100" cy="150" r="30" fill="#fff" opacity="0.9"/><circle cx="150" cy="160" r="35" fill="#fff" opacity="0.9"/>`;
+            else if(index===2) icon=`<circle cx="125" cy="160" r="60" fill="#ff7043"/><path d="M 0 160 Q 125 130 250 160 L 250 200 L 0 200 Z" fill="#5d4037"/><path d="M 20 180 Q 125 150 250 180 L 250 200 L 0 200 Z" fill="#3e2723"/>`;
+            else if(index===3) icon=`<path d="M 130 50 A 50 50 0 1 0 180 130 A 60 60 0 1 1 130 50 Z" fill="#fff59d"/><circle cx="50" cy="50" r="4" fill="#fff"/><circle cx="200" cy="70" r="3" fill="#fff"/><circle cx="80" cy="150" r="5" fill="#fff"/><circle cx="220" cy="170" r="4" fill="#fff"/><circle cx="120" cy="30" r="2" fill="#fff"/>`;
+            return `<svg class="item-bg" viewBox="0 0 250 200"><rect width="250" height="200" rx="40" fill="${bgColors[index]}" stroke="rgba(255,255,255,0.5)" stroke-width="4"/>${icon}</svg>`;
+        }
+
+        // ================= ІНІЦІАЛІЗАЦІЯ =================
+        window.onload = () => {
+            updateMasterNav();
+            initMoodGame();
+            initWeather();
+            applySeason(currentSeasonIdx);
+            renderCalendarLevel(currentCalIndex);
+        };
+    </script>
+</body>
+</html>
