@@ -32,6 +32,9 @@
                 sessionStorage.setItem('userName', myName);
             }
         }
+        
+        // БЕЗПЕЧНЕ ІМ'Я для використання як ключа у Firebase (видаляємо заборонені символи . # $ [ ])
+        const safeName = myName.replace(/[.#$[\]]/g, '_');
     </script>
 
     <style>
@@ -307,17 +310,19 @@
     <script>
         /* --- Логіка динамічних фонів (Синхронізація) --- */
         // Відновлення фону з localStorage при старті
-        const savedBg = localStorage.getItem('mySavedGameBg');
-        if(savedBg) document.body.style.backgroundImage = `url('${savedBg}')`;
+        try {
+            const savedBg = localStorage.getItem('mySavedGameBg');
+            if(savedBg) document.body.style.backgroundImage = `url('${savedBg}')`;
+        } catch(e) { console.warn("LocalStorage недоступний:", e); }
 
         // СлухаємоFirebase для оновлення фону всім
         db.ref('game_theme').on('value', snap => {
             const bgUrl = snap.val();
             if(bgUrl) {
                 document.body.style.backgroundImage = `url('${bgUrl}')`;
-                localStorage.setItem('mySavedGameBg', bgUrl);
+                try { localStorage.setItem('mySavedGameBg', bgUrl); } catch(e) {}
             }
-        });
+        }, err => console.log('Firebase theme sync error:', err));
 
         function openThemeModal() {
             document.getElementById('theme-overlay').style.display = 'block';
@@ -335,10 +340,10 @@
         async function loadThemes() {
             const grid = document.getElementById('theme-grid');
             grid.innerHTML = '';
-            let consecutiveErrors = 0; // Запобіжник для уникнення зависань
+            let consecutiveErrors = 0; 
             
-            for(let i = 1; i <= 1000; i++) {
-                if (consecutiveErrors >= 3) break; // Якщо 3 фони підряд відсутні - зупиняємо цикл
+            for(let i = 1; i <= 200; i++) { // Ліміт перевірки щоб не зависало
+                if (consecutiveErrors >= 5) break; 
                 
                 await new Promise((resolve) => {
                     const url = `https://olgazheltvai2.github.io/images/backgrounds/background_${i}.webp`;
@@ -349,7 +354,11 @@
                         div.className = 'theme-item';
                         div.innerHTML = `<img src="${url}"><span>Фон ${i}</span>`;
                         div.onclick = () => {
-                            db.ref('game_theme').set(url);
+                            // Застосовуємо локально одразу, щоб гра працювала навіть без Firebase
+                            document.body.style.backgroundImage = `url('${url}')`;
+                            try { localStorage.setItem('mySavedGameBg', url); } catch(e){}
+                            // Синхронізуємо з Firebase
+                            db.ref('game_theme').set(url).catch(err => console.log("Firebase write error:", err));
                             closeThemeModal();
                         };
                         grid.appendChild(div);
@@ -361,6 +370,9 @@
                     };
                     img.src = url;
                 });
+            }
+            if(grid.innerHTML === '') {
+                grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #333;">Фони не знайдені на сервері GitHub.</p>';
             }
         }
 
@@ -374,8 +386,17 @@
             [0, 4, 8], [2, 4, 6]             // Діагоналі
         ];
 
-        // Web Audio API для процедурної генерації звуків без завантаження файлів
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        // Web Audio API: ЛІНИВА ІНІЦІАЛІЗАЦІЯ (Рятує від крашу на Mac та iOS)
+        let audioCtx = null;
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
 
         // Складний SVG котика з групою зіниць для анімації
         const catSVG = `
@@ -456,57 +477,57 @@
 
         // Генерація звуку для ходу
         function playMoveSound(type) {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
+            const ctx = getAudioContext();
+            const osc = ctx.createOscillator();
+            const gainNode = ctx.createGain();
             
             osc.type = type === 'cat' ? 'triangle' : 'sine';
-            osc.frequency.setValueAtTime(type === 'cat' ? 300 : 700, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(type === 'cat' ? 600 : 1200, audioCtx.currentTime + 0.1);
+            osc.frequency.setValueAtTime(type === 'cat' ? 300 : 700, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(type === 'cat' ? 600 : 1200, ctx.currentTime + 0.1);
             
-            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
             
             osc.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
+            gainNode.connect(ctx.destination);
             osc.start();
-            osc.stop(audioCtx.currentTime + 0.1);
+            osc.stop(ctx.currentTime + 0.1);
         }
 
         // Генерація звуку перемоги (святковий акорд)
         function playWinSound() {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const ctx = getAudioContext();
             const freqs = [440, 554.37, 659.25, 880]; // A major chord
             freqs.forEach((freq, i) => {
                 setTimeout(() => {
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
                     osc.type = 'square';
-                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+                    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
                     osc.connect(gain);
-                    gain.connect(audioCtx.destination);
+                    gain.connect(ctx.destination);
                     osc.start();
-                    osc.stop(audioCtx.currentTime + 0.5);
+                    osc.stop(ctx.currentTime + 0.5);
                 }, i * 100);
             });
         }
 
         // Генерація звуку нічиєї
         function playDrawSound() {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
+            const ctx = getAudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
             osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(300, audioCtx.currentTime);
-            osc.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.4);
-            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            osc.frequency.setValueAtTime(300, ctx.currentTime);
+            osc.frequency.linearRampToValueAtTime(100, ctx.currentTime + 0.4);
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.4);
             osc.connect(gain);
-            gain.connect(audioCtx.destination);
+            gain.connect(ctx.destination);
             osc.start();
-            osc.stop(audioCtx.currentTime + 0.4);
+            osc.stop(ctx.currentTime + 0.4);
         }
 
         // Візуальні ефекти (світлячки/конфетті при перемозі)
@@ -552,11 +573,11 @@
 
             if (!isRemoteAction) {
                 db.ref('game_action').set({
-                    senderId: myName,
+                    senderId: myName, // Залишаємо оригінальне ім'я для повідомлень
                     timestamp: Date.now(),
                     type: 'move',
                     data: { index: index, player: player }
-                });
+                }).catch(e => console.log("Помилка запису ходу:", e));
             }
         }
 
@@ -616,24 +637,21 @@
             const eyeGroups = document.querySelectorAll('.eyes-group');
             if(eyeGroups.length === 0) return;
             
-            // Вибираємо рандомну фігуру для руху очей, щоб не всі одночасно
             const randomGroup = eyeGroups[Math.floor(Math.random() * eyeGroups.length)];
             
-            // Визначаємо випадковий напрямок
             const dx = (Math.random() - 0.5) * 14; 
             const dy = (Math.random() - 0.5) * 14;
 
             randomGroup.style.transition = "transform 0.15s ease-in-out";
             randomGroup.style.transform = `translate(${dx}px, ${dy}px)`;
 
-            // Повернення очей в центр через випадковий час
             setTimeout(() => {
                 if(randomGroup) {
                     randomGroup.style.transform = `translate(0px, 0px)`;
                 }
             }, 800 + Math.random() * 1500);
 
-        }, 400); // Кожні 400мс хтось один переводить погляд
+        }, 400);
 
         // Логіка кнопок керування з підтримкою синхронізації
         function resetGame(isRemoteAction = false) {
@@ -644,19 +662,19 @@
                 cell.innerHTML = "";
                 cell.classList.remove('winner-cell');
             });
-            // Звук очищення дошки
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
+            
+            const ctx = getAudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
             osc.type = 'triangle';
-            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.2);
-            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2);
+            osc.frequency.setValueAtTime(800, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.2);
+            gain.gain.setValueAtTime(0.2, ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.2);
             osc.connect(gain);
-            gain.connect(audioCtx.destination);
+            gain.connect(ctx.destination);
             osc.start();
-            osc.stop(audioCtx.currentTime + 0.2);
+            osc.stop(ctx.currentTime + 0.2);
 
             if (!isRemoteAction) {
                 db.ref('game_action').set({
@@ -664,7 +682,7 @@
                     timestamp: Date.now(),
                     type: 'reset',
                     data: {}
-                });
+                }).catch(e => console.log("Помилка запису скидання:", e));
             }
         }
 
@@ -682,7 +700,6 @@
             const action = snap.val();
             if (!action) return;
             
-            // Запобіжник для зациклення та перевірка на застарілі дії
             if (action.timestamp <= lastActionTimestamp) return;
             if (action.senderId === myName && (Date.now() - action.timestamp) < 3000) return; // Ігноруємо відлуння власних ходів
 
@@ -702,9 +719,9 @@
     </div>
     
     <script>
-        // Радар та унікальні вкладки
+        // Радар та унікальні вкладки (Використовуємо safeName для безпечних ключів)
         const tabId = Math.random().toString(36).substr(2, 9);
-        const presenceRef = db.ref('online_users/' + myName + '/' + tabId);
+        const presenceRef = db.ref('online_users/' + safeName + '/' + tabId);
         
         db.ref('.info/connected').on('value', snap => {
             if (snap.val() === true) {
@@ -719,7 +736,7 @@
         });
 
         // Оновлення списку та блокування (екран-заглушка)
-        db.ref('blocked_users/' + myName).on('value', snap => {
+        db.ref('blocked_users/' + safeName).on('value', snap => {
             const overlay = document.getElementById('block-overlay');
             if (snap.val() === true) {
                 overlay.style.display = 'flex';
