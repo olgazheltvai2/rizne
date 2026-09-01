@@ -1,4 +1,4 @@
-// pencil.js - Глобальний інструмент малювання для всіх ігор (Мінімалістичний, draggable, з кнопками)
+// pencil.js - Швидкий глобальний інструмент малювання (без зайвих кліків, з авто-активацією)
 (function() {
     if (document.getElementById('global-draw-container') || window.location.pathname.includes('teacher_panel.html')) return;
 
@@ -8,9 +8,8 @@
         <style>
             #global-draw-container { font-family: Arial, sans-serif; user-select: none; }
             #draw-canvas-global { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 90000; }
-            #toggle-draw-btn-global { position: fixed; bottom: 85px; right: 20px; z-index: 99999; width: auto; padding: 10px 15px; border-radius: 25px; background-color: #f39c12; color: white; border: 2px solid white; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 8px; }
+            #toggle-draw-btn-global { position: fixed; bottom: 85px; right: 20px; z-index: 99999; width: auto; padding: 10px 15px; border-radius: 25px; background-color: #8e44ad; color: white; border: 2px solid white; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 8px; }
             
-            /* Draggable Panel Styles */
             #draw-panel-global { 
                 position: fixed; top: 100px; right: 20px; z-index: 99998; 
                 background: white; border: 1px solid #ccc; border-radius: 12px; 
@@ -36,15 +35,11 @@
         
         <div id="draw-panel-global">
             <div id="draw-drag-handle">
-                <span>✋ Малювання</span>
+                <span>Панель</span>
                 <button id="close-draw-panel-global" style="background: none; border: none; font-size: 14px; cursor: pointer; font-weight: bold;">✕</button>
             </div>
             
-            <label style="display: flex; align-items: center; margin-bottom: 10px; font-weight: bold; color: #e74c3c; cursor: pointer; background: #fdf5e6; padding: 6px 8px; border-radius: 6px; border: 1px solid #f39c12; font-size: 13px;">
-                <input type="checkbox" id="draw-mode-switch-global" style="transform: scale(1.2); margin-right: 6px;"> Увімкнути
-            </label>
-            
-            <div id="draw-controls-global" style="display: none; flex-direction: column; gap: 8px;">
+            <div id="draw-controls-global" style="display: flex; flex-direction: column; gap: 8px;">
                 <div style="display: flex; gap: 6px;">
                     <button type="button" id="tool-pencil" class="draw-tool-btn active">✏️ Олівець</button>
                     <button type="button" id="tool-eraser" class="draw-tool-btn">🧽 Гумка</button>
@@ -73,8 +68,6 @@
     const drawPanel = document.getElementById('draw-panel-global');
     const toggleDrawBtn = document.getElementById('toggle-draw-btn-global');
     const closeDrawBtn = document.getElementById('close-draw-panel-global');
-    const drawModeSwitch = document.getElementById('draw-mode-switch-global');
-    const drawControls = document.getElementById('draw-controls-global');
     const drawSize = document.getElementById('draw-size-global');
     const sizeVal = document.getElementById('size-val-global');
     const drawColor = document.getElementById('draw-color-global');
@@ -83,7 +76,7 @@
     const tooleraser = document.getElementById('tool-eraser');
     const dragHandle = document.getElementById('draw-drag-handle');
 
-    let currentTool = 'pencil'; // 'pencil' або 'eraser'
+    let currentTool = 'pencil'; 
 
     toolPencil.addEventListener('click', () => {
         currentTool = 'pencil';
@@ -97,7 +90,7 @@
         toolPencil.classList.remove('active');
     });
 
-    // --- Drag and Drop логіка для панелі ---
+    // --- Drag and Drop ---
     let isDragging = false, dragX = 0, dragY = 0;
     dragHandle.addEventListener('mousedown', (e) => {
         isDragging = true;
@@ -113,7 +106,6 @@
     });
     window.addEventListener('mouseup', () => { isDragging = false; });
 
-    // Також підтримка пальців для мобільних/планшетів
     dragHandle.addEventListener('touchstart', (e) => {
         isDragging = true;
         const touch = e.touches[0];
@@ -140,27 +132,34 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    toggleDrawBtn.addEventListener('click', () => { drawPanel.style.display = 'block'; toggleDrawBtn.style.display = 'none'; });
-    closeDrawBtn.addEventListener('click', () => { drawPanel.style.display = 'none'; toggleDrawBtn.style.display = 'flex'; });
-
-    drawModeSwitch.addEventListener('change', (e) => {
-        if (e.target.checked) { canvas.style.pointerEvents = 'auto'; drawControls.style.display = 'flex'; } 
-        else { canvas.style.pointerEvents = 'none'; drawControls.style.display = 'none'; }
+    // Автоматичне вмикання при натисканні на "Малювати"
+    toggleDrawBtn.addEventListener('click', () => { 
+        drawPanel.style.display = 'block'; 
+        toggleDrawBtn.style.display = 'none'; 
+        canvas.style.pointerEvents = 'auto'; // Автоматично вмикаємо олівець
     });
+
+    // Автоматичне вимикання при закритті хрестиком
+    closeDrawBtn.addEventListener('click', () => { 
+        drawPanel.style.display = 'none'; 
+        toggleDrawBtn.style.display = 'flex'; 
+        canvas.style.pointerEvents = 'none'; // Вимикаємо олівець, щоб клікати по грі
+    });
+
     drawSize.addEventListener('input', (e) => { sizeVal.innerText = e.target.value; });
 
     let drawing = false, lastX = 0, lastY = 0;
     function getEventPos(e) { return (e.touches && e.touches.length > 0) ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : { x: e.clientX, y: e.clientY }; }
 
     function startDraw(e) {
-        if (!drawModeSwitch.checked) return;
+        if (canvas.style.pointerEvents !== 'auto') return;
         drawing = true;
         const pos = getEventPos(e);
         lastX = pos.x; lastY = pos.y;
     }
 
     function draw(e) {
-        if (!drawing || !drawModeSwitch.checked) return;
+        if (!drawing || canvas.style.pointerEvents !== 'auto') return;
         e.preventDefault(); 
         const pos = getEventPos(e);
         const size = drawSize.value, color = drawColor.value;
