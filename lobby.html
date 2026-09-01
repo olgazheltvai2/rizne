@@ -13,6 +13,8 @@
         h1 { color: #333; font-size: 32px; margin-bottom: 20px; }
         .loader { border: 8px solid #f3f3f3; border-top: 8px solid #3498db; border-radius: 50%; width: 60px; height: 60px; animation: spin 2s linear infinite; margin: 0 auto 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* Theme Manager Styles */
         #theme-btn { position: fixed; bottom: 20px; right: 20px; z-index: 9999; width: 50px; height: 50px; border-radius: 50%; background-color: white; border: 2px solid #ccc; font-size: 24px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; }
         #theme-modal { position: fixed; bottom: 80px; right: 20px; z-index: 9998; background: white; border: 1px solid #ccc; border-radius: 10px; padding: 15px; max-height: 60vh; overflow-y: auto; display: none; box-shadow: 0 10px 20px rgba(0,0,0,0.2); width: 320px; }
         #theme-modal h3 { margin-top: 0; text-align: center; font-size: 18px; font-family: Arial, sans-serif; }
@@ -24,17 +26,19 @@
         
         /* Drawing Tools Styles */
         #draw-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 9000; }
-        #toggle-draw-btn { position: fixed; bottom: 80px; right: 20px; z-index: 9999; width: 50px; height: 50px; border-radius: 50%; background-color: #f39c12; color: white; border: 2px solid white; font-size: 24px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; }
+        #toggle-draw-btn { position: fixed; bottom: 85px; right: 20px; z-index: 9999; width: auto; padding: 10px 15px; border-radius: 25px; background-color: #f39c12; color: white; border: 2px solid white; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 8px; }
         #draw-panel { position: fixed; bottom: 140px; right: 20px; z-index: 9998; background: white; border: 1px solid #ccc; border-radius: 10px; padding: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); width: 250px; display: none; font-family: Arial, sans-serif; }
     </style>
 </head>
 <body>
 
+    <!-- Екран-заглушка -->
     <div id="block-overlay">
         <h1 style="color: #e74c3c; font-size: 50px; margin:0;">Зачекай! ✋</h1>
         <p style="font-size: 24px;">Зараз не твій урок.</p>
     </div>
 
+    <!-- Основний контент Лобі -->
     <div class="main-container">
         <div class="loader"></div>
         <h1>Очікуємо на вчителя...</h1>
@@ -42,36 +46,37 @@
         <p style="color: #3498db; margin-top: 20px; font-weight: bold; font-size: 18px;" id="user-greeting"></p>
     </div>
 
-    <!-- Theme Manager -->
-    <button id="theme-btn">⚙️</button>
+    <!-- Theme Manager UI -->
+    <button id="theme-btn" title="Фони">⚙️</button>
     <div id="theme-modal">
         <h3>Оберіть фон</h3>
         <div class="theme-grid" id="theme-grid"></div>
     </div>
 
-    <!-- Drawing Tools -->
-    <button id="toggle-draw-btn" title="Малювання">✏️</button>
+    <!-- Drawing Tools UI -->
+    <button id="toggle-draw-btn" title="Відкрити панель малювання">✏️ Малювати</button>
     <div id="draw-panel">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <h3 style="margin: 0; font-size: 16px;">Малювання</h3>
             <button id="close-draw-panel" style="background: none; border: none; font-size: 16px; cursor: pointer;">❌</button>
         </div>
         
-        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #e74c3c; cursor: pointer;">
+        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #e74c3c; cursor: pointer; background: #fdf5e6; padding: 8px; border-radius: 5px; border: 1px solid #f39c12;">
             <input type="checkbox" id="draw-mode-switch" style="transform: scale(1.2); margin-right: 8px;"> Увімкнути олівець
         </label>
+        <p style="font-size: 11px; color: #666; margin: 0 0 10px 0;">(Коли олівець увімкнено, кнопки не натискаються)</p>
         
         <div id="draw-controls" style="display: none; flex-direction: column; gap: 10px; margin-top: 15px;">
-            <label style="font-size: 14px;">Інструмент:</label>
+            <label style="font-size: 14px; font-weight: bold;">Інструмент:</label>
             <div style="display: flex; gap: 10px; font-size: 14px;">
                 <label><input type="radio" name="draw-tool" value="pencil" checked> ✏️ Олівець</label>
                 <label><input type="radio" name="draw-tool" value="eraser"> 🧽 Ластик</label>
             </div>
 
-            <label style="font-size: 14px;">Товщина: <span id="size-val">5</span>px</label>
+            <label style="font-size: 14px; font-weight: bold;">Товщина: <span id="size-val">5</span>px</label>
             <input type="range" id="draw-size" min="1" max="100" value="5">
 
-            <label style="font-size: 14px;">Колір:</label>
+            <label style="font-size: 14px; font-weight: bold;">Колір:</label>
             <input type="color" id="draw-color" value="#e74c3c" style="width: 100%; border: none; height: 30px; cursor: pointer;">
 
             <button id="draw-clear-btn" style="background: #e74c3c; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 5px;">🗑️ Очистити все</button>
@@ -80,10 +85,14 @@
     <canvas id="draw-canvas"></canvas>
 
     <script>
+        // Ініціалізація Firebase
         const firebaseConfig = { databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/" };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
+        // ----------------------------------------------------
+        // Універсальний блок контролю (Ідентифікація та Радар)
+        // ----------------------------------------------------
         const urlParams = new URLSearchParams(window.location.search);
         let myName = urlParams.get('user');
 
@@ -133,13 +142,14 @@
             }
         });
 
-        // --- Theme Manager (Оновлено: Збереження під конкретну гру + Синхронізація) ---
+        // ----------------------------------------------------
+        // Theme Manager (Динамічні фони із синхронізацією)
+        // ----------------------------------------------------
         const themeBtn = document.getElementById('theme-btn');
         const themeModal = document.getElementById('theme-modal');
         const themeGrid = document.getElementById('theme-grid');
         const baseUrl = 'https://olgazheltvai2.github.io/images/backgrounds/';
         
-        // Визначаємо унікальний ключ для поточної сторінки
         const pageKey = window.location.pathname.split('/').pop().replace(/\./g, '_') || 'index_html';
         const localBgKey = 'mySavedGameBg_' + pageKey;
         const themeRef = db.ref('game_themes/' + pageKey);
@@ -148,14 +158,12 @@
         let bgFoundCount = 0;
         const maxBgCheck = 50; 
 
-        // Первинне завантаження з localStorage, поки чекаємо Firebase
         if (savedBg) { 
             document.body.style.backgroundImage = savedBg === 'none' ? 'none' : `url('${savedBg}')`; 
         } else { 
             document.body.style.backgroundImage = `url('${baseUrl}background_1.webp')`; 
         }
 
-        // Синхронізація фону через Firebase
         themeRef.on('value', (snap) => {
             const url = snap.val();
             if (url) {
@@ -167,7 +175,6 @@
         themeBtn.addEventListener('click', () => { themeModal.style.display = themeModal.style.display === 'block' ? 'none' : 'block'; });
 
         async function loadBackgrounds() {
-            // Додаємо кнопку "Без фону"
             const noneDiv = document.createElement('div');
             noneDiv.className = 'theme-thumbnail';
             noneDiv.innerHTML = `<div style="width:100%; height:100%; background:#eee; display:flex; justify-content:center; align-items:center; font-size:24px;">🚫</div><span>Без фону</span>`;
@@ -196,14 +203,16 @@
             div.appendChild(img);
             div.appendChild(span);
             div.addEventListener('click', () => {
-                themeRef.set(url); // Відправляємо вибір усім учасникам
+                themeRef.set(url); 
             });
             themeGrid.appendChild(div);
         }
 
         loadBackgrounds();
 
-        // --- DRAWING LOGIC (Синхронізований олівець) ---
+        // ----------------------------------------------------
+        // Синхронізований Олівець (Малювання)
+        // ----------------------------------------------------
         const canvas = document.getElementById('draw-canvas');
         const ctx = canvas.getContext('2d');
         const drawPanel = document.getElementById('draw-panel');
@@ -233,10 +242,10 @@
 
         drawModeSwitch.addEventListener('change', (e) => {
             if (e.target.checked) {
-                canvas.style.pointerEvents = 'auto'; // Дозволяє малювати поверх сторінки
+                canvas.style.pointerEvents = 'auto'; 
                 drawControls.style.display = 'flex';
             } else {
-                canvas.style.pointerEvents = 'none'; // Пропускає кліки до гри
+                canvas.style.pointerEvents = 'none'; 
                 drawControls.style.display = 'none';
             }
         });
@@ -276,7 +285,6 @@
             const size = drawSize.value;
             const color = drawColor.value;
 
-            // Відправка лінії у Firebase
             db.ref('game_action').set({
                 senderId: myName,
                 timestamp: Date.now(),
@@ -328,7 +336,6 @@
             if (val.senderId === myName) return; 
 
             if (val.type === 'draw_line') {
-                // Масштабування координат під розмір екрану отримувача
                 const { x0, y0, x1, y1, color, size, isEraser, w, h } = val.data;
                 const rx0 = x0 * (window.innerWidth / w);
                 const ry0 = y0 * (window.innerHeight / h);
