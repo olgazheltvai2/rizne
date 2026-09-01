@@ -9,7 +9,7 @@
     <style>
         body { margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f0f8ff; background-size: cover; background-position: center; background-attachment: fixed; min-height: 100vh; display: flex; justify-content: center; align-items: center; }
         #block-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); color: white; z-index: 99999; justify-content: center; align-items: center; flex-direction: column; }
-        .main-container { background-color: rgba(255, 255, 255, 0.9); padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); text-align: center; max-width: 600px; width: 90%; }
+        .main-container { background-color: rgba(255, 255, 255, 0.9); padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); text-align: center; max-width: 600px; width: 90%; z-index: 10;}
         h1 { color: #333; font-size: 32px; margin-bottom: 20px; }
         .loader { border: 8px solid #f3f3f3; border-top: 8px solid #3498db; border-radius: 50%; width: 60px; height: 60px; animation: spin 2s linear infinite; margin: 0 auto 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -21,6 +21,11 @@
         .theme-thumbnail:hover { border-color: #3498db; }
         .theme-thumbnail img { width: 100%; height: 100%; object-fit: cover; }
         .theme-thumbnail span { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0, 0, 0, 0.6); color: white; font-size: 12px; text-align: center; padding: 4px 0; font-family: Arial, sans-serif; }
+        
+        /* Drawing Tools Styles */
+        #draw-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 9000; }
+        #toggle-draw-btn { position: fixed; bottom: 80px; right: 20px; z-index: 9999; width: 50px; height: 50px; border-radius: 50%; background-color: #f39c12; color: white; border: 2px solid white; font-size: 24px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; }
+        #draw-panel { position: fixed; bottom: 140px; right: 20px; z-index: 9998; background: white; border: 1px solid #ccc; border-radius: 10px; padding: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); width: 250px; display: none; font-family: Arial, sans-serif; }
     </style>
 </head>
 <body>
@@ -37,11 +42,42 @@
         <p style="color: #3498db; margin-top: 20px; font-weight: bold; font-size: 18px;" id="user-greeting"></p>
     </div>
 
+    <!-- Theme Manager -->
     <button id="theme-btn">⚙️</button>
     <div id="theme-modal">
         <h3>Оберіть фон</h3>
         <div class="theme-grid" id="theme-grid"></div>
     </div>
+
+    <!-- Drawing Tools -->
+    <button id="toggle-draw-btn" title="Малювання">✏️</button>
+    <div id="draw-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h3 style="margin: 0; font-size: 16px;">Малювання</h3>
+            <button id="close-draw-panel" style="background: none; border: none; font-size: 16px; cursor: pointer;">❌</button>
+        </div>
+        
+        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #e74c3c; cursor: pointer;">
+            <input type="checkbox" id="draw-mode-switch" style="transform: scale(1.2); margin-right: 8px;"> Увімкнути олівець
+        </label>
+        
+        <div id="draw-controls" style="display: none; flex-direction: column; gap: 10px; margin-top: 15px;">
+            <label style="font-size: 14px;">Інструмент:</label>
+            <div style="display: flex; gap: 10px; font-size: 14px;">
+                <label><input type="radio" name="draw-tool" value="pencil" checked> ✏️ Олівець</label>
+                <label><input type="radio" name="draw-tool" value="eraser"> 🧽 Ластик</label>
+            </div>
+
+            <label style="font-size: 14px;">Товщина: <span id="size-val">5</span>px</label>
+            <input type="range" id="draw-size" min="1" max="100" value="5">
+
+            <label style="font-size: 14px;">Колір:</label>
+            <input type="color" id="draw-color" value="#e74c3c" style="width: 100%; border: none; height: 30px; cursor: pointer;">
+
+            <button id="draw-clear-btn" style="background: #e74c3c; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 5px;">🗑️ Очистити все</button>
+        </div>
+    </div>
+    <canvas id="draw-canvas"></canvas>
 
     <script>
         const firebaseConfig = { databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/" };
@@ -84,32 +120,60 @@
             else { overlay.style.display = 'none'; }
         });
 
+        // Імунітет при старті для current_activity
+        let isJustLoaded = true;
+        setTimeout(() => { isJustLoaded = false; }, 1000);
+
         db.ref('current_activity').on('value', (snapshot) => {
             const activity = snapshot.val();
-            if (activity && activity !== "lobby") {
+            if (activity && activity !== "lobby" && !isJustLoaded) {
                 let targetUrl = activity;
                 if (!targetUrl.endsWith('.html')) targetUrl += '.html';
-                
-                // ТЕПЕР ІМ'Я 100% ПЕРЕДАЄТЬСЯ У ГРУ
                 window.location.href = targetUrl + '?user=' + encodeURIComponent(myName);
             }
         });
 
-        // --- Theme Manager ---
+        // --- Theme Manager (Оновлено: Збереження під конкретну гру + Синхронізація) ---
         const themeBtn = document.getElementById('theme-btn');
         const themeModal = document.getElementById('theme-modal');
         const themeGrid = document.getElementById('theme-grid');
         const baseUrl = 'https://olgazheltvai2.github.io/images/backgrounds/';
-        const savedBg = localStorage.getItem('mySavedGameBg');
+        
+        // Визначаємо унікальний ключ для поточної сторінки
+        const pageKey = window.location.pathname.split('/').pop().replace(/\./g, '_') || 'index_html';
+        const localBgKey = 'mySavedGameBg_' + pageKey;
+        const themeRef = db.ref('game_themes/' + pageKey);
+        
+        const savedBg = localStorage.getItem(localBgKey);
         let bgFoundCount = 0;
         const maxBgCheck = 50; 
 
-        if (savedBg) { document.body.style.backgroundImage = `url('${savedBg}')`; } 
-        else { document.body.style.backgroundImage = `url('${baseUrl}background_1.webp')`; }
+        // Первинне завантаження з localStorage, поки чекаємо Firebase
+        if (savedBg) { 
+            document.body.style.backgroundImage = savedBg === 'none' ? 'none' : `url('${savedBg}')`; 
+        } else { 
+            document.body.style.backgroundImage = `url('${baseUrl}background_1.webp')`; 
+        }
+
+        // Синхронізація фону через Firebase
+        themeRef.on('value', (snap) => {
+            const url = snap.val();
+            if (url) {
+                document.body.style.backgroundImage = url === 'none' ? 'none' : `url('${url}')`;
+                localStorage.setItem(localBgKey, url);
+            }
+        });
 
         themeBtn.addEventListener('click', () => { themeModal.style.display = themeModal.style.display === 'block' ? 'none' : 'block'; });
 
         async function loadBackgrounds() {
+            // Додаємо кнопку "Без фону"
+            const noneDiv = document.createElement('div');
+            noneDiv.className = 'theme-thumbnail';
+            noneDiv.innerHTML = `<div style="width:100%; height:100%; background:#eee; display:flex; justify-content:center; align-items:center; font-size:24px;">🚫</div><span>Без фону</span>`;
+            noneDiv.addEventListener('click', () => { themeRef.set('none'); });
+            themeGrid.appendChild(noneDiv);
+
             for (let i = 1; i <= maxBgCheck; i++) {
                 let imgUrl = `${baseUrl}background_${i}.webp`;
                 await new Promise((resolve) => {
@@ -132,13 +196,149 @@
             div.appendChild(img);
             div.appendChild(span);
             div.addEventListener('click', () => {
-                document.body.style.backgroundImage = `url('${url}')`;
-                localStorage.setItem('mySavedGameBg', url);
+                themeRef.set(url); // Відправляємо вибір усім учасникам
             });
             themeGrid.appendChild(div);
         }
 
         loadBackgrounds();
+
+        // --- DRAWING LOGIC (Синхронізований олівець) ---
+        const canvas = document.getElementById('draw-canvas');
+        const ctx = canvas.getContext('2d');
+        const drawPanel = document.getElementById('draw-panel');
+        const toggleDrawBtn = document.getElementById('toggle-draw-btn');
+        const closeDrawBtn = document.getElementById('close-draw-panel');
+        const drawModeSwitch = document.getElementById('draw-mode-switch');
+        const drawControls = document.getElementById('draw-controls');
+        const drawSize = document.getElementById('draw-size');
+        const sizeVal = document.getElementById('size-val');
+        const drawColor = document.getElementById('draw-color');
+        const drawClearBtn = document.getElementById('draw-clear-btn');
+        const toolRadios = document.getElementsByName('draw-tool');
+
+        function resizeCanvas() {
+            const data = canvas.toDataURL();
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            const img = new Image();
+            img.onload = () => { ctx.drawImage(img, 0, 0); };
+            img.src = data;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        toggleDrawBtn.addEventListener('click', () => { drawPanel.style.display = 'block'; toggleDrawBtn.style.display = 'none'; });
+        closeDrawBtn.addEventListener('click', () => { drawPanel.style.display = 'none'; toggleDrawBtn.style.display = 'flex'; });
+
+        drawModeSwitch.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                canvas.style.pointerEvents = 'auto'; // Дозволяє малювати поверх сторінки
+                drawControls.style.display = 'flex';
+            } else {
+                canvas.style.pointerEvents = 'none'; // Пропускає кліки до гри
+                drawControls.style.display = 'none';
+            }
+        });
+
+        drawSize.addEventListener('input', (e) => { sizeVal.innerText = e.target.value; });
+
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        function getTool() {
+            for (let r of toolRadios) { if (r.checked) return r.value; }
+            return 'pencil';
+        }
+
+        function getEventPos(e) {
+            if (e.touches && e.touches.length > 0) {
+                return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+            return { x: e.clientX, y: e.clientY };
+        }
+
+        function startDraw(e) {
+            if (!drawModeSwitch.checked) return;
+            isDrawing = true;
+            const pos = getEventPos(e);
+            lastX = pos.x;
+            lastY = pos.y;
+        }
+
+        function draw(e) {
+            if (!isDrawing || !drawModeSwitch.checked) return;
+            e.preventDefault(); 
+            const pos = getEventPos(e);
+            
+            const tool = getTool();
+            const size = drawSize.value;
+            const color = drawColor.value;
+
+            // Відправка лінії у Firebase
+            db.ref('game_action').set({
+                senderId: myName,
+                timestamp: Date.now(),
+                type: 'draw_line',
+                data: { x0: lastX, y0: lastY, x1: pos.x, y1: pos.y, color: color, size: size, isEraser: tool === 'eraser', w: window.innerWidth, h: window.innerHeight }
+            });
+
+            drawLineLocal(lastX, lastY, pos.x, pos.y, color, size, tool === 'eraser');
+            lastX = pos.x;
+            lastY = pos.y;
+        }
+
+        function stopDraw() { isDrawing = false; }
+
+        canvas.addEventListener('mousedown', startDraw);
+        canvas.addEventListener('mousemove', draw);
+        window.addEventListener('mouseup', stopDraw);
+        
+        canvas.addEventListener('touchstart', startDraw, {passive: false});
+        canvas.addEventListener('touchmove', draw, {passive: false});
+        window.addEventListener('touchend', stopDraw);
+
+        function drawLineLocal(x0, y0, x1, y1, color, size, isEraser) {
+            ctx.beginPath();
+            ctx.moveTo(x0, y0);
+            ctx.lineTo(x1, y1);
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = size;
+            ctx.strokeStyle = color;
+            ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
+            ctx.stroke();
+        }
+
+        drawClearBtn.addEventListener('click', () => {
+            db.ref('game_action').set({
+                senderId: myName,
+                timestamp: Date.now(),
+                type: 'clear_canvas',
+                data: {}
+            });
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        });
+
+        // Отримання малюнків від інших учасників
+        db.ref('game_action').on('value', snap => {
+            const val = snap.val();
+            if (!val) return;
+            if (val.senderId === myName) return; 
+
+            if (val.type === 'draw_line') {
+                // Масштабування координат під розмір екрану отримувача
+                const { x0, y0, x1, y1, color, size, isEraser, w, h } = val.data;
+                const rx0 = x0 * (window.innerWidth / w);
+                const ry0 = y0 * (window.innerHeight / h);
+                const rx1 = x1 * (window.innerWidth / w);
+                const ry1 = y1 * (window.innerHeight / h);
+                drawLineLocal(rx0, ry0, rx1, ry1, color, size, isEraser);
+            } else if (val.type === 'clear_canvas') {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        });
     </script>
 </body>
 </html>
