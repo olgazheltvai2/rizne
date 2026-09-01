@@ -1,0 +1,29 @@
+name: Auto-Add Pencil to All Games
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  add-pencil:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Insert Pencil Script
+        run: |
+          for file in $(find . -type f -name "*.html"); do
+            if ! grep -q "pencil.js" "$file"; then
+              sed -i 's|</body>|<script src="https://olgazheltvai2.github.io/rizne/pencil.js"></script></body>|gi' "$file"
+            fi
+          done
+
+      - name: Save changes
+        run: |
+          git config --global user.name "GitHub Robot"
+          git config --global user.email "robot@github.com"
+          git add .
+          git commit -m "Автоматично додано олівець у всі ігри" || echo "Нічого змінювати"
+          git push
