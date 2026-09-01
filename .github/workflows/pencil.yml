@@ -14,7 +14,7 @@ jobs:
 
       - name: Insert Pencil Script
         run: |
-          for file in $(find . -type f -name "*.html"); do
+          find . -maxdepth 2 -name "*.html" ! -name "teacher_panel.html" | while read -r file; do
             if ! grep -q "pencil.js" "$file"; then
               sed -i 's|</body>|<script src="https://olgazheltvai2.github.io/rizne/pencil.js"></script></body>|gi' "$file"
             fi
