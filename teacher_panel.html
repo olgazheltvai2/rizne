@@ -54,6 +54,12 @@
             </div>
         </div>
 
+        <!-- Глобальне керування малюнками -->
+        <div class="control-group">
+            <h2>Малювання на екрані</h2>
+            <button class="btn-send" style="background-color: #f39c12; width: 100%; margin: 0;" onclick="clearAllDrawings()">🗑️ Очистити малюнки всім учням</button>
+        </div>
+
         <div class="status" id="current-status">Стан екрану: Завантаження...</div>
     </div>
 
@@ -70,6 +76,15 @@
         function sendCustomGame() {
             const inputVal = document.getElementById('game-input').value.trim();
             if (inputVal !== '') { setActivity(inputVal); document.getElementById('game-input').value = ''; }
+        }
+
+        function clearAllDrawings() {
+            db.ref('game_action').set({
+                senderId: 'teacher_panel',
+                timestamp: Date.now(),
+                type: 'clear_canvas',
+                data: {}
+            });
         }
 
         db.ref('current_activity').on('value', (snapshot) => {
