@@ -1,28 +1,51 @@
-// pencil.js - Глобальний інструмент малювання (БРОНЕБІЙНА ВЕРСІЯ)
+// pencil.js - Глобальний інструмент малювання
 (function() {
-    if (document.getElementById('global-draw-canvas') || window.location.pathname.includes('teacher_panel.html')) return;
+    if (document.getElementById('global-draw-ui') || window.location.pathname.includes('teacher_panel.html')) return;
 
-    // Знищуємо старі елементи
-    ['draw-canvas', 'drawing-toolbar', 'draw-toggle-btn', 'draw-controls'].forEach(id => {
+    // Жорстка зачистка старих елементів з HTML
+    const oldElements = ['draw-canvas', 'drawing-toolbar', 'draw-toggle-btn', 'draw-controls', 'global-draw-wrapper', 'global-draw-container'];
+    oldElements.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.remove();
     });
 
-    // 1. Створюємо САМЕ ПОЛОТНО (окремо, без обгорток)
-    const canvas = document.createElement('canvas');
-    canvas.id = 'global-draw-canvas';
-    // ВАЖЛИВО: display: none повністю вилучає його з екрану!
-    canvas.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 90000; pointer-events: auto; display: none; touch-action: none; background: transparent;';
-    document.body.appendChild(canvas);
-
-    // 2. Створюємо КНОПКИ (окремо, ніяких блоків на весь екран)
+    // Створюємо інтерфейс
     const ui = document.createElement('div');
     ui.id = 'global-draw-ui';
-    ui.style.cssText = 'position: fixed; bottom: 0; right: 0; width: 0; height: 0; z-index: 99999; font-family: Arial, sans-serif;';
     ui.innerHTML = `
-        <button id="pencil-open-btn" style="position: fixed; bottom: 85px; right: 20px; padding: 10px 15px; border-radius: 25px; background: #8e44ad; color: white; border: 2px solid white; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: transform 0.2s;">✏️ Малювати</button>
-        <div id="pencil-panel" style="position: fixed; bottom: 140px; right: 20px; background: white; padding: 15px; border-radius: 10px; border: 1px solid #ccc; box-shadow: 0 10px 20px rgba(0,0,0,0.3); width: 250px; color: #333; display: none;">
-            <div id="pencil-header" style="display: flex; justify-content: flex-end; padding-bottom: 5px; margin-bottom: 15px; border-bottom: 1px solid #eee; cursor: grab; background: url('data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'20\\' height=\\'20\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'%23999\\' stroke-width=\\'2\\'><line x1=\\'8\\' y1=\\'6\\' x2=\\'21\\' y2=\\'6\\'/><line x1=\\'8\\' y1=\\'12\\' x2=\\'21\\' y2=\\'12\\'/><line x1=\\'8\\' y1=\\'18\\' x2=\\'21\\' y2=\\'18\\'/><line x1=\\'3\\' y1=\\'6\\' x2=\\'3.01\\' y2=\\'6\\'/><line x1=\\'3\\' y1=\\'12\\' x2=\\'3.01\\' y2=\\'12\\'/><line x1=\\'3\\' y1=\\'18\\' x2=\\'3.01\\' y2=\\'18\\'/></svg>') no-repeat left center;">
+        <style>
+            #global-draw-canvas {
+                position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                z-index: 90000; background: transparent;
+                pointer-events: none; /* За замовчуванням пропускає кліки */
+                touch-action: auto;
+            }
+            #global-draw-canvas.drawing-active {
+                pointer-events: auto; /* Перехоплює кліки тільки під час малювання */
+                touch-action: none;
+            }
+            #pencil-open-btn {
+                position: fixed; bottom: 85px; right: 20px; z-index: 99999;
+                padding: 10px 15px; border-radius: 25px; background: #8e44ad; color: white;
+                border: 2px solid white; font-size: 16px; font-weight: bold; cursor: pointer;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            }
+            #pencil-panel {
+                position: fixed; bottom: 140px; right: 20px; z-index: 99999;
+                background: white; padding: 15px; border-radius: 10px; border: 1px solid #ccc;
+                box-shadow: 0 10px 20px rgba(0,0,0,0.3); width: 250px; color: #333; display: none;
+                font-family: Arial, sans-serif;
+            }
+            #pencil-header {
+                display: flex; justify-content: flex-end; padding-bottom: 5px; margin-bottom: 15px;
+                border-bottom: 1px solid #eee; cursor: grab;
+                background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="%23999" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>') no-repeat left center; height: 20px;
+            }
+        </style>
+        <canvas id="global-draw-canvas"></canvas>
+        <button id="pencil-open-btn">✏️ Малювати</button>
+        <div id="pencil-panel">
+            <div id="pencil-header">
                 <button id="pencil-close-btn" style="background:none; border:none; cursor:pointer; font-size:16px;">❌</button>
             </div>
             <div style="display:flex; gap:10px; font-size:14px; margin-bottom:15px;">
@@ -37,6 +60,7 @@
     `;
     document.body.appendChild(ui);
 
+    const canvas = document.getElementById('global-draw-canvas');
     const ctx = canvas.getContext('2d');
     const panel = document.getElementById('pencil-panel');
     const btnOpen = document.getElementById('pencil-open-btn');
@@ -60,13 +84,13 @@
     btnOpen.addEventListener('click', () => {
         panel.style.display = 'block';
         btnOpen.style.display = 'none';
-        canvas.style.display = 'block'; // Полотно існує ТІЛЬКИ коли панель відкрита
+        canvas.classList.add('drawing-active');
     });
 
     btnClose.addEventListener('click', () => {
         panel.style.display = 'none';
         btnOpen.style.display = 'block';
-        canvas.style.display = 'none'; // Полотно повністю зникає!
+        canvas.classList.remove('drawing-active');
     });
 
     sizeInput.addEventListener('input', e => document.getElementById('p-size-val').innerText = e.target.value);
@@ -74,23 +98,20 @@
     let isDrawing = false, lastX = 0, lastY = 0;
     
     const getPos = e => {
-        if (e.touches && e.touches.length > 0) {
-            return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-        }
+        if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
         return { x: e.clientX, y: e.clientY };
     };
-    
     const getTool = () => Array.from(tools).find(r => r.checked).value;
 
     function start(e) {
-        if (canvas.style.display === 'none') return;
+        if (!canvas.classList.contains('drawing-active')) return;
         isDrawing = true;
         const pos = getPos(e);
         lastX = pos.x; lastY = pos.y;
     }
 
     function draw(e) {
-        if (!isDrawing || canvas.style.display === 'none') return;
+        if (!isDrawing || !canvas.classList.contains('drawing-active')) return;
         e.preventDefault();
         const pos = getPos(e);
         const tool = getTool(), size = sizeInput.value, color = colorInput.value;
@@ -146,9 +167,8 @@
         }
     }, 500);
 
-    // Перетягування панелі
     let dragging = false, sX, sY, iX, iY;
-    const startDrag = e => {
+    const dragStart = e => {
         dragging = true;
         sX = e.touches ? e.touches[0].clientX : e.clientX;
         sY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -156,19 +176,19 @@
         iX = rect.left; iY = rect.top;
         panel.style.right = 'auto'; panel.style.bottom = 'auto';
     };
-    const drag = e => {
+    const dragMove = e => {
         if (!dragging) return;
         const cX = e.touches ? e.touches[0].clientX : e.clientX;
         const cY = e.touches ? e.touches[0].clientY : e.clientY;
         panel.style.left = `${iX + (cX - sX)}px`;
         panel.style.top = `${iY + (cY - sY)}px`;
     };
-    const stopDrag = () => dragging = false;
+    const dragStop = () => dragging = false;
 
-    header.addEventListener('mousedown', startDrag);
-    window.addEventListener('mousemove', drag);
-    window.addEventListener('mouseup', stopDrag);
-    header.addEventListener('touchstart', startDrag, {passive: true});
-    window.addEventListener('touchmove', drag, {passive: true});
-    window.addEventListener('touchend', stopDrag);
+    header.addEventListener('mousedown', dragStart);
+    window.addEventListener('mousemove', dragMove);
+    window.addEventListener('mouseup', dragStop);
+    header.addEventListener('touchstart', dragStart, {passive: true});
+    window.addEventListener('touchmove', dragMove, {passive: true});
+    window.addEventListener('touchend', dragStop);
 })();
