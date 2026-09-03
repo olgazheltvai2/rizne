@@ -1,4 +1,4 @@
-name: Auto-Add Pencil to All Games
+name: Fix and Auto-Add Pencil
 
 on:
   workflow_dispatch:
@@ -7,14 +7,20 @@ permissions:
   contents: write
 
 jobs:
-  add-pencil:
+  fix-and-add-pencil:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
 
-      - name: Insert Pencil Script
+      - name: Fix Pointer Events and Insert Pencil
         run: |
           find . -maxdepth 2 -name "*.html" ! -name "teacher_panel.html" | while read -r file; do
+            # Додаємо глобальний фікс прозорості для кліків (щоб Canvas не блокував гру)
+            if ! grep -q "canvas-click-fix" "$file"; then
+              sed -i 's|</head>|<style id="canvas-click-fix">canvas#draw-canvas { pointer-events: none !important; } .drawing-active canvas#draw-canvas { pointer-events: auto !important; }</style></head>|gi' "$file"
+            fi
+            
+            # Підключаємо глобальний скрипт, якщо його ще немає
             if ! grep -q "pencil.js" "$file"; then
               sed -i 's|</body>|<script src="https://olgazheltvai2.github.io/rizne/pencil.js"></script></body>|gi' "$file"
             fi
@@ -25,5 +31,5 @@ jobs:
           git config --global user.name "GitHub Robot"
           git config --global user.email "robot@github.com"
           git add .
-          git commit -m "Автоматично додано олівець у всі ігри" || echo "Нічого змінювати"
+          git commit -m "Фікс кліків Canvas та додавання олівця" || echo "Нічого змінювати"
           git push
