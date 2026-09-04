@@ -23,7 +23,7 @@
             height: 100vh;
             overflow: hidden;
             background: linear-gradient(135deg, #1a0b2e 0%, #0d1b2a 100%);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: Arial, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -215,6 +215,17 @@
             border-color: #fff;
             box-shadow: 0 0 25px currentColor;
         }
+        
+        /* Кнопка Гумки (затирання) */
+        .color-btn.c-erase {
+            background: rgba(255,255,255,0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 35px;
+        }
+        .color-btn.c-erase::before { display: none; }
+        .color-btn.c-erase.active { border-color: #fff; box-shadow: 0 0 25px rgba(255,255,255,0.5); }
 
         /* Кольори гри */
         .c-0 { color: #00ff88; background: #00ff88; }
@@ -253,6 +264,7 @@
                 width: 55px;
                 height: 55px;
             }
+            .color-btn.c-erase { font-size: 25px; }
             .color-btn.active {
                 transform: scale(1.15) translateY(-10px);
             }
@@ -340,6 +352,7 @@
             <div class="color-btn c-0 active" data-color="0"></div>
             <div class="color-btn c-1" data-color="1"></div>
             <div class="color-btn c-2" data-color="2"></div>
+            <div class="color-btn c-erase" data-color="-1">🧽</div>
         </div>
     </div>
 
@@ -384,7 +397,7 @@
         gain.connect(audioCtx.destination);
 
         if (type === 'splat') {
-            // Звук фарби
+            // Звук фарби або затирання
             osc.type = 'triangle';
             osc.frequency.setValueAtTime(600, t);
             osc.frequency.exponentialRampToValueAtTime(100, t + 0.15);
@@ -425,7 +438,6 @@
     // --- РУХ ОЧЕЙ ПЕРСОНАЖА ---
     const pupils = document.querySelectorAll('.pupil');
     setInterval(() => {
-        // Рандомний рух зіниць без кліпання (тут можна залишити звичайний Math.random)
         const angle = Math.random() * Math.PI * 2;
         const radius = Math.random() * 10;
         const x = Math.cos(angle) * radius;
@@ -437,7 +449,6 @@
 
 
     // --- ЛОГІКА ГЕНЕРАЦІЇ ПРЯМОКУТНИХ ПОЛІГОНІВ (Polyominoes) ---
-    // Seed генератор для однакових карт на всіх екранах
     let seedState = 12345;
     let currentMapSeed = 12345;
 
@@ -453,7 +464,7 @@
         
         function solve(node) {
             iters++;
-            if (iters > 3000) return false; // Захист від зациклення
+            if (iters > 3000) return false; 
             if (node === k) return true;
             
             for (let c = 0; c < 3; c++) {
@@ -472,9 +483,8 @@
         return solve(0);
     }
 
-    // Безкінечний генератор, створює сітку з прямокутними полігонами
+    // Безкінечний генератор
     function generateRectilinearMap(levelIdx) {
-        // Розміри сітки та кількість регіонів залежно від рівня
         const gridSizes = [4, 6, 8, 10]; 
         const regionCounts = [5, 10, 16, 25]; 
         
@@ -488,7 +498,6 @@
             let grid = Array(rows).fill().map(() => Array(cols).fill(-1));
             let seeds = 0;
             
-            // Розставляємо початкові зерна
             while (seeds < k) {
                 let r = Math.floor(seededRandom() * rows);
                 let c = Math.floor(seededRandom() * cols);
@@ -497,7 +506,6 @@
                 }
             }
 
-            // Розрощуємо регіони (Flood Fill)
             let unassigned = rows * cols - k;
             while (unassigned > 0) {
                 let edges = [];
@@ -516,14 +524,12 @@
                         }
                     }
                 }
-                // Вибираємо випадкову вільну клітинку, що межує з зайнятою
                 let pick = edges[Math.floor(seededRandom() * edges.length)];
                 let assignTo = pick.neighbors[Math.floor(seededRandom() * pick.neighbors.length)];
                 grid[pick.r][pick.c] = assignTo;
                 unassigned--;
             }
 
-            // Будуємо список суміжності
             let adj = Array(k).fill().map(() => new Set());
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
@@ -540,7 +546,6 @@
             }
             let adjList = adj.map(set => Array.from(set));
 
-            // Перевіряємо чи можна розмалювати в 3 кольори
             if (check3Colorability(adjList, k)) {
                 validMap = { grid, adjList, rows, cols, k };
             }
@@ -558,23 +563,17 @@
         for (let id = 0; id < k; id++) {
             let segments = [];
             
-            // Збираємо зовнішні ребра клітинок цього регіону
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
                     if (grid[r][c] === id) {
-                        // Top
                         if (r === 0 || grid[r-1][c] !== id) segments.push({x1: c, y1: r, x2: c+1, y2: r});
-                        // Right
                         if (c === cols-1 || grid[r][c+1] !== id) segments.push({x1: c+1, y1: r, x2: c+1, y2: r+1});
-                        // Bottom
                         if (r === rows-1 || grid[r+1][c] !== id) segments.push({x1: c+1, y1: r+1, x2: c, y2: r+1});
-                        // Left
                         if (c === 0 || grid[r][c-1] !== id) segments.push({x1: c, y1: r+1, x2: c, y2: r});
                     }
                 }
             }
 
-            // З'єднуємо відрізки в суцільний шлях
             let d = "";
             while (segments.length > 0) {
                 let curr = segments.shift();
@@ -606,7 +605,7 @@
 
 
     // --- ІГРОВИЙ СТАН ТА УПРАВЛІННЯ ---
-    let currentLevel = 0; // 0..3
+    let currentLevel = 0;
     let currentColor = 0;
     let regionColors = [];
     let currentMap = null;
@@ -623,14 +622,14 @@
             btn.addEventListener('mousedown', () => {
                 initAudio();
                 currentLevel = parseInt(btn.dataset.lvl);
-                currentMapSeed = Date.now(); // Генеруємо новий seed при ручному натисканні
+                currentMapSeed = Date.now(); 
                 updateLevelUI();
                 startLevel();
                 sendGameAction('CHANGE_LEVEL', { level: currentLevel, seed: currentMapSeed });
             });
         });
 
-        // Палітра
+        // Палітра (Кольори + Гумка)
         colorBtns.forEach(btn => {
             btn.addEventListener('mousedown', () => {
                 initAudio();
@@ -664,6 +663,7 @@
                         handlePaint(val.data.id, node, true);
                     }
                 }
+                // Слухачі малювання винесені в блок інструменту малювання
             });
         }
     }
@@ -679,24 +679,20 @@
         isLocked = false;
         boardContainer.classList.remove('win-anim');
         
-        // Синхронізуємо seed перед генерацією
         seedState = currentMapSeed; 
         
-        // Генеруємо карту
         currentMap = generateRectilinearMap(currentLevel);
-        const paths = buildPaths(currentMap, 600); // 600 - розмір SVG
+        const paths = buildPaths(currentMap, 600); 
         
         regionColors = Array(currentMap.k).fill(-1);
         mapSvg.innerHTML = '';
 
-        // Малюємо
         paths.forEach(p => {
             const pathNode = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             pathNode.setAttribute('d', p.pathStr);
             pathNode.setAttribute('class', 'region');
             pathNode.dataset.id = p.id;
             
-            // Взаємодія
             pathNode.addEventListener('mousedown', () => handlePaint(p.id, pathNode, false));
             
             mapSvg.appendChild(pathNode);
@@ -712,6 +708,14 @@
         
         initAudio();
 
+        // Якщо обрано Гумку (затирання)
+        if (currentColor === -1) {
+            playSound('splat');
+            regionColors[id] = -1;
+            node.classList.remove('fill-0', 'fill-1', 'fill-2', 'error-flash');
+            return;
+        }
+
         // Перевіряємо суміжні на наявність ТАКОГО Ж кольору
         let hasConflict = false;
         for (let neighbor of currentMap.adjList[id]) {
@@ -722,7 +726,6 @@
         }
 
         if (hasConflict) {
-            // Фідбек помилки: звук, тряска дошки, регіон блимає червоним
             playSound('error');
             boardContainer.classList.remove('shake');
             void boardContainer.offsetWidth; // reflow
@@ -732,11 +735,9 @@
             node.classList.add('error-flash');
             setTimeout(() => node.classList.remove('error-flash'), 400);
             
-            // Скидаємо колір цієї фігури
             regionColors[id] = -1;
             
         } else {
-            // Успішне фарбування
             playSound('splat');
             regionColors[id] = currentColor;
             node.classList.remove('fill-0', 'fill-1', 'fill-2');
@@ -747,30 +748,301 @@
     }
 
     function checkWin() {
-        // Якщо є хоч один нефарбований (-1) - ще не перемога
         if (regionColors.includes(-1)) return;
 
-        // Перемога!
         isLocked = true;
         playSound('win');
         
         boardContainer.classList.add('win-anim');
         
-        // Автоматичний перехід. Відбудеться на обох клієнтах синхронно за рахунок передбачуваного seed.
         setTimeout(() => {
-            currentLevel = (currentLevel + 1) % 4; // Якщо пройшли 4, йдемо на 1, або залишаємось
-            currentMapSeed = currentMapSeed + 123; // Передбачуваний seed для автоматичного переходу
+            currentLevel = (currentLevel + 1) % 4; 
+            currentMapSeed = currentMapSeed + 123; 
             updateLevelUI();
             startLevel();
         }, 1800);
     }
 
-    // Запуск при завантаженні
     window.addEventListener('load', () => {
         bindEvents();
         startLevel();
     });
+</script>
 
+
+<!-- ==================== THEME MANAGER ==================== -->
+<div id="theme-btn" style="position: fixed; bottom: 140px; right: 20px; width: 50px; height: 50px; background: #3d2f57; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 24px; cursor: pointer; z-index: 99999; box-shadow: 0 4px 10px rgba(0,0,0,0.5); border: 2px solid #8e44ad;">⚙️</div>
+<div id="theme-modal" style="display: none; position: fixed; top:0; left:0; width:100vw; height:100vh; background: rgba(0,0,0,0.8); z-index: 100000; justify-content: center; align-items: center;">
+    <div style="background: #2a2040; width: 85%; max-width: 800px; max-height: 60vh; border-radius: 20px; padding: 20px; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h2 style="color: #fff; margin:0;">Вибір фону</h2>
+            <button id="close-theme" style="background: none; border: none; color: #fff; font-size: 24px; cursor: pointer;">✕</button>
+        </div>
+        <div id="theme-gallery" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; overflow-y: auto; padding-right: 10px;">
+            <!-- Картки генеруються JS -->
+        </div>
+    </div>
+</div>
+<script>
+    (function initThemeManager() {
+        const CONFIG = { gameId: 'color_factory_game_v1' };
+        const gallery = document.getElementById('theme-gallery');
+        const themeBtn = document.getElementById('theme-btn');
+        const themeModal = document.getElementById('theme-modal');
+        const closeTheme = document.getElementById('close-theme');
+        
+        themeBtn.onclick = () => themeModal.style.display = 'flex';
+        closeTheme.onclick = () => themeModal.style.display = 'none';
+
+        function applyThemeLocal(url) {
+            if (url === 'none') {
+                document.body.style.backgroundImage = 'none';
+            } else {
+                document.body.style.backgroundImage = `url('${url}')`;
+                document.body.style.backgroundSize = 'cover';
+                document.body.style.backgroundPosition = 'center';
+                document.body.style.backgroundRepeat = 'no-repeat';
+            }
+            localStorage.setItem('mySavedBg_' + CONFIG.gameId, url);
+        }
+
+        function selectTheme(url) {
+            applyThemeLocal(url);
+            themeModal.style.display = 'none';
+            if (window.db) {
+                window.db.ref('game_theme').set(url);
+            }
+        }
+
+        // 1. Перша картка: "Без фону"
+        const noneCard = document.createElement('div');
+        noneCard.style.cssText = 'height: 100px; background: #555; border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; font-weight: bold; border: 2px solid transparent; transition: 0.2s;';
+        noneCard.innerText = 'Без фону';
+        noneCard.onclick = () => selectTheme('none');
+        noneCard.style.order = 0;
+        noneCard.onmouseenter = () => noneCard.style.borderColor = '#00ff88';
+        noneCard.onmouseleave = () => noneCard.style.borderColor = 'transparent';
+        gallery.appendChild(noneCard);
+        
+        // 2. Асинхронне завантаження фонів
+        for (let i = 1; i <= 1000; i++) {
+            const url = `https://olgazheltvai2.github.io/images/backgrounds/background_${i}.webp`;
+            const img = new Image();
+            img.onload = () => {
+                const card = document.createElement('div');
+                card.style.cssText = `height: 100px; background: url('${url}') center/cover; border-radius: 10px; display: flex; align-items: flex-end; justify-content: center; cursor: pointer; position: relative; overflow: hidden; border: 2px solid transparent; transition: 0.2s;`;
+                card.style.order = i;
+                
+                const label = document.createElement('div');
+                label.style.cssText = 'width: 100%; background: rgba(0,0,0,0.7); color: white; text-align: center; padding: 5px; font-size: 14px; font-weight: bold;';
+                label.innerText = `Фон ${i}`;
+                
+                card.appendChild(label);
+                card.onclick = () => selectTheme(url);
+                card.onmouseenter = () => card.style.borderColor = '#00ff88';
+                card.onmouseleave = () => card.style.borderColor = 'transparent';
+                gallery.appendChild(card);
+            };
+            img.src = url; 
+        }
+
+        // Ініціалізація збереженого фону
+        const savedBg = localStorage.getItem('mySavedBg_' + CONFIG.gameId) || 'none';
+        applyThemeLocal(savedBg);
+
+        // Синхронізація Firebase
+        window.addEventListener('load', () => {
+            if (window.db) {
+                window.db.ref('game_theme').on('value', snap => {
+                    const val = snap.val();
+                    if (val) applyThemeLocal(val);
+                });
+            }
+        });
+    })();
+</script>
+
+<!-- ==================== GLOBAL DRAWING TOOL ==================== -->
+<button id="toggle-draw-btn-global" style="position: fixed; bottom: 85px; right: 20px; background: #8e44ad; color: white; border: none; border-radius: 20px; padding: 10px 15px; font-size: 16px; cursor: pointer; z-index: 100000; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">✏️ Малювати</button>
+
+<div id="draw-panel-global" style="display: none; position: fixed; top: 20px; left: 20px; background: rgba(35, 31, 56, 0.95); padding: 15px; border-radius: 15px; border: 2px solid #8e44ad; z-index: 100001; box-shadow: 0 10px 20px rgba(0,0,0,0.5); flex-direction: column; gap: 10px;">
+    <div id="draw-panel-handle" style="width: 100%; height: 20px; background: #8e44ad; border-radius: 5px; cursor: grab; margin-bottom: 5px;"></div>
+    <div style="display: flex; gap: 10px; justify-content: space-between;">
+        <button id="draw-pencil-btn" style="background: #fff; border: 2px solid #8e44ad; padding: 5px 10px; border-radius: 10px; cursor: pointer; font-weight:bold;">✏️ Олівець</button>
+        <button id="draw-eraser-btn" style="background: #fff; border: 2px solid transparent; padding: 5px 10px; border-radius: 10px; cursor: pointer; font-weight:bold;">🧽 Гумка</button>
+    </div>
+    <input type="range" id="draw-width-slider" min="1" max="50" value="5" style="width: 100%;">
+    <input type="color" id="draw-color-picker" value="#ff0000" style="width: 100%; height: 40px; border: none; border-radius: 5px; cursor: pointer;">
+    <button id="draw-clear-btn" style="background: #e74c3c; color: white; border: none; padding: 8px; border-radius: 10px; cursor: pointer; font-weight:bold;">🗑️ Очистити</button>
+    <button id="draw-close-btn" style="position: absolute; top: -10px; right: -10px; background: #333; color: white; border: 2px solid #fff; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-size:16px; font-weight:bold;">✕</button>
+</div>
+
+<canvas id="global-draw-canvas" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 90000;"></canvas>
+
+<script>
+    (function initGlobalDrawing() {
+        let isDrawMode = false;
+        let drawing = false;
+        let isEraser = false;
+        let drawColor = '#ff0000';
+        let drawWidth = 5;
+        let lastX = 0, lastY = 0;
+
+        const drawCanvas = document.getElementById('global-draw-canvas');
+        const drawCtx = drawCanvas.getContext('2d');
+        const drawBtn = document.getElementById('toggle-draw-btn-global');
+        const drawPanel = document.getElementById('draw-panel-global');
+        
+        function resizeCanvas() {
+            const data = drawCtx.getImageData(0,0, drawCanvas.width, drawCanvas.height);
+            drawCanvas.width = window.innerWidth;
+            drawCanvas.height = window.innerHeight;
+            if(data) drawCtx.putImageData(data, 0, 0);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        drawBtn.onclick = () => {
+            drawPanel.style.display = 'flex';
+            isDrawMode = true;
+            drawCanvas.style.pointerEvents = 'auto';
+            isEraser = false; 
+            document.getElementById('draw-pencil-btn').style.borderColor = '#8e44ad';
+            document.getElementById('draw-eraser-btn').style.borderColor = 'transparent';
+        };
+
+        document.getElementById('draw-close-btn').onclick = () => {
+            drawPanel.style.display = 'none';
+            isDrawMode = false;
+            drawCanvas.style.pointerEvents = 'none';
+        };
+
+        document.getElementById('draw-pencil-btn').onclick = function() {
+            isEraser = false;
+            this.style.borderColor = '#8e44ad';
+            document.getElementById('draw-eraser-btn').style.borderColor = 'transparent';
+        };
+        
+        document.getElementById('draw-eraser-btn').onclick = function() {
+            isEraser = true;
+            this.style.borderColor = '#8e44ad';
+            document.getElementById('draw-pencil-btn').style.borderColor = 'transparent';
+        };
+
+        document.getElementById('draw-width-slider').oninput = function() { drawWidth = this.value; };
+        document.getElementById('draw-color-picker').oninput = function() { drawColor = this.value; };
+        
+        document.getElementById('draw-clear-btn').onclick = () => {
+            clearCanvasLocal();
+            sendDrawAction('clear_canvas', {});
+        };
+
+        function getPos(e) {
+            return e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : { x: e.clientX, y: e.clientY };
+        }
+
+        function startDraw(e) {
+            if (!isDrawMode) return;
+            drawing = true;
+            const pos = getPos(e);
+            lastX = pos.x; lastY = pos.y;
+        }
+
+        function stopDraw() { drawing = false; }
+
+        function doDraw(e) {
+            if (!drawing || !isDrawMode) return;
+            e.preventDefault();
+            const pos = getPos(e);
+            const modeColor = isEraser ? 'erase' : drawColor;
+            drawLineLocal(lastX, lastY, pos.x, pos.y, modeColor, drawWidth);
+            sendDrawAction('draw_line', { x0: lastX, y0: lastY, x1: pos.x, y1: pos.y, color: modeColor, width: drawWidth });
+            lastX = pos.x; lastY = pos.y;
+        }
+
+        drawCanvas.addEventListener('mousedown', startDraw);
+        drawCanvas.addEventListener('mousemove', doDraw);
+        drawCanvas.addEventListener('mouseup', stopDraw);
+        drawCanvas.addEventListener('mouseout', stopDraw);
+        drawCanvas.addEventListener('touchstart', startDraw, {passive: false});
+        drawCanvas.addEventListener('touchmove', doDraw, {passive: false});
+        drawCanvas.addEventListener('touchend', stopDraw);
+
+        function drawLineLocal(x0, y0, x1, y1, color, width) {
+            drawCtx.beginPath();
+            drawCtx.moveTo(x0, y0);
+            drawCtx.lineTo(x1, y1);
+            drawCtx.lineCap = 'round';
+            drawCtx.lineJoin = 'round';
+            drawCtx.lineWidth = width;
+            if (color === 'erase') {
+                drawCtx.globalCompositeOperation = 'destination-out';
+                drawCtx.strokeStyle = 'rgba(0,0,0,1)';
+            } else {
+                drawCtx.globalCompositeOperation = 'source-over';
+                drawCtx.strokeStyle = color;
+            }
+            drawCtx.stroke();
+            drawCtx.globalCompositeOperation = 'source-over';
+        }
+
+        function clearCanvasLocal() {
+            drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+        }
+
+        function sendDrawAction(type, data) {
+            if (!window.db || !window.tabId) return;
+            window.db.ref('game_action').set({
+                senderId: window.tabId,
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                type: type,
+                data: data
+            });
+        }
+
+        // Перетягування панелі
+        let isDragging = false, startX, startY, startLeft, startTop;
+        const handle = document.getElementById('draw-panel-handle');
+        
+        function dragStart(e) {
+            isDragging = true;
+            const pos = e.touches ? e.touches[0] : e;
+            startX = pos.clientX; startY = pos.clientY;
+            const rect = drawPanel.getBoundingClientRect();
+            startLeft = rect.left; startTop = rect.top;
+        }
+        function dragMove(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            const pos = e.touches ? e.touches[0] : e;
+            drawPanel.style.left = startLeft + (pos.clientX - startX) + 'px';
+            drawPanel.style.top = startTop + (pos.clientY - startY) + 'px';
+            drawPanel.style.right = 'auto';
+        }
+        function dragEnd() { isDragging = false; }
+        
+        handle.addEventListener('mousedown', dragStart);
+        window.addEventListener('mousemove', dragMove, {passive: false});
+        window.addEventListener('mouseup', dragEnd);
+        handle.addEventListener('touchstart', dragStart, {passive: false});
+        window.addEventListener('touchmove', dragMove, {passive: false});
+        window.addEventListener('touchend', dragEnd);
+
+        // Слухач малювання Firebase
+        window.addEventListener('load', () => {
+            if (window.db) {
+                window.db.ref('game_action').on('value', snap => {
+                    const val = snap.val();
+                    if (!val || val.senderId === window.tabId) return;
+                    if (val.type === 'draw_line') {
+                        drawLineLocal(val.data.x0, val.data.y0, val.data.x1, val.data.y1, val.data.color, val.data.width);
+                    } else if (val.type === 'clear_canvas') {
+                        clearCanvasLocal();
+                    }
+                });
+            }
+        });
+    })();
 </script>
 
 <!-- УНІВЕРСАЛЬНИЙ БЛОК КОНТРОЛЮ ДОСТУПУ (Завжди в кінці) -->
@@ -835,4 +1107,5 @@
         }
     })();
 </script>
+</body>
 </html>
