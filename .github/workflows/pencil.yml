@@ -1,4 +1,4 @@
-name: Force Update Pencil Cache
+name: Remove Global Pencil
 
 on:
   workflow_dispatch:
@@ -7,19 +7,19 @@ permissions:
   contents: write
 
 jobs:
-  update-cache:
+  remove-pencil:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
 
-      - name: Bust Cache for Pencil Script
+      - name: Clean up HTML files
         run: |
-          find . -maxdepth 2 -name "*.html" ! -name "teacher_panel.html" | while read -r file; do
-            # Видаляємо всі попередні рядки з pencil.js, щоб уникнути дублювання
+          find . -maxdepth 2 -name "*.html" | while read -r file; do
+            # Видаляємо рядок з підключенням pencil.js
             sed -i '/pencil\.js/d' "$file"
             
-            # Вставляємо нове посилання з антикеш-параметром ?v=2
-            sed -i 's|</body>|<script src="https://olgazheltvai2.github.io/rizne/pencil.js?v=2"></script></body>|gi' "$file"
+            # Видаляємо милицю для кліків, якщо вона була додана
+            sed -i '/canvas-click-fix/d' "$file"
           done
 
       - name: Save changes
@@ -27,5 +27,5 @@ jobs:
           git config --global user.name "GitHub Robot"
           git config --global user.email "robot@github.com"
           git add .
-          git commit -m "Примусове оновлення кешу pencil.js" || echo "Нічого змінювати"
+          git commit -m "Видалено глобальний олівець з усіх ігор" || echo "Нічого змінювати"
           git push
