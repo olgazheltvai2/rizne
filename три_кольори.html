@@ -848,27 +848,47 @@
         noneCard.onmouseleave = () => noneCard.style.borderColor = 'transparent';
         gallery.appendChild(noneCard);
         
-        // 2. Асинхронне завантаження фонів
-        for (let i = 1; i <= 1000; i++) {
-            const url = `https://olgazheltvai2.github.io/images/backgrounds/background_${i}.webp`;
+        // 2. Послідовне завантаження фонів (щоб уникнути блокування GitHub Rate Limit)
+        let bgIndex = 1;
+        
+        function loadNextBackground() {
+            if (bgIndex > 1000) return; // Захисний ліміт
+            
+            const url = `https://olgazheltvai2.github.io/images/backgrounds/background_${bgIndex}.webp`;
             const img = new Image();
+            
             img.onload = () => {
+                // Якщо картинка завантажилась успішно, створюємо картку
                 const card = document.createElement('div');
                 card.style.cssText = `height: 100px; background: url('${url}') center/cover; border-radius: 10px; display: flex; align-items: flex-end; justify-content: center; cursor: pointer; position: relative; overflow: hidden; border: 2px solid transparent; transition: 0.2s;`;
-                card.style.order = i;
+                card.style.order = bgIndex;
                 
                 const label = document.createElement('div');
                 label.style.cssText = 'width: 100%; background: rgba(0,0,0,0.7); color: white; text-align: center; padding: 5px; font-size: 14px; font-weight: bold;';
-                label.innerText = `Фон ${i}`;
+                label.innerText = `Фон ${bgIndex}`;
                 
                 card.appendChild(label);
                 card.onclick = () => selectTheme(url);
                 card.onmouseenter = () => card.style.borderColor = '#00ff88';
                 card.onmouseleave = () => card.style.borderColor = 'transparent';
                 gallery.appendChild(card);
+                
+                // Переходимо до наступної картинки ТІЛЬКИ після успішного завантаження поточної
+                bgIndex++;
+                loadNextBackground(); 
             };
+            
+            img.onerror = () => {
+                // Якщо картинка не знайдена (помилка 404), цикл зупиняється.
+                // Це запобігає відправленню сотень пустих запитів і знімає блокування GitHub Pages.
+                console.log(`Завантаження фонів завершено на ${bgIndex - 1}`);
+            };
+            
             img.src = url; 
         }
+        
+        // Запускаємо послідовне завантаження
+        loadNextBackground();
 
         // Ініціалізація збереженого фону
         const savedBg = localStorage.getItem('mySavedBg_' + CONFIG.gameId) || 'none';
