@@ -282,78 +282,85 @@
 </head>
 <body>
 
-    <!-- Задній план із сюжетними фабричними елементами (SVG) -->
-    <svg id="bg-layer" xmlns="http://www.w3.org/2000/svg">
-        <!-- Труби ліворуч -->
-        <path d="M-50,150 L150,150 L150,800" fill="none" stroke="#231836" stroke-width="60" stroke-linejoin="round"/>
-        <path d="M-50,150 L150,150 L150,800" fill="none" stroke="#ff00aa" stroke-width="15" stroke-linejoin="round" class="pipe-fluid"/>
+    <!-- Обгортка для масштабування лупою та ігрового контенту -->
+    <div id="zoom-wrapper" style="transform-origin: top center; transition: transform 0.2s; width: 100%; min-height: 100vh; position: relative; display: flex; flex-direction: column; align-items: center;">
         
-        <!-- Резервуар і труби праворуч -->
-        <rect x="calc(100vw - 250px)" y="100" width="200" height="300" rx="20" fill="#231836" stroke="#3d2f57" stroke-width="10"/>
-        <path d="Mcalc(100vw - 150px),400 Lcalc(100vw - 150px),800" fill="none" stroke="#231836" stroke-width="50"/>
-        <path d="Mcalc(100vw - 150px),400 Lcalc(100vw - 150px),800" fill="none" stroke="#00ff88" stroke-width="12" class="pipe-fluid"/>
+        <!-- Задній план із сюжетними фабричними елементами (SVG) -->
+        <svg id="bg-layer" xmlns="http://www.w3.org/2000/svg">
+            <!-- Труби ліворуч -->
+            <path d="M-50,150 L150,150 L150,800" fill="none" stroke="#231836" stroke-width="60" stroke-linejoin="round"/>
+            <path d="M-50,150 L150,150 L150,800" fill="none" stroke="#ff00aa" stroke-width="15" stroke-linejoin="round" class="pipe-fluid"/>
+            
+            <!-- Резервуар і труби праворуч -->
+            <rect x="calc(100vw - 250px)" y="100" width="200" height="300" rx="20" fill="#231836" stroke="#3d2f57" stroke-width="10"/>
+            <path d="Mcalc(100vw - 150px),400 Lcalc(100vw - 150px),800" fill="none" stroke="#231836" stroke-width="50"/>
+            <path d="Mcalc(100vw - 150px),400 Lcalc(100vw - 150px),800" fill="none" stroke="#00ff88" stroke-width="12" class="pipe-fluid"/>
 
-        <!-- Шестерні -->
-        <g transform="translate(150, 750)">
-            <g class="gear cw">
-                <path d="M-60,-20 L-80,-20 L-80,20 L-60,20 L-50,50 L-70,70 L-40,100 L-20,80 L0,90 L0,110 L40,110 L40,90 L60,80 L80,100 L110,70 L90,50 L100,20 L120,20 L120,-20 L100,-20 L90,-50 L110,-70 L80,-100 L60,-80 L40,-90 L40,-110 L0,-110 L0,-90 L-20,-80 L-40,-100 L-70,-70 L-50,-50 Z" fill="#2c2142"/>
-                <circle cx="20" cy="0" r="40" fill="#150f21"/>
-                <circle cx="20" cy="0" r="15" fill="#ffaa00"/>
+            <!-- Шестерні -->
+            <g transform="translate(150, 750)">
+                <g class="gear cw">
+                    <path d="M-60,-20 L-80,-20 L-80,20 L-60,20 L-50,50 L-70,70 L-40,100 L-20,80 L0,90 L0,110 L40,110 L40,90 L60,80 L80,100 L110,70 L90,50 L100,20 L120,20 L120,-20 L100,-20 L90,-50 L110,-70 L80,-100 L60,-80 L40,-90 L40,-110 L0,-110 L0,-90 L-20,-80 L-40,-100 L-70,-70 L-50,-50 Z" fill="#2c2142"/>
+                    <circle cx="20" cy="0" r="40" fill="#150f21"/>
+                    <circle cx="20" cy="0" r="15" fill="#ffaa00"/>
+                </g>
             </g>
-        </g>
-    </svg>
+        </svg>
 
-    <!-- Панель рівнів -->
-    <div id="top-bar">
-        <button class="level-btn active" data-lvl="0">Рівень 1</button>
-        <button class="level-btn" data-lvl="1">Рівень 2</button>
-        <button class="level-btn" data-lvl="2">Рівень 3</button>
-        <button class="level-btn" data-lvl="3">Рівень 4</button>
-    </div>
-
-    <!-- Основна ігрова зона -->
-    <div id="game-area">
-        
-        <!-- Живий персонаж (без кліпання, тільки рух зіниць) -->
-        <div id="character-box">
-            <svg viewBox="0 0 250 350" width="100%" height="100%">
-                <!-- Механічна рука з валиком для фарби -->
-                <path d="M 210,220 L 260,180 L 250,150" fill="none" stroke="#777" stroke-width="15" stroke-linejoin="round"/>
-                <rect x="220" y="110" width="60" height="40" rx="10" fill="#ffaa00" transform="rotate(-30 250 130)"/>
-                <rect x="230" y="115" width="40" height="30" fill="#00ff88" transform="rotate(-30 250 130)"/>
-                
-                <!-- Тіло blob-працівника -->
-                <path d="M 125,50 C 220,50 240,150 210,250 C 180,330 70,330 40,250 C 10,150 30,50 125,50 Z" fill="#7244cc"/>
-                
-                <!-- Фабричні окуляри -->
-                <path d="M 20,130 C 60,160 190,160 230,130" fill="none" stroke="#111" stroke-width="20"/>
-                
-                <circle cx="85" cy="130" r="40" fill="#333" stroke="#ffaa00" stroke-width="6"/>
-                <circle cx="85" cy="130" r="30" fill="#fff"/>
-                <circle cx="85" cy="130" r="10" fill="#000" class="pupil" id="pupil1"/>
-                
-                <circle cx="170" cy="130" r="35" fill="#333" stroke="#ffaa00" stroke-width="6"/>
-                <circle cx="170" cy="130" r="25" fill="#fff"/>
-                <circle cx="170" cy="130" r="8" fill="#000" class="pupil" id="pupil2"/>
-
-                <!-- Бліки на лінзах -->
-                <path d="M 65,115 Q 85,105 100,115" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
-                <path d="M 155,118 Q 170,110 180,118" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
-            </svg>
+        <!-- Панель рівнів -->
+        <div id="top-bar">
+            <button class="level-btn active" data-lvl="0">Рівень 1</button>
+            <button class="level-btn" data-lvl="1">Рівень 2</button>
+            <button class="level-btn" data-lvl="2">Рівень 3</button>
+            <button class="level-btn" data-lvl="3">Рівень 4</button>
         </div>
 
-        <!-- Дошка з полігонами -->
-        <div id="board-container">
-            <svg id="map-svg" viewBox="0 0 600 600"></svg>
+        <!-- Основна ігрова зона -->
+        <div id="game-area">
+            
+            <!-- Живий персонаж (без кліпання, тільки рух зіниць) -->
+            <div id="character-box">
+                <svg viewBox="0 0 250 350" width="100%" height="100%">
+                    <!-- Механічна рука з валиком для фарби -->
+                    <path d="M 210,220 L 260,180 L 250,150" fill="none" stroke="#777" stroke-width="15" stroke-linejoin="round"/>
+                    <rect x="220" y="110" width="60" height="40" rx="10" fill="#ffaa00" transform="rotate(-30 250 130)"/>
+                    <rect x="230" y="115" width="40" height="30" fill="#00ff88" transform="rotate(-30 250 130)"/>
+                    
+                    <!-- Тіло blob-працівника -->
+                    <path d="M 125,50 C 220,50 240,150 210,250 C 180,330 70,330 40,250 C 10,150 30,50 125,50 Z" fill="#7244cc"/>
+                    
+                    <!-- Фабричні окуляри -->
+                    <path d="M 20,130 C 60,160 190,160 230,130" fill="none" stroke="#111" stroke-width="20"/>
+                    
+                    <circle cx="85" cy="130" r="40" fill="#333" stroke="#ffaa00" stroke-width="6"/>
+                    <circle cx="85" cy="130" r="30" fill="#fff"/>
+                    <circle cx="85" cy="130" r="10" fill="#000" class="pupil" id="pupil1"/>
+                    
+                    <circle cx="170" cy="130" r="35" fill="#333" stroke="#ffaa00" stroke-width="6"/>
+                    <circle cx="170" cy="130" r="25" fill="#fff"/>
+                    <circle cx="170" cy="130" r="8" fill="#000" class="pupil" id="pupil2"/>
+
+                    <!-- Бліки на лінзах -->
+                    <path d="M 65,115 Q 85,105 100,115" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+                    <path d="M 155,118 Q 170,110 180,118" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+                </svg>
+            </div>
+
+            <!-- Дошка з полігонами -->
+            <div id="board-container">
+                <svg id="map-svg" viewBox="0 0 600 600"></svg>
+            </div>
+
+            <!-- Палітра -->
+            <div id="palette">
+                <div class="color-btn c-0 active" data-color="0"></div>
+                <div class="color-btn c-1" data-color="1"></div>
+                <div class="color-btn c-2" data-color="2"></div>
+                <div class="color-btn c-erase" data-color="-1">🧽</div>
+            </div>
         </div>
 
-        <!-- Палітра -->
-        <div id="palette">
-            <div class="color-btn c-0 active" data-color="0"></div>
-            <div class="color-btn c-1" data-color="1"></div>
-            <div class="color-btn c-2" data-color="2"></div>
-            <div class="color-btn c-erase" data-color="-1">🧽</div>
-        </div>
+        <!-- Центральний Canvas для малювання, який масштабується разом з грою -->
+        <canvas id="global-draw-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 90000;"></canvas>
     </div>
 
 <script>
@@ -769,6 +776,23 @@
     });
 </script>
 
+<!-- ==================== ІНСТРУМЕНТИ ЛУПА (ZOOM) ==================== -->
+<div id="zoom-controls" style="position: fixed; bottom: 85px; left: 20px; display: flex; gap: 10px; z-index: 100000;">
+    <button id="zoom-out-btn" style="background: #8e44ad; color: white; border: none; border-radius: 50%; width: 50px; height: 50px; font-size: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">🔍-</button>
+    <button id="zoom-in-btn" style="background: #8e44ad; color: white; border: none; border-radius: 50%; width: 50px; height: 50px; font-size: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">🔍+</button>
+</div>
+<script>
+    window.currentZoom = 1;
+    document.getElementById('zoom-in-btn').onclick = () => {
+        window.currentZoom += 0.1;
+        document.getElementById('zoom-wrapper').style.transform = `scale(${window.currentZoom})`;
+    };
+    document.getElementById('zoom-out-btn').onclick = () => {
+        window.currentZoom = Math.max(0.3, window.currentZoom - 0.1); // Не даємо зменшити занадто сильно
+        document.getElementById('zoom-wrapper').style.transform = `scale(${window.currentZoom})`;
+    };
+</script>
+
 
 <!-- ==================== THEME MANAGER ==================== -->
 <div id="theme-btn" style="position: fixed; bottom: 140px; right: 20px; width: 50px; height: 50px; background: #3d2f57; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 24px; cursor: pointer; z-index: 99999; box-shadow: 0 4px 10px rgba(0,0,0,0.5); border: 2px solid #8e44ad;">⚙️</div>
@@ -877,8 +901,6 @@
     <button id="draw-close-btn" style="position: absolute; top: -10px; right: -10px; background: #333; color: white; border: 2px solid #fff; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-size:16px; font-weight:bold;">✕</button>
 </div>
 
-<canvas id="global-draw-canvas" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 90000;"></canvas>
-
 <script>
     (function initGlobalDrawing() {
         let isDrawMode = false;
@@ -895,11 +917,15 @@
         
         function resizeCanvas() {
             const data = drawCtx.getImageData(0,0, drawCanvas.width, drawCanvas.height);
-            drawCanvas.width = window.innerWidth;
-            drawCanvas.height = window.innerHeight;
+            const wrapper = document.getElementById('zoom-wrapper');
+            // Масштабуємо canvas під максимальний розмір контенту
+            drawCanvas.width = Math.max(wrapper.scrollWidth, window.innerWidth);
+            drawCanvas.height = Math.max(wrapper.scrollHeight, window.innerHeight);
             if(data) drawCtx.putImageData(data, 0, 0);
         }
         window.addEventListener('resize', resizeCanvas);
+        // Додатковий виклик після завантаження всього контенту
+        setTimeout(resizeCanvas, 500);
         resizeCanvas();
 
         drawBtn.onclick = () => {
@@ -937,8 +963,27 @@
             sendDrawAction('clear_canvas', {});
         };
 
+        // Функція для отримання координат миші, враховуючи активний Zoom
         function getPos(e) {
-            return e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : { x: e.clientX, y: e.clientY };
+            const rect = drawCanvas.getBoundingClientRect();
+            let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: (clientX - rect.left) / window.currentZoom,
+                y: (clientY - rect.top) / window.currentZoom
+            };
+        }
+
+        // Функція для знаходження точки-якоря (центр ігрової зони) для коректної синхронізації на різних екранах
+        function getAnchorOffset() {
+            const anchor = document.getElementById('game-area') || document.body;
+            const rect = anchor.getBoundingClientRect();
+            const canvasRect = drawCanvas.getBoundingClientRect();
+            
+            // Відраховуємо точну позицію центра якоря незалежно від того, як його зсунув flexbox чи екран
+            const cx = ((rect.left - canvasRect.left) / window.currentZoom) + (anchor.offsetWidth / 2);
+            const cy = ((rect.top - canvasRect.top) / window.currentZoom);
+            return { cx, cy };
         }
 
         function startDraw(e) {
@@ -956,7 +1001,15 @@
             const pos = getPos(e);
             const modeColor = isEraser ? 'erase' : drawColor;
             drawLineLocal(lastX, lastY, pos.x, pos.y, modeColor, drawWidth);
-            sendDrawAction('draw_line', { x0: lastX, y0: lastY, x1: pos.x, y1: pos.y, color: modeColor, width: drawWidth });
+            
+            // Відправляємо координати відносно центра ігрового поля, а не абсолютні
+            const anchor = getAnchorOffset();
+            sendDrawAction('draw_line', { 
+                rx0: lastX - anchor.cx, ry0: lastY - anchor.cy, 
+                rx1: pos.x - anchor.cx, ry1: pos.y - anchor.cy, 
+                color: modeColor, width: drawWidth 
+            });
+            
             lastX = pos.x; lastY = pos.y;
         }
 
@@ -1034,8 +1087,15 @@
                 window.db.ref('game_action').on('value', snap => {
                     const val = snap.val();
                     if (!val || val.senderId === window.tabId) return;
+                    
                     if (val.type === 'draw_line') {
-                        drawLineLocal(val.data.x0, val.data.y0, val.data.x1, val.data.y1, val.data.color, val.data.width);
+                        // Відновлюємо абсолютні координати з відносних відповідно до поточного екрану
+                        const anchor = getAnchorOffset();
+                        const x0 = val.data.rx0 + anchor.cx;
+                        const y0 = val.data.ry0 + anchor.cy;
+                        const x1 = val.data.rx1 + anchor.cx;
+                        const y1 = val.data.ry1 + anchor.cy;
+                        drawLineLocal(x0, y0, x1, y1, val.data.color, val.data.width);
                     } else if (val.type === 'clear_canvas') {
                         clearCanvasLocal();
                     }
