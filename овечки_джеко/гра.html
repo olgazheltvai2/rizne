@@ -14,31 +14,30 @@
         body, html {
             margin: 0;
             padding: 0;
-            width: 100vw;
-            height: 100vh;
+            width: 100%;
+            height: 100%;
             background-color: #2c3e50;
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            touch-action: none;
+            overflow: auto; /* Дозволяє скролити, якщо гра виходить за межі (зум) */
+            touch-action: pan-x pan-y; /* Дозволяє свайпати екран пальцем */
+            overscroll-behavior: none; /* Блокує оновлення сторінки при свайпі вниз */
             font-family: Arial, sans-serif;
             user-select: none;
             transition: background-image 0.5s ease;
         }
 
-        /* Контейнери ігор максимально прозорі */
+        /* Контейнер гри - центрується або притискається до країв залежно від зуму */
         #game-wrapper {
-            position: relative;
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 1920px;
             height: 1080px;
             background: transparent;
-            overflow: hidden;
             box-shadow: 0 0 40px rgba(0,0,0,0.8);
-            transform-origin: center center;
+            transform-origin: 0 0; /* Обов'язково для правильної математики зуму */
         }
 
         /* Деталізований сюжетний фон */
@@ -61,8 +60,8 @@
         /* Ігрове поле - 4x4, точні розміри для примагнічування */
         #board-container {
             position: absolute;
-            left: 620px; 
-            top: 80px;  
+            left: 640px; 
+            top: 100px;  
             width: 720px;
             height: 720px;
             background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180"><rect width="180" height="180" fill="%238B5A2B"/><path d="M0,0 L180,0 L180,180 L0,180 Z" fill="none" stroke="%23A0522D" stroke-width="4"/><path d="M10,10 L170,170 M170,10 L10,170" stroke="%23704214" stroke-width="2" opacity="0.2"/></svg>');
@@ -95,7 +94,7 @@
             height: 180px;
         }
 
-        /* Деталі - прибрані всі тіні за твоєю вимогою */
+        /* Деталі - Тіні видалено, плоский вигляд */
         .piece {
             position: absolute;
             width: 360px;
@@ -109,7 +108,6 @@
             border-radius: 15px;
             background-color: rgba(255, 255, 255, 0.15);
             box-sizing: border-box;
-            /* Плавна анімація для масштабу, щоб зміна розміру виглядала м'яко */
             transition: background-color 0.2s, transform 0.1s;
             overflow: hidden;
         }
@@ -117,7 +115,7 @@
         .piece.dragging {
             z-index: 100;
             cursor: grabbing;
-            filter: brightness(1.1); /* Трохи висвітлюємо під час переносу */
+            filter: brightness(1.1); /* Легке висвітлення при переносі */
         }
 
         /* Чітка рамка для заблокованих деталей замість сірості */
@@ -190,7 +188,7 @@
             width: 400px;
             height: 500px;
             z-index: 5;
-            cursor: pointer; /* Вказує на можливість кліку */
+            cursor: pointer; /* Вказує на те, що він клікабельний */
             transition: transform 0.3s ease;
         }
 
@@ -290,11 +288,12 @@
             font-size: 24px; cursor: pointer; color: red;
         }
 
-        /* Глобальне малювання */
+        /* Глобальне малювання (тепер всередині game-wrapper для ідеального масштабування) */
         #draw-canvas-global {
-            position: fixed;
+            position: absolute;
             top: 0; left: 0;
-            width: 100vw; height: 100vh;
+            width: 1920px;
+            height: 1080px;
             pointer-events: none;
             z-index: 90000;
         }
@@ -439,9 +438,11 @@
         </svg>
     </div>
     
-    <!-- Зум кнопки переміщено прямо в гру -->
     <div id="btn-zoom-in">+</div>
     <div id="btn-zoom-out">-</div>
+
+    <!-- Глобальне малювання переміщено сюди для ідеального масштабування разом з грою -->
+    <canvas id="draw-canvas-global"></canvas>
 </div>
 
 <!-- Додатковий UI -->
@@ -468,7 +469,6 @@
     <input type="color" id="draw-color-global" value="#ff0000" style="width: 100%; height: 30px; cursor: pointer;">
     <button id="draw-clear-global">🗑️ Очистити</button>
 </div>
-<canvas id="draw-canvas-global"></canvas>
 
 <div id="block-overlay">Зачекай! Зараз не твій урок.</div>
 
@@ -641,7 +641,7 @@
         themeModal.style.display = 'none';
     }
 
-    // --- 4. МАСШТАБУВАННЯ (ЛУПА) ---
+    // --- 4. МАСШТАБУВАННЯ ТА ЗУМ (Вдосконалено для прокрутки) ---
     const wrapper = document.getElementById('game-wrapper');
     let globalScale = 1;
     let userZoom = 1;
@@ -649,7 +649,16 @@
     function resize() {
         let baseScale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
         globalScale = baseScale * userZoom;
-        wrapper.style.transform = `scale(${globalScale})`;
+        
+        let scaledWidth = 1920 * globalScale;
+        let scaledHeight = 1080 * globalScale;
+        
+        // Розраховуємо відступи, щоб центрувати гру, якщо вона менша за екран.
+        // Якщо більша (через зум чи вузький екран), відступ 0 — з'явиться природній скрол.
+        let offsetX = Math.max(0, (window.innerWidth - scaledWidth) / 2);
+        let offsetY = Math.max(0, (window.innerHeight - scaledHeight) / 2);
+        
+        wrapper.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${globalScale})`;
     }
     window.addEventListener('resize', resize);
     resize();
@@ -657,7 +666,7 @@
     document.getElementById('btn-zoom-in').addEventListener('click', () => { userZoom += 0.1; resize(); });
     document.getElementById('btn-zoom-out').addEventListener('click', () => { userZoom = Math.max(0.3, userZoom - 0.1); resize(); });
 
-    // --- 5. ГЛОБАЛЬНЕ МАЛЮВАННЯ ---
+    // --- 5. ГЛОБАЛЬНЕ МАЛЮВАННЯ (З урахуванням внутрішніх координат) ---
     const drawCanvas = document.getElementById('draw-canvas-global');
     const ctxGlobal = drawCanvas.getContext('2d');
     const toggleDrawBtn = document.getElementById('toggle-draw-btn-global');
@@ -670,12 +679,9 @@
     const drawColor = document.getElementById('draw-color-global');
     const drawClear = document.getElementById('draw-clear-global');
 
-    function resizeCanvas() {
-        drawCanvas.width = window.innerWidth;
-        drawCanvas.height = window.innerHeight;
-    }
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
+    // Canvas тепер має жорсткий розмір як у wrapper, щоб малюнки ніколи не з'їжджали
+    drawCanvas.width = 1920;
+    drawCanvas.height = 1080;
 
     let isDrawingMode = false;
     let isDrawing = false;
@@ -718,10 +724,12 @@
     });
     window.addEventListener('pointerup', () => isDraggingPanel = false);
 
+    // Отримання координат миші чітко відносно внутрішнього 1920x1080 поля
     function getPointerPos(e) {
+        const rect = wrapper.getBoundingClientRect();
         return {
-            x: e.clientX / window.innerWidth,
-            y: e.clientY / window.innerHeight
+            x: (e.clientX - rect.left) / globalScale / 1920,
+            y: (e.clientY - rect.top) / globalScale / 1080
         };
     }
 
@@ -751,8 +759,8 @@
 
     function localDrawLine(data) {
         ctxGlobal.beginPath();
-        ctxGlobal.moveTo(data.fromX * drawCanvas.width, data.fromY * drawCanvas.height);
-        ctxGlobal.lineTo(data.toX * drawCanvas.width, data.toY * drawCanvas.height);
+        ctxGlobal.moveTo(data.fromX * 1920, data.fromY * 1080);
+        ctxGlobal.lineTo(data.toX * 1920, data.toY * 1080);
         if (data.color === null) {
             ctxGlobal.globalCompositeOperation = 'destination-out';
             ctxGlobal.lineWidth = data.size * 2;
@@ -828,8 +836,6 @@
     const CELL_SIZE = 180;
     
     // Точний відступ внутрішньої сітки відносно ігрового контейнера
-    // Контейнер зліва 620px + border 20px = 640px
-    // Контейнер зверху 80px + border 20px = 100px
     const BOARD_OFFSET_X = 640; 
     const BOARD_OFFSET_Y = 100; 
     
@@ -866,10 +872,10 @@
         // Рівномірний розподіл: 8 знизу і 2 справа. Без накладань.
         let dockX, dockY;
         if (i < 8) {
-            dockX = 80 + i * 170; // 8 шт внизу ідеально вміщаються
-            dockY = 880;          // Повністю нижче поля (поле закінчується на 840px)
+            dockX = 100 + i * 185; // 8 шт внизу з ідеальним відступом
+            dockY = 880;          // Повністю нижче поля
         } else {
-            dockX = 1450;         // 2 шт справа (поле закінчується на 1380px)
+            dockX = 1650;         // 2 шт справа під кнопками зуму
             dockY = 250 + (i - 8) * 200; 
         }
 
@@ -902,22 +908,6 @@
         else el.classList.remove('locked');
     }
 
-    function updateGridFromState() {
-        grid = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(null));
-        pieces.forEach(p => {
-            let s = p._state;
-            if (s.gridX !== -1) {
-                let gx = s.gridX, gy = s.gridY;
-                let rotNorm = ((s.rot % 360) + 360) % 360;
-                grid[gy][gx] = s.id;
-                if (rotNorm === 0) grid[gy][gx+1] = s.id;
-                else if (rotNorm === 90) grid[gy+1][gx] = s.id;
-                else if (rotNorm === 180) grid[gy][gx-1] = s.id;
-                else if (rotNorm === 270) grid[gy-1][gx] = s.id;
-            }
-        });
-    }
-
     // Глобальний замок (Ключ)
     btnTeacher.addEventListener('click', () => {
         playSound('lock');
@@ -940,7 +930,7 @@
         if (isOnline) sendAction('board_lock', { locked: isBoardLocked });
     });
 
-    // Реакція Фермера при натисканні (замість складання всіх деталей)
+    // Реакція Фермера при натисканні
     function triggerFarmerHappy() {
         playSound('win');
         farmer.classList.add('farmer-happy');
@@ -1023,7 +1013,7 @@
 
         document.addEventListener('pointermove', onPointerMove);
         document.addEventListener('pointerup', onPointerUp);
-        e.preventDefault();
+        e.preventDefault(); // Блокуємо скролінг сторінки під час перетягування деталі
     }
 
     function onPointerMove(e) {
@@ -1033,11 +1023,11 @@
         const mouseX = (e.clientX - rect.left) / globalScale;
         const mouseY = (e.clientY - rect.top) / globalScale;
 
-        // Поріг чутливості 5 пікселів для уникнення хибних спрацювань при повороті
+        // Поріг чутливості 5 пікселів для уникнення хибних спрацювань при повороті.
+        // ТІЛЬКИ ТУТ ми дозволяємо деталі збільшитись до повноцінного розміру, якщо її реально потягнули.
         if (Math.abs(mouseX - startX) > 5 || Math.abs(mouseY - startY) > 5) {
             if (!didMove) {
                 didMove = true;
-                // ТІЛЬКИ ТЕПЕР, коли деталь реально потягнули, ми збільшуємо її масштаб до 1
                 if (activePiece._state.scale !== 1) {
                     activePiece._state.scale = 1;
                     dragOffsetX = mouseX - activePiece._state.x;
@@ -1063,7 +1053,7 @@
         activePiece = null;
         el.classList.remove('dragging');
 
-        // Постійний поворот на 90 градусів без збільшення розміру (бо didMove = false)
+        // Постійний поворот на 90 градусів без збільшення розміру, якщо ми не рухали деталь
         if (!didMove) {
             let currentTime = new Date().getTime();
             let tapLength = currentTime - lastTap;
@@ -1078,16 +1068,14 @@
         }
 
         if (!trySnapToGrid(s)) {
-            // Повернення в док до примагнічування або при кидку повз поле
-            s.x = s.dockX; 
-            s.y = s.dockY; 
-            s.scale = 0.5; // У доці деталь залишається маленькою
+            // ВІЛЬНЕ РОЗМІЩЕННЯ ПОЗА ПОЛЕМ:
+            // Ми більше НЕ відкидаємо деталь у dockX/dockY. Вона залишається там, де її кинули!
             s.gridX = -1; 
             s.gridY = -1;
             playSound('drop');
             farmerMouth.setAttribute('d', 'M125,145 Q150,165 175,145');
         } else {
-            // Успішно стала на поле - масштаб точно 1
+            // Успішно стала на поле
             s.scale = 1; 
             playSound('drop');
             farmerMouth.setAttribute('d', 'M125,145 Q150,165 175,145');
