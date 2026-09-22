@@ -120,7 +120,7 @@
             filter: drop-shadow(20px 20px 25px rgba(0,0,0,0.6)) brightness(1.1);
         }
 
-        /* Новий вигляд заблокованої деталі - чітко, але з рамкою */
+        /* Чітка рамка для заблокованих деталей замість сірості */
         .piece.locked {
             border: 6px solid #FF3333;
             box-shadow: 0 0 20px rgba(255, 51, 51, 0.8), inset 0 0 10px rgba(255, 51, 51, 0.5);
@@ -828,8 +828,9 @@
 
     const BOARD_SIZE = 4;
     const CELL_SIZE = 180;
-    const BOARD_OFFSET_X = 640; 
-    const BOARD_OFFSET_Y = 100; 
+    // Точний відступ внутрішньої сітки (640 зліва + 20px рамка = 660, 100 зверху + 20px рамка = 120)
+    const BOARD_OFFSET_X = 660; 
+    const BOARD_OFFSET_Y = 120; 
     
     let grid = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(null));
 
@@ -865,10 +866,10 @@
         // Рівномірний розподіл: 8 знизу і 2 справа
         let dockX, dockY;
         if (i < 8) {
-            dockX = 80 + i * 180; // 8 шт внизу ідеально вміщаються
-            dockY = 880;
+            dockX = 100 + i * 185; // 8 шт внизу з ідеальним відступом, не накладаються
+            dockY = 820; // Трохи піднято, щоб при обертанні на 90 градусів деталь повністю вміщалася на екран
         } else {
-            dockX = 1600; // 2 шт справа, вище дока, але під кнопками
+            dockX = 1650; // 2 шт справа під кнопками зуму
             dockY = 250 + (i - 8) * 200; 
         }
 
@@ -991,15 +992,10 @@
         
         removeFromGrid(s);
         
-        // === КОМПЕНСАЦІЯ МАСШТАБУ ДЛЯ ТОЧНОГО ЗАХВАТУ ТА ПРИМАГНІЧУВАННЯ ===
-        // При зміні масштабу з 0.5 до 1.0 візуальний лівий край зміщується. 
-        // Ми компенсуємо це, щоб курсор залишався точно в тому ж місці на деталі.
-        if (s.scale !== 1) {
-            s.x = s.x + 90 - (90 * s.scale);
-            s.y = s.y + 90 - (90 * s.scale);
-            s.scale = 1;
-        }
-
+        // Змінюємо масштаб на 1.0 БЕЗ зміщення координат, 
+        // оскільки transform-origin: 90px 90px залишає деталь рівно під курсором.
+        s.scale = 1;
+        
         el.classList.add('dragging');
         applyState(el);
         
@@ -1028,7 +1024,8 @@
         const mouseX = (e.clientX - rect.left) / globalScale;
         const mouseY = (e.clientY - rect.top) / globalScale;
 
-        // Поріг у 5 пікселів для уникнення хибних спрацювань при подвійному тапі
+        // Введено поріг чутливості 5 пікселів.
+        // Це виключає хибні спрацювання "перетягування" при швидкому подвійному кліку (повороті).
         if (Math.abs(mouseX - startX) > 5 || Math.abs(mouseY - startY) > 5) {
             didMove = true;
         }
@@ -1082,7 +1079,7 @@
     }
 
     function trySnapToGrid(s) {
-        const cx = s.x + 90; // Центр обертання та лівої половинки
+        const cx = s.x + 90; // Візуальний центр обертання та лівої половинки деталі
         const cy = s.y + 90;
 
         if (cx < BOARD_OFFSET_X || cx > BOARD_OFFSET_X + BOARD_SIZE * CELL_SIZE || 
