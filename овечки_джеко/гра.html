@@ -110,7 +110,7 @@
             border-radius: 15px;
             background-color: rgba(255, 255, 255, 0.15);
             box-sizing: border-box;
-            transition: filter 0.2s, background-color 0.2s;
+            transition: filter 0.2s, background-color 0.2s, box-shadow 0.2s;
             overflow: hidden;
         }
 
@@ -120,10 +120,13 @@
             filter: drop-shadow(20px 20px 25px rgba(0,0,0,0.6)) brightness(1.1);
         }
 
+        /* Новий вигляд заблокованої деталі - чітко, але з рамкою */
         .piece.locked {
-            filter: brightness(0.85) grayscale(30%) drop-shadow(5px 5px 10px rgba(0,0,0,0.5));
+            border: 6px solid #FF3333;
+            box-shadow: 0 0 20px rgba(255, 51, 51, 0.8), inset 0 0 10px rgba(255, 51, 51, 0.5);
             cursor: default;
             z-index: 15;
+            filter: drop-shadow(5px 5px 10px rgba(0,0,0,0.5));
         }
 
         /* Інтерфейс */
@@ -853,20 +856,20 @@
         el.className = 'piece';
         
         el.style.backgroundImage = `url('${encodeURI(src)}')`;
-        // Залишено тимчасовий колір для тесту, якщо картинка не підвантажиться
+        // Тимчасовий колір для тесту (якщо картинка не підвантажиться)
         el.style.backgroundColor = `hsl(${i * 40}, 70%, 45%)`;
         el.innerHTML = `<div style="width:100%; height:100%; display:flex; justify-content:center; align-items:center; font-size:40px; font-weight:bold; color:rgba(255,255,255,0.4); pointer-events:none;">${i+1}</div>`;
         
         el.dataset.id = i;
         
-        // Розподіляємо деталі: 6 знизу, 4 справа
+        // Рівномірний розподіл: 8 знизу і 2 справа
         let dockX, dockY;
-        if (i < 6) {
-            dockX = 100 + i * 200; // Нижня лінія
+        if (i < 8) {
+            dockX = 80 + i * 180; // 8 шт внизу ідеально вміщаються
             dockY = 880;
         } else {
-            dockX = 1450; // Права колонка
-            dockY = 80 + (i - 6) * 200;
+            dockX = 1600; // 2 шт справа, вище дока, але під кнопками
+            dockY = 250 + (i - 8) * 200; 
         }
 
         el._state = {
@@ -967,6 +970,8 @@
     let dragOffsetX = 0;
     let dragOffsetY = 0;
     let didMove = false;
+    let startX = 0;
+    let startY = 0;
     let lastTap = 0;
 
     function onPointerDown(e) {
@@ -986,8 +991,17 @@
         
         removeFromGrid(s);
         
-        s.scale = 1;
+        // === КОМПЕНСАЦІЯ МАСШТАБУ ДЛЯ ТОЧНОГО ЗАХВАТУ ТА ПРИМАГНІЧУВАННЯ ===
+        // При зміні масштабу з 0.5 до 1.0 візуальний лівий край зміщується. 
+        // Ми компенсуємо це, щоб курсор залишався точно в тому ж місці на деталі.
+        if (s.scale !== 1) {
+            s.x = s.x + 90 - (90 * s.scale);
+            s.y = s.y + 90 - (90 * s.scale);
+            s.scale = 1;
+        }
+
         el.classList.add('dragging');
+        applyState(el);
         
         const rect = wrapper.getBoundingClientRect();
         const mouseX = (e.clientX - rect.left) / globalScale;
@@ -995,8 +1009,9 @@
         
         dragOffsetX = mouseX - s.x;
         dragOffsetY = mouseY - s.y;
+        startX = mouseX;
+        startY = mouseY;
         
-        applyState(el);
         playSound('pickup');
 
         farmerMouth.setAttribute('d', 'M125,155 Q150,175 175,155');
@@ -1008,11 +1023,15 @@
 
     function onPointerMove(e) {
         if (!activePiece) return;
-        didMove = true;
 
         const rect = wrapper.getBoundingClientRect();
         const mouseX = (e.clientX - rect.left) / globalScale;
         const mouseY = (e.clientY - rect.top) / globalScale;
+
+        // Поріг у 5 пікселів для уникнення хибних спрацювань при подвійному тапі
+        if (Math.abs(mouseX - startX) > 5 || Math.abs(mouseY - startY) > 5) {
+            didMove = true;
+        }
 
         activePiece._state.x = mouseX - dragOffsetX;
         activePiece._state.y = mouseY - dragOffsetY;
