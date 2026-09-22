@@ -20,15 +20,15 @@
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
-            overflow: auto; /* Дозволяє скролити, якщо гра виходить за межі (зум) */
-            touch-action: pan-x pan-y; /* Дозволяє свайпати екран пальцем */
-            overscroll-behavior: none; /* Блокує оновлення сторінки при свайпі вниз */
+            overflow: auto; /* Дозволяє скролити екран, якщо гра наближена або не влазить */
+            touch-action: pan-x pan-y; /* Дозволяє вільно пересувати екран пальцем */
+            overscroll-behavior: none; /* Запобігає випадковому оновленню сторінки при свайпі вниз */
             font-family: Arial, sans-serif;
             user-select: none;
             transition: background-image 0.5s ease;
         }
 
-        /* Контейнер гри - центрується або притискається до країв залежно від зуму */
+        /* Контейнер гри */
         #game-wrapper {
             position: absolute;
             top: 0;
@@ -37,7 +37,7 @@
             height: 1080px;
             background: transparent;
             box-shadow: 0 0 40px rgba(0,0,0,0.8);
-            transform-origin: 0 0; /* Обов'язково для правильної математики зуму */
+            transform-origin: 0 0; 
         }
 
         /* Деталізований сюжетний фон */
@@ -57,7 +57,7 @@
         .cloud-1 { animation: cloud-move 50s linear infinite; }
         .cloud-2 { animation: cloud-move 70s linear infinite reverse; }
 
-        /* Ігрове поле - 4x4, точні розміри для примагнічування */
+        /* Ігрове поле - 4x4, рамка 20px */
         #board-container {
             position: absolute;
             left: 640px; 
@@ -94,7 +94,7 @@
             height: 180px;
         }
 
-        /* Деталі - Тіні видалено, плоский вигляд */
+        /* Деталі - Тіні повністю видалено, плоский чистий вигляд */
         .piece {
             position: absolute;
             width: 360px;
@@ -115,7 +115,7 @@
         .piece.dragging {
             z-index: 100;
             cursor: grabbing;
-            filter: brightness(1.1); /* Легке висвітлення при переносі */
+            filter: brightness(1.1); /* Лише легке висвітлення при переносі */
         }
 
         /* Чітка рамка для заблокованих деталей замість сірості */
@@ -188,7 +188,7 @@
             width: 400px;
             height: 500px;
             z-index: 5;
-            cursor: pointer; /* Вказує на те, що він клікабельний */
+            cursor: pointer; 
             transition: transform 0.3s ease;
         }
 
@@ -288,7 +288,7 @@
             font-size: 24px; cursor: pointer; color: red;
         }
 
-        /* Глобальне малювання (тепер всередині game-wrapper для ідеального масштабування) */
+        /* Глобальне малювання всередині гри */
         #draw-canvas-global {
             position: absolute;
             top: 0; left: 0;
@@ -394,7 +394,7 @@
         </g>
     </svg>
 
-    <!-- Персонаж Фермер (клікабельний для радості) -->
+    <!-- Персонаж Фермер -->
     <svg id="farmer" viewBox="0 0 300 450">
         <!-- Руки позаду (ближче до тіла) -->
         <path d="M55,200 Q30,250 65,300" stroke="#FFB74D" stroke-width="35" stroke-linecap="round" fill="none"/>
@@ -415,7 +415,7 @@
         <path d="M150,105 Q165,120 150,135" stroke="#E65100" stroke-width="5" stroke-linecap="round" fill="none"/>
         <!-- Рот -->
         <path id="farmer-mouth" d="M125,145 Q150,165 175,145" stroke="#4E342E" stroke-width="6" stroke-linecap="round" fill="none"/>
-        <!-- Капелюх (трохи нижче) -->
+        <!-- Капелюх -->
         <g transform="translate(0, 18)">
             <path d="M20,60 Q150,-30 280,60 L240,50 Q150,-40 60,50 Z" fill="#FBC02D" />
             <ellipse cx="150" cy="30" rx="60" ry="35" fill="#FBC02D" />
@@ -431,7 +431,6 @@
     <div id="dock"></div>
 
     <!-- Кнопки UI -->
-    <!-- Кнопка "Ключ" для фіксації деталей на полі -->
     <div class="ui-btn" id="btn-teacher">
         <svg viewBox="0 0 24 24">
             <path d="M12.65 10A5.99 5.99 0 0 0 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6a5.99 5.99 0 0 0 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/>
@@ -441,7 +440,7 @@
     <div id="btn-zoom-in">+</div>
     <div id="btn-zoom-out">-</div>
 
-    <!-- Глобальне малювання переміщено сюди для ідеального масштабування разом з грою -->
+    <!-- Глобальне малювання -->
     <canvas id="draw-canvas-global"></canvas>
 </div>
 
@@ -641,7 +640,7 @@
         themeModal.style.display = 'none';
     }
 
-    // --- 4. МАСШТАБУВАННЯ ТА ЗУМ (Вдосконалено для прокрутки) ---
+    // --- 4. МАСШТАБУВАННЯ ТА ЗУМ (Вдосконалено для скролінгу/свайпів) ---
     const wrapper = document.getElementById('game-wrapper');
     let globalScale = 1;
     let userZoom = 1;
@@ -653,8 +652,7 @@
         let scaledWidth = 1920 * globalScale;
         let scaledHeight = 1080 * globalScale;
         
-        // Розраховуємо відступи, щоб центрувати гру, якщо вона менша за екран.
-        // Якщо більша (через зум чи вузький екран), відступ 0 — з'явиться природній скрол.
+        // Центруємо, якщо гра менша за екран. Якщо більша - відступ 0, щоб був природній скрол
         let offsetX = Math.max(0, (window.innerWidth - scaledWidth) / 2);
         let offsetY = Math.max(0, (window.innerHeight - scaledHeight) / 2);
         
@@ -666,7 +664,7 @@
     document.getElementById('btn-zoom-in').addEventListener('click', () => { userZoom += 0.1; resize(); });
     document.getElementById('btn-zoom-out').addEventListener('click', () => { userZoom = Math.max(0.3, userZoom - 0.1); resize(); });
 
-    // --- 5. ГЛОБАЛЬНЕ МАЛЮВАННЯ (З урахуванням внутрішніх координат) ---
+    // --- 5. ГЛОБАЛЬНЕ МАЛЮВАННЯ (Точне масштабування всередині гри) ---
     const drawCanvas = document.getElementById('draw-canvas-global');
     const ctxGlobal = drawCanvas.getContext('2d');
     const toggleDrawBtn = document.getElementById('toggle-draw-btn-global');
@@ -679,7 +677,7 @@
     const drawColor = document.getElementById('draw-color-global');
     const drawClear = document.getElementById('draw-clear-global');
 
-    // Canvas тепер має жорсткий розмір як у wrapper, щоб малюнки ніколи не з'їжджали
+    // Жорстко фіксуємо розмір полотна під розмір гри
     drawCanvas.width = 1920;
     drawCanvas.height = 1080;
 
@@ -724,7 +722,6 @@
     });
     window.addEventListener('pointerup', () => isDraggingPanel = false);
 
-    // Отримання координат миші чітко відносно внутрішнього 1920x1080 поля
     function getPointerPos(e) {
         const rect = wrapper.getBoundingClientRect();
         return {
@@ -780,7 +777,6 @@
 
     // --- 6. ЛОГІКА ГРИ "ФЕРМА" ---
     
-    // Аудіо рушій
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     const audioCtx = new AudioContext();
 
@@ -835,9 +831,10 @@
     const BOARD_SIZE = 4;
     const CELL_SIZE = 180;
     
-    // Точний відступ внутрішньої сітки відносно ігрового контейнера
-    const BOARD_OFFSET_X = 640; 
-    const BOARD_OFFSET_Y = 100; 
+    // ІДЕАЛЬНИЙ ВІДСТУП: 640px (від лівого краю до рамки поля) + 20px (товщина самої рамки) = 660px
+    const BOARD_OFFSET_X = 660; 
+    // Аналогічно зверху: 100px + 20px = 120px
+    const BOARD_OFFSET_Y = 120; 
     
     let grid = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(null));
 
@@ -847,7 +844,6 @@
         boardGridEl.appendChild(cell);
     }
 
-    // Всі 10 деталей
     const pieceSources = [
         'деталь1.png', 'деталь2.png',
         'деталь3.png', 'деталь4.png',
@@ -869,13 +865,12 @@
         
         el.dataset.id = i;
         
-        // Рівномірний розподіл: 8 знизу і 2 справа. Без накладань.
         let dockX, dockY;
         if (i < 8) {
-            dockX = 100 + i * 185; // 8 шт внизу з ідеальним відступом
-            dockY = 880;          // Повністю нижче поля
+            dockX = 100 + i * 185; 
+            dockY = 880;          
         } else {
-            dockX = 1650;         // 2 шт справа під кнопками зуму
+            dockX = 1450;         
             dockY = 250 + (i - 8) * 200; 
         }
 
@@ -906,6 +901,22 @@
         
         if (s.locked) el.classList.add('locked');
         else el.classList.remove('locked');
+    }
+
+    function updateGridFromState() {
+        grid = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(null));
+        pieces.forEach(p => {
+            let s = p._state;
+            if (s.gridX !== -1) {
+                let gx = s.gridX, gy = s.gridY;
+                let rotNorm = ((s.rot % 360) + 360) % 360;
+                grid[gy][gx] = s.id;
+                if (rotNorm === 0) grid[gy][gx+1] = s.id;
+                else if (rotNorm === 90) grid[gy+1][gx] = s.id;
+                else if (rotNorm === 180) grid[gy][gx-1] = s.id;
+                else if (rotNorm === 270) grid[gy-1][gx] = s.id;
+            }
+        });
     }
 
     // Глобальний замок (Ключ)
@@ -946,7 +957,6 @@
         if(isOnline) sendAction('farmer_happy', {});
     });
 
-    // Відслідковування погляду
     document.addEventListener('pointermove', (e) => {
         const rect = wrapper.getBoundingClientRect();
         const mx = (e.clientX - rect.left) / globalScale;
@@ -1008,12 +1018,12 @@
         startY = mouseY;
         
         playSound('pickup');
-
         farmerMouth.setAttribute('d', 'M125,155 Q150,175 175,155');
 
         document.addEventListener('pointermove', onPointerMove);
         document.addEventListener('pointerup', onPointerUp);
-        e.preventDefault(); // Блокуємо скролінг сторінки під час перетягування деталі
+        // Не запобігаємо default для touch подій, щоб не заблокувати загальний скрол сторінки
+        if (e.type !== 'touchstart') e.preventDefault(); 
     }
 
     function onPointerMove(e) {
@@ -1023,12 +1033,15 @@
         const mouseX = (e.clientX - rect.left) / globalScale;
         const mouseY = (e.clientY - rect.top) / globalScale;
 
-        // Поріг чутливості 5 пікселів для уникнення хибних спрацювань при повороті.
-        // ТІЛЬКИ ТУТ ми дозволяємо деталі збільшитись до повноцінного розміру, якщо її реально потягнули.
+        // Поріг 5 пікселів для уникнення хибних спрацювань при повороті.
+        // Збільшуємо деталь ТІЛЬКИ якщо її реально потягнули
         if (Math.abs(mouseX - startX) > 5 || Math.abs(mouseY - startY) > 5) {
             if (!didMove) {
                 didMove = true;
                 if (activePiece._state.scale !== 1) {
+                    // Зміщуємо координати, щоб деталь не "стрибнула" з під пальця при зміні масштабу
+                    activePiece._state.x = activePiece._state.x + 90 - (90 * 1);
+                    activePiece._state.y = activePiece._state.y + 90 - (90 * 1);
                     activePiece._state.scale = 1;
                     dragOffsetX = mouseX - activePiece._state.x;
                     dragOffsetY = mouseY - activePiece._state.y;
@@ -1053,7 +1066,7 @@
         activePiece = null;
         el.classList.remove('dragging');
 
-        // Постійний поворот на 90 градусів без збільшення розміру, якщо ми не рухали деталь
+        // Подвійний клік = поворот БЕЗ збільшення розміру
         if (!didMove) {
             let currentTime = new Date().getTime();
             let tapLength = currentTime - lastTap;
@@ -1068,25 +1081,23 @@
         }
 
         if (!trySnapToGrid(s)) {
-            // ВІЛЬНЕ РОЗМІЩЕННЯ ПОЗА ПОЛЕМ:
-            // Ми більше НЕ відкидаємо деталь у dockX/dockY. Вона залишається там, де її кинули!
+            // ВІЛЬНЕ РОЗМІЩЕННЯ ПОЗА ПОЛЕМ: деталь залишається там, де її кинули
             s.gridX = -1; 
             s.gridY = -1;
             playSound('drop');
-            farmerMouth.setAttribute('d', 'M125,145 Q150,165 175,145');
         } else {
             // Успішно стала на поле
             s.scale = 1; 
             playSound('drop');
-            farmerMouth.setAttribute('d', 'M125,145 Q150,165 175,145');
         }
         
+        farmerMouth.setAttribute('d', 'M125,145 Q150,165 175,145');
         applyState(el);
         if(isOnline) sendAction('piece_update', s);
     }
 
     function trySnapToGrid(s) {
-        const cx = s.x + 90; // Візуальний центр обертання та лівої половинки деталі
+        const cx = s.x + 90; // Візуальний центр обертання
         const cy = s.y + 90;
 
         if (cx < BOARD_OFFSET_X || cx > BOARD_OFFSET_X + BOARD_SIZE * CELL_SIZE || 
