@@ -61,8 +61,8 @@
         /* Ігрове поле - 4x4, точні розміри для примагнічування */
         #board-container {
             position: absolute;
-            left: 640px; 
-            top: 100px;  
+            left: 620px; 
+            top: 80px;  
             width: 720px;
             height: 720px;
             background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180"><rect width="180" height="180" fill="%238B5A2B"/><path d="M0,0 L180,0 L180,180 L0,180 Z" fill="none" stroke="%23A0522D" stroke-width="4"/><path d="M10,10 L170,170 M170,10 L10,170" stroke="%23704214" stroke-width="2" opacity="0.2"/></svg>');
@@ -95,7 +95,7 @@
             height: 180px;
         }
 
-        /* Деталі - замість img використовуємо div з фоном */
+        /* Деталі - прибрані всі тіні за твоєю вимогою */
         .piece {
             position: absolute;
             width: 360px;
@@ -103,30 +103,29 @@
             transform-origin: 90px 90px;
             cursor: grab;
             z-index: 20;
-            filter: drop-shadow(10px 10px 12px rgba(0,0,0,0.5));
             background-size: 100% 100%;
             background-repeat: no-repeat;
             background-position: center;
             border-radius: 15px;
             background-color: rgba(255, 255, 255, 0.15);
             box-sizing: border-box;
-            transition: filter 0.2s, background-color 0.2s, box-shadow 0.2s;
+            /* Плавна анімація для масштабу, щоб зміна розміру виглядала м'яко */
+            transition: background-color 0.2s, transform 0.1s;
             overflow: hidden;
         }
 
         .piece.dragging {
             z-index: 100;
             cursor: grabbing;
-            filter: drop-shadow(20px 20px 25px rgba(0,0,0,0.6)) brightness(1.1);
+            filter: brightness(1.1); /* Трохи висвітлюємо під час переносу */
         }
 
         /* Чітка рамка для заблокованих деталей замість сірості */
         .piece.locked {
             border: 6px solid #FF3333;
-            box-shadow: 0 0 20px rgba(255, 51, 51, 0.8), inset 0 0 10px rgba(255, 51, 51, 0.5);
+            box-shadow: inset 0 0 10px rgba(255, 51, 51, 0.5);
             cursor: default;
             z-index: 15;
-            filter: drop-shadow(5px 5px 10px rgba(0,0,0,0.5));
         }
 
         /* Інтерфейс */
@@ -191,6 +190,7 @@
             width: 400px;
             height: 500px;
             z-index: 5;
+            cursor: pointer; /* Вказує на можливість кліку */
             transition: transform 0.3s ease;
         }
 
@@ -345,7 +345,7 @@
     <!-- Багатошаровий векторний фон -->
     <svg class="scenery" viewBox="0 0 1920 1080">
         <!-- Сонце -->
-        <circle cx="1700" cy="180" r="140" fill="#FFEB3B" filter="drop-shadow(0 0 40px #FBC02D)"/>
+        <circle cx="1700" cy="180" r="140" fill="#FFEB3B" />
         <!-- Промені -->
         <g stroke="#FFF176" stroke-width="12" stroke-linecap="round" opacity="0.7">
             <line x1="1700" y1="10" x2="1700" y2="-20" />
@@ -395,7 +395,7 @@
         </g>
     </svg>
 
-    <!-- Персонаж Фермер -->
+    <!-- Персонаж Фермер (клікабельний для радості) -->
     <svg id="farmer" viewBox="0 0 300 450">
         <!-- Руки позаду (ближче до тіла) -->
         <path d="M55,200 Q30,250 65,300" stroke="#FFB74D" stroke-width="35" stroke-linecap="round" fill="none"/>
@@ -572,6 +572,8 @@
             remoteDrawLine(action.data);
         } else if (action.type === 'clear_canvas' && isRemoteAction) {
             ctxGlobal.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+        } else if (action.type === 'farmer_happy' && isRemoteAction) {
+            triggerFarmerHappy();
         }
     });
 
@@ -601,7 +603,6 @@
     async function loadThemes() {
         if (themesLoaded) return;
         
-        // Картка "Без фону"
         const noBgCard = document.createElement('div');
         noBgCard.className = 'theme-card';
         noBgCard.style.backgroundColor = '#2c3e50';
@@ -613,7 +614,6 @@
         while(true) {
             const url = `https://olgazheltvai2.github.io/images/backgrounds/background_${i}.webp`;
             try {
-                // Послідовне завантаження по одному
                 const response = await fetch(url, { method: 'HEAD' });
                 if (!response.ok) break;
                 
@@ -703,7 +703,6 @@
         if (isOnline) sendAction('clear_canvas', {});
     });
 
-    // Перетягування панелі малювання
     const header = document.getElementById('draw-panel-header');
     let isDraggingPanel = false, panOffsetX, panOffsetY;
     header.addEventListener('pointerdown', (e) => {
@@ -719,7 +718,6 @@
     });
     window.addEventListener('pointerup', () => isDraggingPanel = false);
 
-    // Функції малювання
     function getPointerPos(e) {
         return {
             x: e.clientX / window.innerWidth,
@@ -828,9 +826,12 @@
 
     const BOARD_SIZE = 4;
     const CELL_SIZE = 180;
-    // Точний відступ внутрішньої сітки (640 зліва + 20px рамка = 660, 100 зверху + 20px рамка = 120)
-    const BOARD_OFFSET_X = 660; 
-    const BOARD_OFFSET_Y = 120; 
+    
+    // Точний відступ внутрішньої сітки відносно ігрового контейнера
+    // Контейнер зліва 620px + border 20px = 640px
+    // Контейнер зверху 80px + border 20px = 100px
+    const BOARD_OFFSET_X = 640; 
+    const BOARD_OFFSET_Y = 100; 
     
     let grid = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(null));
 
@@ -857,19 +858,18 @@
         el.className = 'piece';
         
         el.style.backgroundImage = `url('${encodeURI(src)}')`;
-        // Тимчасовий колір для тесту (якщо картинка не підвантажиться)
         el.style.backgroundColor = `hsl(${i * 40}, 70%, 45%)`;
         el.innerHTML = `<div style="width:100%; height:100%; display:flex; justify-content:center; align-items:center; font-size:40px; font-weight:bold; color:rgba(255,255,255,0.4); pointer-events:none;">${i+1}</div>`;
         
         el.dataset.id = i;
         
-        // Рівномірний розподіл: 8 знизу і 2 справа
+        // Рівномірний розподіл: 8 знизу і 2 справа. Без накладань.
         let dockX, dockY;
         if (i < 8) {
-            dockX = 100 + i * 185; // 8 шт внизу з ідеальним відступом, не накладаються
-            dockY = 820; // Трохи піднято, щоб при обертанні на 90 градусів деталь повністю вміщалася на екран
+            dockX = 80 + i * 170; // 8 шт внизу ідеально вміщаються
+            dockY = 880;          // Повністю нижче поля (поле закінчується на 840px)
         } else {
-            dockX = 1650; // 2 шт справа під кнопками зуму
+            dockX = 1450;         // 2 шт справа (поле закінчується на 1380px)
             dockY = 250 + (i - 8) * 200; 
         }
 
@@ -916,7 +916,6 @@
                 else if (rotNorm === 270) grid[gy-1][gx] = s.id;
             }
         });
-        checkWin(true);
     }
 
     // Глобальний замок (Ключ)
@@ -931,7 +930,6 @@
         
         pieces.forEach(p => {
             const s = p._state;
-            // Блокуємо тільки ті деталі, що стоять на полі
             if (s.gridX !== -1) {
                 s.locked = isBoardLocked;
                 applyState(p);
@@ -940,6 +938,22 @@
         });
         
         if (isOnline) sendAction('board_lock', { locked: isBoardLocked });
+    });
+
+    // Реакція Фермера при натисканні (замість складання всіх деталей)
+    function triggerFarmerHappy() {
+        playSound('win');
+        farmer.classList.add('farmer-happy');
+        farmerMouth.setAttribute('d', 'M115,135 Q150,180 185,135'); 
+        setTimeout(() => {
+            farmer.classList.remove('farmer-happy');
+            farmerMouth.setAttribute('d', 'M125,145 Q150,165 175,145');
+        }, 2000);
+    }
+
+    farmer.addEventListener('pointerdown', () => {
+        triggerFarmerHappy();
+        if(isOnline) sendAction('farmer_happy', {});
     });
 
     // Відслідковування погляду
@@ -981,7 +995,6 @@
         const el = e.currentTarget;
         const s = el._state;
 
-        // Блокуємо рух деталі, якщо активовано ключ
         if (s.locked) {
             playSound('lock');
             return;
@@ -991,10 +1004,6 @@
         didMove = false;
         
         removeFromGrid(s);
-        
-        // Змінюємо масштаб на 1.0 БЕЗ зміщення координат, 
-        // оскільки transform-origin: 90px 90px залишає деталь рівно під курсором.
-        s.scale = 1;
         
         el.classList.add('dragging');
         applyState(el);
@@ -1024,15 +1033,24 @@
         const mouseX = (e.clientX - rect.left) / globalScale;
         const mouseY = (e.clientY - rect.top) / globalScale;
 
-        // Введено поріг чутливості 5 пікселів.
-        // Це виключає хибні спрацювання "перетягування" при швидкому подвійному кліку (повороті).
+        // Поріг чутливості 5 пікселів для уникнення хибних спрацювань при повороті
         if (Math.abs(mouseX - startX) > 5 || Math.abs(mouseY - startY) > 5) {
-            didMove = true;
+            if (!didMove) {
+                didMove = true;
+                // ТІЛЬКИ ТЕПЕР, коли деталь реально потягнули, ми збільшуємо її масштаб до 1
+                if (activePiece._state.scale !== 1) {
+                    activePiece._state.scale = 1;
+                    dragOffsetX = mouseX - activePiece._state.x;
+                    dragOffsetY = mouseY - activePiece._state.y;
+                }
+            }
         }
 
-        activePiece._state.x = mouseX - dragOffsetX;
-        activePiece._state.y = mouseY - dragOffsetY;
-        applyState(activePiece);
+        if (didMove) {
+            activePiece._state.x = mouseX - dragOffsetX;
+            activePiece._state.y = mouseY - dragOffsetY;
+            applyState(activePiece);
+        }
     }
 
     function onPointerUp(e) {
@@ -1045,13 +1063,13 @@
         activePiece = null;
         el.classList.remove('dragging');
 
-        // Постійний поворот на 90 градусів при кожному подвійному кліку/тапі (навіть до поля)
+        // Постійний поворот на 90 градусів без збільшення розміру (бо didMove = false)
         if (!didMove) {
             let currentTime = new Date().getTime();
             let tapLength = currentTime - lastTap;
             
             if (tapLength < 400 && tapLength > 0) {
-                s.rot = (s.rot + 90) % 360; // Додаємо 90 градусів по колу
+                s.rot = (s.rot + 90) % 360; 
                 playSound('rotate');
                 lastTap = 0;
             } else {
@@ -1063,15 +1081,16 @@
             // Повернення в док до примагнічування або при кидку повз поле
             s.x = s.dockX; 
             s.y = s.dockY; 
-            s.scale = 0.5; // Ми НЕ СКИДАЄМО s.rot = 0, щоб деталь зберігала свій поворот
+            s.scale = 0.5; // У доці деталь залишається маленькою
             s.gridX = -1; 
             s.gridY = -1;
             playSound('drop');
             farmerMouth.setAttribute('d', 'M125,145 Q150,165 175,145');
         } else {
+            // Успішно стала на поле - масштаб точно 1
+            s.scale = 1; 
             playSound('drop');
             farmerMouth.setAttribute('d', 'M125,145 Q150,165 175,145');
-            checkWin();
         }
         
         applyState(el);
@@ -1146,24 +1165,6 @@
             else if (rotNorm === 180) grid[gy][gx-1] = null;
             else if (rotNorm === 270) grid[gy-1][gx] = null;
             s.gridX = -1; s.gridY = -1;
-        }
-    }
-
-    function checkWin(silent = false) {
-        for (let y = 0; y < BOARD_SIZE; y++) {
-            for (let x = 0; x < BOARD_SIZE; x++) {
-                if (grid[y][x] === null) return;
-            }
-        }
-        if(!silent){
-            playSound('win');
-            farmer.classList.add('farmer-happy');
-            farmerMouth.setAttribute('d', 'M115,135 Q150,180 185,135'); 
-            
-            setTimeout(() => {
-                farmer.classList.remove('farmer-happy');
-                farmerMouth.setAttribute('d', 'M125,145 Q150,165 175,145');
-            }, 2000);
         }
     }
 
