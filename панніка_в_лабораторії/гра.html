@@ -67,11 +67,11 @@
             height: 100%;
         }
 
-        /* Фіксований логічний стіл гри для 100% синхронізації координат */
+        /* Збільшений фіксований логічний стіл гри для 100% синхронізації та великих карток */
         #logical-board {
             position: relative;
-            width: 1200px;
-            height: 800px;
+            width: 1400px;
+            height: 900px;
             transform-origin: center center;
             /* transform: scale(...) буде додано через JS */
         }
@@ -179,8 +179,8 @@
 
         .base-card {
             position: absolute;
-            width: 90px;
-            height: 120px;
+            width: 125px; /* Максимально великий розмір */
+            height: 170px;
             background: #111;
             border: 3px solid #555;
             border-radius: 10px;
@@ -197,7 +197,7 @@
         .base-card.highlighted {
             border-color: #00ffcc;
             box-shadow: 0 0 30px #00ffcc, 0 0 10px #00ffcc inset;
-            transform: translate(-50%, -50%) scale(1.25) !important;
+            transform: translate(-50%, -50%) scale(1.2) !important;
             z-index: 5;
         }
 
@@ -207,7 +207,7 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 480px;
+            width: 500px;
             height: 320px;
             background: linear-gradient(to bottom, #2a2a35, #111115);
             border: 5px solid #444;
@@ -243,7 +243,7 @@
         }
 
         #task-display {
-            width: 420px;
+            width: 440px;
             height: 220px;
             background: #000;
             border: 3px solid #ff00ff;
@@ -333,7 +333,7 @@
         /* Інструменти малювання (Всередині логічного поля) */
         #draw-canvas-global {
             position: absolute;
-            top: 0; left: 0; width: 1200px; height: 800px; /* Чітко під розмір столу */
+            top: 0; left: 0; width: 1400px; height: 900px; /* Збільшено під розмір столу */
             z-index: 90000;
             pointer-events: none;
         }
@@ -484,7 +484,7 @@
 
     <!-- Основний ігровий простір (масштабований стіл) -->
     <div id="game-container">
-        <!-- Фіксований логічний розмір: 1200x800 -->
+        <!-- Фіксований логічний розмір: 1400x900 -->
         <div id="logical-board">
             
             <div id="player1-board" class="score-board">
@@ -525,14 +525,14 @@
             </div>
 
             <!-- Полотно малювання тепер ідеально збігається з логічним столом -->
-            <canvas id="draw-canvas-global" width="1200" height="800"></canvas>
+            <canvas id="draw-canvas-global" width="1400" height="900"></canvas>
         </div>
     </div>
 
     <script>
         // --- Конфігурація та ініціалізація Firebase ---
         const CONFIG = {
-            gameId: 'microbe_lab_synced', // Унікальний ID
+            gameId: 'microbe_lab_synced', // Унікальний ID гри
             projectId: 'lesson-13c44'
         };
 
@@ -589,9 +589,9 @@
         let manualZoom = 1;
 
         function resizeBoard() {
-            // Розраховуємо коефіцієнт, щоб 1200x800 повністю влізло в екран
-            const scaleX = window.innerWidth / 1200;
-            const scaleY = window.innerHeight / 800;
+            // Розраховуємо коефіцієнт, щоб 1400x900 повністю влізло в екран
+            const scaleX = window.innerWidth / 1400;
+            const scaleY = window.innerHeight / 900;
             const baseScale = Math.min(scaleX, scaleY) * 0.95; // 95% щоб були відступи
             logicalBoard.style.transform = `scale(${baseScale * manualZoom})`;
         }
@@ -958,9 +958,9 @@
         function renderBaseCards() {
             circleContainer.innerHTML = '';
             
-            // Радіуси еліпса тепер вираховуються у ВІДСОТКАХ ВІД 1200x800.
-            const rx = 44; // 44% від 1200px
-            const ry = 40; // 40% від 800px
+            // Радіуси еліпса вираховуються у відсотках від логічного розміру (1400x900)
+            const rx = 46; // 46% від 1400px = 644px
+            const ry = 44; // 44% від 900px = 396px
             const totalCards = baseCards.length;
             
             baseCards.forEach((cardImg, index) => {
@@ -987,7 +987,7 @@
 
                 setTimeout(() => {
                     if (cardEl.classList.contains('highlighted')) {
-                        cardEl.style.transform = finalTransform.replace('scale(0)', 'scale(1.25)');
+                        cardEl.style.transform = finalTransform.replace('scale(0)', 'scale(1.2)');
                     } else {
                         cardEl.style.transform = finalTransform;
                     }
@@ -1077,8 +1077,10 @@
 
         restartBtn.addEventListener('click', () => {
             generateDecksLocally();
-            emitAction('RESTART_GAME', { baseCards, currentTaskDeck });
+            // Записуємо нову колоду в базу
             updateStateInFirebase({ baseCards, currentTaskDeck, highlightedStates, scores, currentDisplayTask: null });
+            
+            emitAction('RESTART_GAME_VISUALS', {}); // Передаємо тільки команду скинути візуал машини
             
             playSound('reset');
             taskImage.src = '';
@@ -1086,14 +1088,26 @@
             emptyState.style.display = 'block';
             document.getElementById('p1-score').textContent = '0';
             document.getElementById('p2-score').textContent = '0';
-            renderBaseCards();
+            // Не викликаємо renderBaseCards() тут, бо слухач нижче зробить це автоматично
         });
 
-        // Ініціалізація або завантаження стану
+        // --- ЖОРСТКА СИНХРОНІЗАЦІЯ БАЗОВИХ КАРТОК (ВИРІШЕННЯ ПРОБЛЕМИ З ДЕСИНХРОНОМ 9,10,11) ---
+        gameStateRef.child('baseCards').on('value', snap => {
+            if (snap.exists()) {
+                const newCards = snap.val();
+                // Перемальовуємо стіл ТІЛЬКИ якщо колода реально змінилася (щоб не блимало постійно)
+                if (JSON.stringify(baseCards) !== JSON.stringify(newCards)) {
+                    baseCards = newCards;
+                    renderBaseCards();
+                }
+            }
+        });
+
+        // Ініціалізація або завантаження іншого стану
         gameStateRef.once('value').then(snap => {
             const state = snap.val();
             if (state && state.baseCards) {
-                baseCards = state.baseCards;
+                // Масив baseCards підтягнеться автоматично через слухач вище
                 currentTaskDeck = state.currentTaskDeck || [];
                 highlightedStates = state.highlightedStates || Array(TOTAL_CARDS).fill(false);
                 scores = state.scores || { p1: 0, p2: 0 };
@@ -1112,11 +1126,11 @@
             } else {
                 generateDecksLocally();
                 updateStateInFirebase({ baseCards, currentTaskDeck, highlightedStates, scores, names });
+                renderBaseCards();
             }
-            renderBaseCards();
         });
 
-        // Слухання дій інших гравців
+        // Слухання дій інших гравців (окремо від стану)
         gameActionRef.on('value', snap => {
             if (!snap.exists()) return;
             const action = snap.val();
@@ -1142,9 +1156,8 @@
             } else if (action.type === 'UPDATE_NAME') {
                 names[action.data.player] = action.data.name;
                 document.getElementById(`${action.data.player}-name`).value = action.data.name;
-            } else if (action.type === 'RESTART_GAME') {
-                baseCards = action.data.baseCards;
-                currentTaskDeck = action.data.currentTaskDeck || [];
+            } else if (action.type === 'RESTART_GAME_VISUALS') {
+                // Очищаємо тільки поточні ігрові стани, картки оновляться через слухач baseCards
                 highlightedStates = Array(TOTAL_CARDS).fill(false);
                 scores = { p1: 0, p2: 0 };
                 document.getElementById('p1-score').textContent = '0';
@@ -1152,7 +1165,6 @@
                 taskImage.style.display = 'none';
                 emptyState.style.display = 'block';
                 playSound('reset');
-                renderBaseCards();
             }
         });
 
