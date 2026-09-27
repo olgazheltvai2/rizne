@@ -623,6 +623,7 @@
             if (isRemoteAction) return;
             db.ref(`game_action/${CONFIG.gameId}`).push({
                 senderId: mySenderId,
+                clientTime: Date.now(),
                 type: type,
                 ...data
             });
@@ -769,6 +770,31 @@
             performDrawVisuals(cardSrc, randomRotation, randomOffsetX, randomOffsetY);
         }
 
+        // Функція для керування вікном історії та її синхронізації
+        function toggleHistoryUI(isOpen, remote = false) {
+            if (isOpen) {
+                historyGrid.innerHTML = '';
+                history.forEach(src => {
+                    const img = document.createElement('img');
+                    img.src = src;
+                    img.alt = `Помилка: ${src}`;
+                    img.className = 'history-card';
+                    img.onerror = function() { 
+                        this.style.backgroundColor = '#5c2c16'; 
+                        this.style.color = '#ffaa00';
+                    };
+                    historyGrid.appendChild(img);
+                });
+                historyModal.classList.add('active');
+            } else {
+                historyModal.classList.remove('active');
+            }
+            
+            if (!remote) {
+                sendGameAction('toggle_history', { isOpen: isOpen });
+            }
+        }
+
         stage.addEventListener('click', (e) => {
             if (e.target.closest('#zoom-controls') || e.target.closest('.deck-placeholder') === null && e.target.closest('.card') === null && e.target.id !== 'card-stage') return;
             drawCard();
@@ -783,25 +809,13 @@
         document.getElementById('btn-history').addEventListener('click', (e) => {
             e.stopPropagation();
             playStoneClickSound();
-            historyGrid.innerHTML = '';
-            history.forEach(src => {
-                const img = document.createElement('img');
-                img.src = src;
-                img.alt = `Помилка: ${src}`;
-                img.className = 'history-card';
-                img.onerror = function() { 
-                    this.style.backgroundColor = '#5c2c16'; 
-                    this.style.color = '#ffaa00';
-                };
-                historyGrid.appendChild(img);
-            });
-            historyModal.classList.add('active');
+            toggleHistoryUI(true);
         });
 
         document.getElementById('btn-close-history').addEventListener('click', (e) => {
             e.stopPropagation();
             playStoneClickSound();
-            historyModal.classList.remove('active');
+            toggleHistoryUI(false);
         });
 
         // ЗАВАНТАЖЕННЯ СТАНУ (Виконується лише один раз при старті)
@@ -832,7 +846,7 @@
 
         // Тепер слухаємо ТІЛЬКИ нові кліки, незалежно від годинника ПК
         actionRef.on('child_added', (snap) => {
-            if (!isGameActionReady) return; // Ігноруємо старі події
+            if (!isGameActionReady) return; 
             const data = snap.val();
             if (!data || data.senderId === mySenderId) return;
 
@@ -841,6 +855,8 @@
                 initGame(data.deck);
             } else if (data.type === 'draw_card') {
                 drawCard(data.cardSrc, data.rotation, data.offsetX, data.offsetY);
+            } else if (data.type === 'toggle_history') {
+                toggleHistoryUI(data.isOpen, true);
             }
             isRemoteAction = false;
         });
@@ -849,9 +865,6 @@
         const themeModal = document.getElementById('theme-modal');
         const themeClose = document.getElementById('theme-close');
         const themeGallery = document.getElementById('theme-gallery');
-
-        themeBtn.addEventListener('click', () => themeModal.classList.add('active'));
-        themeClose.addEventListener('click', () => themeModal.classList.remove('active'));
 
         function applyBackground(url) {
             if (url === 'none') {
@@ -868,6 +881,9 @@
             const activeCard = document.querySelector(`.theme-card[data-bg="${url}"]`);
             if (activeCard) activeCard.classList.add('selected');
         }
+
+        themeBtn.addEventListener('click', () => themeModal.classList.add('active'));
+        themeClose.addEventListener('click', () => themeModal.classList.remove('active'));
 
         async function loadBackgrounds() {
             let index = 1;
@@ -976,7 +992,8 @@
                     type: 'draw_line',
                     x0: x0 / window.innerWidth, y0: y0 / window.innerHeight,
                     x1: x1 / window.innerWidth, y1: y1 / window.innerHeight,
-                    color, size, mode, senderId: mySenderId
+                    color, size, mode, senderId: mySenderId,
+                    clientTime: Date.now()
                 });
             }
         }
@@ -1011,7 +1028,8 @@
             drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
             db.ref(`game_action_draw/${CONFIG.gameId}`).push({ 
                 type: 'clear_canvas', 
-                senderId: mySenderId 
+                senderId: mySenderId,
+                clientTime: Date.now()
             });
         });
 
