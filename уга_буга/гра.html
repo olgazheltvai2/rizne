@@ -62,7 +62,7 @@
             position: absolute;
             width: 400px;
             height: 400px;
-            object-fit: cover; /* Забезпечує квадратну форму без спотворення пропорцій зображення */
+            object-fit: cover;
             border-radius: 35px;
             clip-path: inset(12px round 35px);
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(255, 100, 0, 0.3);
@@ -70,8 +70,6 @@
             transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
             transform-origin: center center;
             border: 4px solid #5a200a;
-            
-            /* Налаштування для відображення помилки (якщо картинки немає) */
             display: flex;
             align-items: center;
             justify-content: center;
@@ -188,7 +186,7 @@
 
         .history-card {
             width: 150px;
-            height: 150px; /* Історія теж квадратна */
+            height: 150px;
             object-fit: cover;
             border-radius: 15px;
             clip-path: inset(5px round 15px);
@@ -243,7 +241,6 @@
 
         /* ---------------- УНІВЕРСАЛЬНІ СИСТЕМИ ---------------- */
         
-        /* Екран-заглушка (Блокування) */
         #block-overlay {
             position: fixed;
             top: 0;
@@ -267,7 +264,6 @@
             opacity: 1;
         }
 
-        /* Theme Manager UI */
         #theme-btn {
             position: fixed;
             bottom: 20px;
@@ -353,7 +349,6 @@
             padding: 3px 0;
         }
 
-        /* Глобальне малювання */
         #global-canvas {
             position: fixed;
             top: 0;
@@ -431,17 +426,15 @@
         .draw-row input[type="range"] { flex: 1; }
         .draw-row input[type="color"] { width: 100%; height: 30px; cursor: pointer; border: none; }
 
-        /* Лупа - Контролери Збільшення */
         #zoom-controls {
             position: fixed;
             top: 20px;
-            right: 20px; /* Переміщено щоб не конфліктувати з іншими */
+            right: 20px;
             z-index: 10;
             display: flex;
             gap: 15px;
         }
 
-        /* Мобільна адаптивність */
         @media (max-width: 768px) {
             #controls { bottom: 85px; right: 10px; gap: 10px; }
             .stone-btn { width: 55px; height: 55px; padding: 10px; }
@@ -455,10 +448,8 @@
 </head>
 <body>
 
-    <!-- Екран блокування -->
     <div id="block-overlay">Зачекай! Зараз не твій урок.</div>
 
-    <!-- Лупа -->
     <div id="zoom-controls">
         <div class="stone-btn" id="btn-zoom-in" title="Збільшити">
             <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/><path d="M12 10h-2v2H9v-2H7V9h2V7h1v2h2v1z"/></svg>
@@ -468,7 +459,6 @@
         </div>
     </div>
 
-    <!-- Складний SVG фон: Печерні сталактити та обриси каміння -->
     <svg id="cave-background" viewBox="0 0 1920 1080" preserveAspectRatio="none">
         <defs>
             <linearGradient id="caveGrad" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -493,20 +483,16 @@
         <path d="M0,1080 L1920,1080 L1920,950 Q1750,850 1600,1000 T1200,880 T800,980 T400,850 L0,950 Z" fill="#1a0600" filter="url(#rockTexture)" />
     </svg>
 
-    <!-- Сцена для карток. По кліку сюди тягнеться нова карта -->
     <div id="card-stage">
         <div class="deck-placeholder"></div>
     </div>
 
-    <!-- Кнопки керування -->
     <div id="controls">
-        <!-- Кнопка "Історія" -->
         <div class="stone-btn" id="btn-history">
             <svg viewBox="0 0 24 24">
                 <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
             </svg>
         </div>
-        <!-- Кнопка "Заново" -->
         <div class="stone-btn" id="btn-restart">
             <svg viewBox="0 0 24 24">
                 <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
@@ -514,7 +500,6 @@
         </div>
     </div>
 
-    <!-- Модальне вікно для історії -->
     <div id="history-modal">
         <button class="close-btn" id="btn-close-history">
             <svg viewBox="0 0 24 24">
@@ -524,7 +509,6 @@
         <div id="history-grid"></div>
     </div>
 
-    <!-- Theme Manager HTML -->
     <button id="theme-btn" title="Налаштування фону">⚙️</button>
     <div id="theme-modal">
         <div class="theme-header">
@@ -536,11 +520,9 @@
                 <div style="font-size: 24px; color: #555;">🚫</div>
                 <div class="theme-title">Без фону</div>
             </div>
-            <!-- Динамічні фони будуть завантажені сюди -->
         </div>
     </div>
 
-    <!-- Глобальне малювання HTML -->
     <canvas id="global-canvas"></canvas>
     <button id="toggle-draw-btn-global">✏️ Малювати</button>
     <div id="draw-panel-global">
@@ -568,7 +550,6 @@
             projectId: 'lesson-13c44'
         };
 
-        // --- Firebase Ініціалізація ---
         const firebaseConfig = {
             databaseURL: `https://${CONFIG.projectId}-default-rtdb.firebaseio.com/`,
             projectId: CONFIG.projectId
@@ -578,7 +559,6 @@
         }
         const db = firebase.database();
 
-        // --- Універсальний блок (Ідентифікація, Радар, Блокування) ---
         function getQueryParam(param) {
             const urlParams = new URLSearchParams(window.location.search);
             return urlParams.get(param);
@@ -590,7 +570,7 @@
         } else {
             myName = sessionStorage.getItem('userName');
             if (!myName) {
-                myName = 'Гість_' + Math.floor(Math.random() * 1000);
+                myName = 'Гість_' + Math.floor(Math.random() * 100000);
                 sessionStorage.setItem('userName', myName);
             }
         }
@@ -617,7 +597,6 @@
             else blockOverlay.classList.remove('active');
         });
 
-        // Імунітет для першого завантаження сторінки (щоб не було безкінечного оновлення)
         let isFirstRefreshCheck = true;
         db.ref('force_refresh').on('value', (snap) => {
             if (isFirstRefreshCheck) {
@@ -627,7 +606,6 @@
             if (snap.val() === true) window.location.reload();
         });
 
-        // Імунітет для першого завантаження при прямих посиланнях
         let isFirstActivityCheck = true;
         db.ref('current_activity').on('value', (snap) => {
             if (isFirstActivityCheck) {
@@ -639,25 +617,24 @@
             }
         });
 
-        // --- Синхронізація дій карток ---
+        // Ізольований та безпечний час з'єднання для запобігання дублюванню дій при старті
+        const gameConnectTime = Date.now();
         let isRemoteAction = false;
+
         function sendGameAction(type, data = {}) {
             if (isRemoteAction) return;
-            const actionId = Date.now() + '_' + Math.floor(Math.random()*1000);
-            db.ref(`game_action/${actionId}`).set({
+            db.ref(`game_action/${CONFIG.gameId}`).push({
                 senderId: mySenderId,
-                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                clientTime: Date.now(),
                 type: type,
                 ...data
             });
             
-            // Збереження стейту для тих, хто зайде пізніше
             if (type === 'init_game' || type === 'draw_card') {
                 db.ref(`game_state/${CONFIG.gameId}`).set({ deck: deck, history: history });
             }
         }
 
-        // --- Лупа (Zoom) ---
         let currentZoom = 1;
         const stageContainer = document.getElementById('card-stage');
         document.getElementById('btn-zoom-in').addEventListener('click', () => {
@@ -670,7 +647,6 @@
             stageContainer.style.transform = `scale(${currentZoom})`;
         });
 
-        // --- Аудіо генерація ---
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         const audioCtx = new AudioContext();
 
@@ -705,7 +681,6 @@
             osc.stop(audioCtx.currentTime + 0.1);
         }
 
-        // --- Логіка гри ---
         let deck = [];
         let history = [];
         const stage = document.getElementById('card-stage');
@@ -729,7 +704,6 @@
                 history = remoteHistory || [];
             } else {
                 deck = [];
-                // Формуємо колоду, пропускаючи картки 11 та 12
                 for (let i = 1; i <= 24; i++) {
                     if (i !== 11 && i !== 12) {
                         deck.push(`kartka_${i}.webp`);
@@ -758,10 +732,9 @@
             createSparks();
             const img = document.createElement('img');
             img.src = cardSrc; 
-            img.alt = `Помилка:\n${cardSrc}`; // Показуємо назву файлу, якщо він відсутній
+            img.alt = `Помилка:\n${cardSrc}`;
             img.className = 'card entering';
             
-            // Якщо картинка відсутня (404), зафарбовуємо квадрат і показуємо текст помилки
             img.onerror = function() {
                 this.style.backgroundColor = '#5c2c16';
                 this.style.color = '#ffaa00';
@@ -832,7 +805,6 @@
             historyModal.classList.remove('active');
         });
 
-        // Завантаження стану для нових гравців
         db.ref(`game_state/${CONFIG.gameId}`).once('value', snap => {
             const state = snap.val();
             if (state && state.deck) {
@@ -849,7 +821,11 @@
             }
         });
 
-        db.ref('game_action').limitToLast(1).on('child_added', (snap) => {
+        // Надійний слухач дій, який відсікає всі старі ходи завдяки фільтру по clientTime
+        db.ref(`game_action/${CONFIG.gameId}`)
+          .orderByChild('clientTime')
+          .startAt(gameConnectTime)
+          .on('child_added', (snap) => {
             const data = snap.val();
             if (!data || data.senderId === mySenderId) return;
 
@@ -862,8 +838,6 @@
             isRemoteAction = false;
         });
 
-
-        // --- Theme Manager ---
         const themeBtn = document.getElementById('theme-btn');
         const themeModal = document.getElementById('theme-modal');
         const themeClose = document.getElementById('theme-close');
@@ -881,7 +855,6 @@
                 document.body.style.backgroundImage = `url('${url}')`;
                 caveSvg.style.display = 'none';
             }
-            // Збереження індивідуального фону саме для цієї гри
             localStorage.setItem('mySavedBg_' + CONFIG.gameId, url);
             
             document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('selected'));
@@ -907,7 +880,6 @@
                         themeGallery.appendChild(card);
                         index++;
                     } else {
-                        // Строге зупинення при помилці 404
                         break; 
                     }
                 } catch (e) {
@@ -915,7 +887,6 @@
                 }
             }
             
-            // Відновлення фону з localStorage для конкретної гри
             const savedLocalBg = localStorage.getItem('mySavedBg_' + CONFIG.gameId);
             if (savedLocalBg) applyBackground(savedLocalBg);
         }
@@ -935,7 +906,6 @@
         loadBackgrounds();
 
 
-        // --- Глобальне Малювання ---
         const drawCanvas = document.getElementById('global-canvas');
         const drawCtx = drawCanvas.getContext('2d');
         const btnToggleDraw = document.getElementById('toggle-draw-btn-global');
@@ -960,7 +930,6 @@
             drawPanel.style.display = 'flex';
             drawCanvas.style.pointerEvents = 'auto';
             isDrawingMode = true;
-            // Автоматична активація олівця
             drawMode = 'pencil';
             document.getElementById('btn-pencil').classList.add('active');
             document.getElementById('btn-eraser').classList.remove('active');
@@ -968,7 +937,7 @@
         
         btnDrawClose.addEventListener('click', () => {
             drawPanel.style.display = 'none';
-            drawCanvas.style.pointerEvents = 'none'; // Повертаємо клікабельність нижнім елементам
+            drawCanvas.style.pointerEvents = 'none'; 
             isDrawingMode = false;
         });
 
@@ -996,11 +965,12 @@
             drawCtx.stroke();
             
             if (!remote) {
-                db.ref('game_action').push({
+                db.ref(`game_action_draw/${CONFIG.gameId}`).push({
                     type: 'draw_line',
                     x0: x0 / window.innerWidth, y0: y0 / window.innerHeight,
                     x1: x1 / window.innerWidth, y1: y1 / window.innerHeight,
-                    color, size, mode, senderId: mySenderId
+                    color, size, mode, senderId: mySenderId,
+                    clientTime: Date.now()
                 });
             }
         }
@@ -1033,12 +1003,21 @@
 
         document.getElementById('btn-clear-draw').addEventListener('click', () => {
             drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-            db.ref('game_action').push({ type: 'clear_canvas', senderId: mySenderId });
+            db.ref(`game_action_draw/${CONFIG.gameId}`).push({ 
+                type: 'clear_canvas', 
+                senderId: mySenderId,
+                clientTime: Date.now()
+            });
         });
 
-        db.ref('game_action').limitToLast(1).on('child_added', snap => {
+        // Ізольований слухач для малювання
+        const drawingConnectTime = Date.now();
+        db.ref(`game_action_draw/${CONFIG.gameId}`)
+          .orderByChild('clientTime')
+          .startAt(drawingConnectTime)
+          .on('child_added', snap => {
             const data = snap.val();
-            if (data.senderId === mySenderId) return;
+            if (!data || data.senderId === mySenderId) return;
             
             if (data.type === 'draw_line') {
                 drawLine(data.x0 * window.innerWidth, data.y0 * window.innerHeight, 
@@ -1049,7 +1028,6 @@
             }
         });
 
-        // Перетягування панелі малювання
         const drawHandle = document.getElementById('draw-handle');
         let isDraggingPanel = false, panelOffsetX, panelOffsetY;
         drawHandle.addEventListener('mousedown', (e) => {
