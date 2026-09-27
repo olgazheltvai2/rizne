@@ -67,17 +67,13 @@
             height: 100%;
         }
 
-        /* Обертка для масштабування (Лупа) */
-        #zoom-wrapper {
+        /* Фіксований логічний стіл гри для 100% синхронізації координат */
+        #logical-board {
             position: relative;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            transform: scale(1);
-            transition: transform 0.3s ease;
+            width: 1200px;
+            height: 800px;
             transform-origin: center center;
+            /* transform: scale(...) буде додано через JS */
         }
 
         /* Лічильники гравців */
@@ -176,18 +172,15 @@
         /* Ігровий стіл (Ланцюг/Еліпс з карток) */
         #cards-circle {
             position: absolute;
-            width: 95vw;
-            height: 85vh;
-            border-radius: 50%;
-            border: 2px dashed rgba(0, 255, 204, 0.1);
-            box-shadow: inset 0 0 50px rgba(0, 255, 204, 0.05);
+            width: 100%;
+            height: 100%;
             pointer-events: none;
         }
 
         .base-card {
             position: absolute;
-            width: 100px; /* Трохи зменшено для 19 карток */
-            height: 135px;
+            width: 90px;
+            height: 120px;
             background: #111;
             border: 3px solid #555;
             border-radius: 10px;
@@ -208,9 +201,12 @@
             z-index: 5;
         }
 
-        /* Машина завдань (Генератор) - Розширена */
+        /* Машина завдань (Генератор) */
         #task-machine {
             position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             width: 480px;
             height: 320px;
             background: linear-gradient(to bottom, #2a2a35, #111115);
@@ -334,13 +330,15 @@
             text-align: center;
         }
 
-        /* Інструменти малювання */
+        /* Інструменти малювання (Всередині логічного поля) */
         #draw-canvas-global {
-            position: fixed;
-            top: 0; left: 0; width: 100vw; height: 100vh;
+            position: absolute;
+            top: 0; left: 0; width: 1200px; height: 800px; /* Чітко під розмір столу */
             z-index: 90000;
             pointer-events: none;
         }
+
+        /* UI Малювання (Прикріплено до екрана) */
         #toggle-draw-btn-global {
             position: fixed;
             bottom: 85px; right: 20px;
@@ -411,16 +409,6 @@
             cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
             font-weight: bold;
         }
-
-        /* Адаптивність (Mobile Friendly) */
-        @media (max-width: 768px) {
-            .score-board { padding: 5px; top: 5px; flex-wrap: wrap; justify-content: center; }
-            .player-name { width: 100px; font-size: 1rem; margin-bottom: 5px; }
-            .score-btn { width: 30px; height: 30px; font-size: 1.2rem; }
-            #cards-circle { width: 100vw; height: 90vh; }
-            .base-card { width: 80px; height: 110px; }
-            #task-machine { transform: scale(0.65); }
-        }
     </style>
 </head>
 <body>
@@ -428,7 +416,7 @@
     <!-- Екран-заглушка -->
     <div id="block-overlay">Зачекай! Зараз не твій урок.</div>
 
-    <!-- Складний SVG фон (Стиль: Лабораторія мікробів) -->
+    <!-- Складний SVG фон -->
     <svg id="bg-svg" xmlns="http://www.w3.org/2000/svg">
         <defs>
             <radialGradient id="glowGreen" cx="50%" cy="50%" r="50%">
@@ -464,24 +452,7 @@
         <path d="M -50 200 Q 150 350, 350 200 T 750 200 T 1150 200 T 1550 200" fill="none" stroke="rgba(255, 0, 255, 0.1)" stroke-width="8" stroke-dasharray="10 20"/>
     </svg>
 
-    <!-- UI Елементи -->
-    <div id="player1-board" class="score-board">
-        <input type="text" id="p1-name" class="player-name" placeholder="Гравець 1">
-        <button class="score-btn minus-btn" data-player="1">-</button>
-        <div class="score-display" id="p1-score">0</div>
-        <button class="score-btn plus-btn" data-player="1">+</button>
-    </div>
-
-    <div id="player2-board" class="score-board">
-        <button class="score-btn minus-btn" data-player="2">-</button>
-        <div class="score-display" id="p2-score">0</div>
-        <button class="score-btn plus-btn" data-player="2">+</button>
-        <input type="text" id="p2-name" class="player-name" placeholder="Гравець 2">
-    </div>
-
-    <button id="restart-btn">🗘 Заново</button>
-
-    <!-- Theme Manager UI -->
+    <!-- UI Елементи, прикріплені до екрана -->
     <button id="theme-btn">⚙️</button>
     <div id="theme-modal">
         <div class="theme-close" id="close-theme">✕</div>
@@ -493,13 +464,11 @@
         </div>
     </div>
 
-    <!-- Zoom Tools -->
     <div id="zoom-tools">
         <button class="zoom-btn" onclick="changeZoom(0.1)">+</button>
         <button class="zoom-btn" onclick="changeZoom(-0.1)">-</button>
     </div>
 
-    <!-- Drawing Tools -->
     <button id="toggle-draw-btn-global">✏️ Малювати</button>
     <div id="draw-panel-global">
         <button class="close-draw-btn" id="close-draw-btn">✕</button>
@@ -512,12 +481,30 @@
             <button id="clear-canvas-btn">🗑️ Очистити</button>
         </div>
     </div>
-    <canvas id="draw-canvas-global"></canvas>
 
-    <!-- Основний ігровий простір з обгорткою для зуму -->
+    <!-- Основний ігровий простір (масштабований стіл) -->
     <div id="game-container">
-        <div id="zoom-wrapper">
+        <!-- Фіксований логічний розмір: 1200x800 -->
+        <div id="logical-board">
+            
+            <div id="player1-board" class="score-board">
+                <input type="text" id="p1-name" class="player-name" placeholder="Гравець 1">
+                <button class="score-btn minus-btn" data-player="1">-</button>
+                <div class="score-display" id="p1-score">0</div>
+                <button class="score-btn plus-btn" data-player="1">+</button>
+            </div>
+
+            <div id="player2-board" class="score-board">
+                <button class="score-btn minus-btn" data-player="2">-</button>
+                <div class="score-display" id="p2-score">0</div>
+                <button class="score-btn plus-btn" data-player="2">+</button>
+                <input type="text" id="p2-name" class="player-name" placeholder="Гравець 2">
+            </div>
+
+            <button id="restart-btn">🗘 Заново</button>
+
             <div id="cards-circle"></div>
+            
             <div id="task-machine">
                 <div class="machine-dome"></div>
                 <div id="task-display">
@@ -536,13 +523,16 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Полотно малювання тепер ідеально збігається з логічним столом -->
+            <canvas id="draw-canvas-global" width="1200" height="800"></canvas>
         </div>
     </div>
 
     <script>
         // --- Конфігурація та ініціалізація Firebase ---
         const CONFIG = {
-            gameId: 'microbe_lab_extended', // Унікальний ID
+            gameId: 'microbe_lab_synced', // Унікальний ID
             projectId: 'lesson-13c44'
         };
 
@@ -593,6 +583,28 @@
                 window.location.href = 'https://olgazheltvai2.github.io/rizne/lobby.html?user=' + encodeURIComponent(myName);
             }
         });
+
+        // --- Масштабування логічного столу під екран ---
+        const logicalBoard = document.getElementById('logical-board');
+        let manualZoom = 1;
+
+        function resizeBoard() {
+            // Розраховуємо коефіцієнт, щоб 1200x800 повністю влізло в екран
+            const scaleX = window.innerWidth / 1200;
+            const scaleY = window.innerHeight / 800;
+            const baseScale = Math.min(scaleX, scaleY) * 0.95; // 95% щоб були відступи
+            logicalBoard.style.transform = `scale(${baseScale * manualZoom})`;
+        }
+
+        window.addEventListener('resize', resizeBoard);
+        resizeBoard(); // Первинний виклик
+
+        window.changeZoom = function(amount) {
+            manualZoom += amount;
+            if (manualZoom < 0.3) manualZoom = 0.3;
+            if (manualZoom > 3) manualZoom = 3;
+            resizeBoard();
+        };
 
         // --- Аудіо система ---
         const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -713,11 +725,11 @@
         }
 
         async function loadBackgroundsSequence() {
-            // Строго послідовне завантаження, як вимагалося
+            // Строго послідовне завантаження, зупинка при 404
             for (let i = 1; i <= 1000; i++) {
                 const url = `https://olgazheltvai2.github.io/images/backgrounds/background_${i}.webp`;
                 const exists = await checkImageExists(url);
-                if (!exists) break; // Негайна зупинка при 404
+                if (!exists) break;
                 
                 const card = document.createElement('div');
                 card.className = 'theme-card';
@@ -728,7 +740,7 @@
         }
         loadBackgroundsSequence();
 
-        // --- Система малювання (Глобальна) ---
+        // --- Система малювання (Точно адаптована під логічний стіл) ---
         const canvas = document.getElementById('draw-canvas-global');
         const ctx = canvas.getContext('2d');
         const drawPanel = document.getElementById('draw-panel-global');
@@ -741,23 +753,16 @@
         let lastX = 0, lastY = 0;
         let currentTool = 'pencil';
 
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
-
         toggleDrawBtn.addEventListener('click', () => {
             drawPanel.style.display = 'block';
             isDrawingMode = true;
-            canvas.style.pointerEvents = 'auto';
+            canvas.style.pointerEvents = 'auto'; // Дозволяємо клікати по полотну
         });
 
         closeDrawBtn.addEventListener('click', () => {
             drawPanel.style.display = 'none';
             isDrawingMode = false;
-            canvas.style.pointerEvents = 'none';
+            canvas.style.pointerEvents = 'none'; // Відключаємо полотно
         });
 
         document.getElementById('tool-pencil').addEventListener('click', (e) => {
@@ -785,16 +790,21 @@
             const rect = canvas.getBoundingClientRect();
             const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
             const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+            
+            // Вираховуємо точні координати з врахуванням CSS transform: scale()
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
             return {
-                x: (clientX - rect.left) / canvas.width,
-                y: (clientY - rect.top) / canvas.height
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
             };
         }
 
         function drawLine(x0, y0, x1, y1, color, size, tool) {
             ctx.beginPath();
-            ctx.moveTo(x0 * canvas.width, y0 * canvas.height);
-            ctx.lineTo(x1 * canvas.width, y1 * canvas.height);
+            ctx.moveTo(x0, y0);
+            ctx.lineTo(x1, y1);
             ctx.strokeStyle = tool === 'eraser' ? 'rgba(0,0,0,1)' : color;
             ctx.lineWidth = size;
             ctx.lineCap = 'round';
@@ -869,16 +879,6 @@
         });
         window.addEventListener('mouseup', () => isDraggingDraw = false);
 
-        // --- Лупа (Zoom Tools) ---
-        let currentZoom = 1;
-        const zoomWrapper = document.getElementById('zoom-wrapper');
-        window.changeZoom = function(amount) {
-            currentZoom += amount;
-            if (currentZoom < 0.3) currentZoom = 0.3;
-            if (currentZoom > 2) currentZoom = 2;
-            zoomWrapper.style.transform = `scale(${currentZoom})`;
-        };
-
         // --- Декор: Бульбашки ---
         const bubblesLayer = document.getElementById('bubbles-layer');
         for (let i = 0; i < 30; i++) {
@@ -894,7 +894,7 @@
 
         // --- Основна Логіка Гри та Синхронізація Firebase ---
         const TASK_CARDS_COUNT = 48;
-        const TOTAL_CARDS = 19; // 8*2 + 3*1 = 16 + 3 = 19 карток
+        const TOTAL_CARDS = 19; // 8*2 + 3*1 = 19 карток
         
         let baseCards = [];
         let taskCards = [];
@@ -957,13 +957,15 @@
 
         function renderBaseCards() {
             circleContainer.innerHTML = '';
-            // Формуємо еліпс
-            const rx = 48; // Радіус по X (відсотки)
-            const ry = 46; // Радіус по Y (відсотки)
-            const totalCards = baseCards.length; // Буде 19
+            
+            // Радіуси еліпса тепер вираховуються у ВІДСОТКАХ ВІД 1200x800.
+            const rx = 44; // 44% від 1200px
+            const ry = 40; // 40% від 800px
+            const totalCards = baseCards.length;
             
             baseCards.forEach((cardImg, index) => {
                 const angle = (index / totalCards) * (2 * Math.PI);
+                
                 const x = 50 + rx * Math.cos(angle);
                 const y = 50 + ry * Math.sin(angle);
 
@@ -973,7 +975,7 @@
                 cardEl.style.left = `${x}%`;
                 cardEl.style.top = `${y}%`;
                 
-                // Безпечне завантаження з резервом
+                // Безпечне завантаження
                 cardEl.style.backgroundImage = `url('${cardImg}'), url('https://olgazheltvai2.github.io/images/elements/${cardImg}')`;
                 
                 const finalTransform = `translate(-50%, -50%) rotate(${angle + Math.PI/2}rad)`;
