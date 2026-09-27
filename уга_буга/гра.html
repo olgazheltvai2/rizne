@@ -617,15 +617,12 @@
             }
         });
 
-        // Ізольований та безпечний час з'єднання для запобігання дублюванню дій при старті
-        const gameConnectTime = Date.now();
         let isRemoteAction = false;
 
         function sendGameAction(type, data = {}) {
             if (isRemoteAction) return;
             db.ref(`game_action/${CONFIG.gameId}`).push({
                 senderId: mySenderId,
-                clientTime: Date.now(),
                 type: type,
                 ...data
             });
@@ -711,7 +708,9 @@
                 }
                 shuffleArray(deck);
                 history = [];
-                sendGameAction('init_game', { deck: deck });
+                if (!isRemoteAction) {
+                    sendGameAction('init_game', { deck: deck });
+                }
             }
         }
 
@@ -805,6 +804,7 @@
             historyModal.classList.remove('active');
         });
 
+        // ЗАВАНТАЖЕННЯ СТАНУ (Виконується лише один раз при старті)
         db.ref(`game_state/${CONFIG.gameId}`).once('value', snap => {
             const state = snap.val();
             if (state && state.deck) {
@@ -821,11 +821,18 @@
             }
         });
 
-        // Надійний слухач дій, який відсікає всі старі ходи завдяки фільтру по clientTime
-        db.ref(`game_action/${CONFIG.gameId}`)
-          .orderByChild('clientTime')
-          .startAt(gameConnectTime)
-          .on('child_added', (snap) => {
+        // НОВИЙ ІДЕАЛЬНИЙ МЕХАНІЗМ СИНХРОНІЗАЦІЇ (Бар'єрне завантаження)
+        let isGameActionReady = false;
+        const actionRef = db.ref(`game_action/${CONFIG.gameId}`).limitToLast(1);
+        
+        // Спочатку тихесенько завантажуємо історію, щоб не обробляти старі кліки
+        actionRef.once('value', () => {
+            isGameActionReady = true;
+        });
+
+        // Тепер слухаємо ТІЛЬКИ нові кліки, незалежно від годинника ПК
+        actionRef.on('child_added', (snap) => {
+            if (!isGameActionReady) return; // Ігноруємо старі події
             const data = snap.val();
             if (!data || data.senderId === mySenderId) return;
 
@@ -969,8 +976,7 @@
                     type: 'draw_line',
                     x0: x0 / window.innerWidth, y0: y0 / window.innerHeight,
                     x1: x1 / window.innerWidth, y1: y1 / window.innerHeight,
-                    color, size, mode, senderId: mySenderId,
-                    clientTime: Date.now()
+                    color, size, mode, senderId: mySenderId
                 });
             }
         }
@@ -1005,17 +1011,20 @@
             drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
             db.ref(`game_action_draw/${CONFIG.gameId}`).push({ 
                 type: 'clear_canvas', 
-                senderId: mySenderId,
-                clientTime: Date.now()
+                senderId: mySenderId 
             });
         });
 
-        // Ізольований слухач для малювання
-        const drawingConnectTime = Date.now();
-        db.ref(`game_action_draw/${CONFIG.gameId}`)
-          .orderByChild('clientTime')
-          .startAt(drawingConnectTime)
-          .on('child_added', snap => {
+        // НОВИЙ ІДЕАЛЬНИЙ МЕХАНІЗМ СИНХРОНІЗАЦІЇ ДЛЯ МАЛЮВАННЯ (Бар'єрне завантаження)
+        let isDrawActionReady = false;
+        const drawSyncRef = db.ref(`game_action_draw/${CONFIG.gameId}`).limitToLast(1);
+        
+        drawSyncRef.once('value', () => {
+            isDrawActionReady = true;
+        });
+
+        drawSyncRef.on('child_added', snap => {
+            if (!isDrawActionReady) return; // Ігноруємо старе малювання
             const data = snap.val();
             if (!data || data.senderId === mySenderId) return;
             
