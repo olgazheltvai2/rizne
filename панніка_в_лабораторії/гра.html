@@ -92,7 +92,7 @@
             padding: 10px;
             box-shadow: 0 0 15px #00ffcc;
             backdrop-filter: blur(5px);
-            z-index: 9999; /* Дуже високий z-index для гарантованого кліку */
+            z-index: 9999;
             pointer-events: auto;
         }
 
@@ -112,7 +112,7 @@
             outline: none;
             margin-right: 10px;
             padding: 5px;
-            pointer-events: auto; /* Дозволяє ввід тексту */
+            pointer-events: auto;
         }
         #player2-board .player-name {
             margin-right: 0;
@@ -181,13 +181,13 @@
             border-radius: 50%;
             border: 2px dashed rgba(0, 255, 204, 0.1);
             box-shadow: inset 0 0 50px rgba(0, 255, 204, 0.05);
-            pointer-events: none; /* Щоб пропускати кліки до карток */
+            pointer-events: none;
         }
 
         .base-card {
             position: absolute;
-            width: 110px; /* Збільшено розмір для кращої видимості */
-            height: 150px;
+            width: 100px; /* Трохи зменшено для 19 карток */
+            height: 135px;
             background: #111;
             border: 3px solid #555;
             border-radius: 10px;
@@ -211,7 +211,7 @@
         /* Машина завдань (Генератор) - Розширена */
         #task-machine {
             position: absolute;
-            width: 480px; /* Розширено для довгих карток */
+            width: 480px;
             height: 320px;
             background: linear-gradient(to bottom, #2a2a35, #111115);
             border: 5px solid #444;
@@ -247,7 +247,7 @@
         }
 
         #task-display {
-            width: 420px; /* Широке вікно для завдань */
+            width: 420px;
             height: 220px;
             background: #000;
             border: 3px solid #ff00ff;
@@ -263,7 +263,7 @@
         #task-image {
             width: 100%;
             height: 100%;
-            object-fit: contain; /* Завдання не будуть обрізатися */
+            object-fit: contain;
             display: none;
         }
 
@@ -542,7 +542,7 @@
     <script>
         // --- Конфігурація та ініціалізація Firebase ---
         const CONFIG = {
-            gameId: 'microbe_lab_wide', // Оновлено ID
+            gameId: 'microbe_lab_extended', // Унікальний ID
             projectId: 'lesson-13c44'
         };
 
@@ -713,10 +713,11 @@
         }
 
         async function loadBackgroundsSequence() {
+            // Строго послідовне завантаження, як вимагалося
             for (let i = 1; i <= 1000; i++) {
                 const url = `https://olgazheltvai2.github.io/images/backgrounds/background_${i}.webp`;
                 const exists = await checkImageExists(url);
-                if (!exists) break; 
+                if (!exists) break; // Негайна зупинка при 404
                 
                 const card = document.createElement('div');
                 card.className = 'theme-card';
@@ -773,7 +774,7 @@
 
         document.getElementById('clear-canvas-btn').addEventListener('click', () => {
             clearCanvas();
-            drawRef.push({ senderId, type: 'clear' });
+            drawRef.push({ senderId, type: 'clear_canvas' });
         });
 
         function clearCanvas() {
@@ -823,7 +824,7 @@
             drawLine(lastX, lastY, pos.x, pos.y, color, size, currentTool);
             
             drawRef.push({
-                senderId, type: 'draw',
+                senderId, type: 'draw_line',
                 x0: lastX, y0: lastY, x1: pos.x, y1: pos.y,
                 color, size, tool: currentTool
             });
@@ -844,9 +845,9 @@
         drawRef.on('child_added', (snap) => {
             const data = snap.val();
             if (data.senderId === senderId) return;
-            if (data.type === 'clear') {
+            if (data.type === 'clear_canvas') {
                 clearCanvas();
-            } else if (data.type === 'draw') {
+            } else if (data.type === 'draw_line') {
                 drawLine(data.x0, data.y0, data.x1, data.y1, data.color, data.size, data.tool);
             }
         });
@@ -892,8 +893,8 @@
         }
 
         // --- Основна Логіка Гри та Синхронізація Firebase ---
-        const BASE_CARDS_COUNT = 8;
         const TASK_CARDS_COUNT = 48;
+        const TOTAL_CARDS = 19; // 8*2 + 3*1 = 16 + 3 = 19 карток
         
         let baseCards = [];
         let taskCards = [];
@@ -932,10 +933,16 @@
 
         function generateDecksLocally() {
             baseCards = [];
-            for (let i = 1; i <= BASE_CARDS_COUNT; i++) {
+            // Карти 1-8 по 2 рази
+            for (let i = 1; i <= 8; i++) {
                 baseCards.push(`карта${i}.webp`);
-                baseCards.push(`карта${i}.webp`); // Дублюємо для 16 карт
+                baseCards.push(`карта${i}.webp`);
             }
+            // Карти 9, 10, 11 по 1 разу
+            baseCards.push(`карта9.webp`);
+            baseCards.push(`карта10.webp`);
+            baseCards.push(`карта11.webp`);
+            
             shuffleArray(baseCards);
 
             taskCards = [];
@@ -944,16 +951,16 @@
             }
             currentTaskDeck = [...taskCards];
             shuffleArray(currentTaskDeck);
-            highlightedStates = Array(16).fill(false);
+            highlightedStates = Array(TOTAL_CARDS).fill(false);
             scores = { p1: 0, p2: 0 };
         }
 
         function renderBaseCards() {
             circleContainer.innerHTML = '';
-            // Формуємо еліпс для більшого простору
-            const rx = 45; // Радіус по X (у відсотках)
-            const ry = 45; // Радіус по Y
-            const totalCards = baseCards.length;
+            // Формуємо еліпс
+            const rx = 48; // Радіус по X (відсотки)
+            const ry = 46; // Радіус по Y (відсотки)
+            const totalCards = baseCards.length; // Буде 19
             
             baseCards.forEach((cardImg, index) => {
                 const angle = (index / totalCards) * (2 * Math.PI);
@@ -966,7 +973,7 @@
                 cardEl.style.left = `${x}%`;
                 cardEl.style.top = `${y}%`;
                 
-                // Спочатку намагаємося завантажити з локальної папки, інакше з GitHub
+                // Безпечне завантаження з резервом
                 cardEl.style.backgroundImage = `url('${cardImg}'), url('https://olgazheltvai2.github.io/images/elements/${cardImg}')`;
                 
                 const finalTransform = `translate(-50%, -50%) rotate(${angle + Math.PI/2}rad)`;
@@ -982,7 +989,7 @@
                     } else {
                         cardEl.style.transform = finalTransform;
                     }
-                }, index * 50);
+                }, index * 40);
 
                 cardEl.addEventListener('click', () => {
                     const isHigh = !cardEl.classList.contains('highlighted');
@@ -997,10 +1004,9 @@
             });
         }
 
-        // Функція безпечного встановлення картинки (Локальна -> GitHub -> SVG)
         function setSecureImage(imgElement, fileName) {
             imgElement.dataset.triedGit = "false";
-            imgElement.src = fileName; // Спочатку пробуємо локальний файл
+            imgElement.src = fileName; 
             imgElement.onerror = () => {
                 if (imgElement.dataset.triedGit === "false") {
                     imgElement.dataset.triedGit = "true";
@@ -1087,7 +1093,7 @@
             if (state && state.baseCards) {
                 baseCards = state.baseCards;
                 currentTaskDeck = state.currentTaskDeck || [];
-                highlightedStates = state.highlightedStates || Array(16).fill(false);
+                highlightedStates = state.highlightedStates || Array(TOTAL_CARDS).fill(false);
                 scores = state.scores || { p1: 0, p2: 0 };
                 names = state.names || { p1: "", p2: "" };
                 
@@ -1137,7 +1143,7 @@
             } else if (action.type === 'RESTART_GAME') {
                 baseCards = action.data.baseCards;
                 currentTaskDeck = action.data.currentTaskDeck || [];
-                highlightedStates = Array(16).fill(false);
+                highlightedStates = Array(TOTAL_CARDS).fill(false);
                 scores = { p1: 0, p2: 0 };
                 document.getElementById('p1-score').textContent = '0';
                 document.getElementById('p2-score').textContent = '0';
