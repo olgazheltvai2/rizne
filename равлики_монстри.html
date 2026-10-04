@@ -40,11 +40,12 @@
         /* Ігрове поле */
         #game-container {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 2; overflow: hidden; pointer-events: none; /* Щоб не блокувати UI */
+            z-index: 2; overflow: hidden; pointer-events: none; 
         }
         #game-board {
-            position: absolute; transform-origin: 0 0; pointer-events: auto;
-            width: 5000px; height: 5000px; cursor: grab; background: transparent;
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; 
+            transform-origin: center center; pointer-events: auto;
+            cursor: grab; background: transparent;
         }
         #game-board:active { cursor: grabbing; }
 
@@ -104,15 +105,15 @@
         #btn-settings {
             position: fixed; top: 20px; left: 20px; width: 45px; height: 45px;
             background: linear-gradient(135deg, #3a0000, #1a0000); border: 2px solid #ff5722;
-            border-radius: 8px; z-index: 10000; cursor: pointer; display: none;
+            border-radius: 8px; z-index: 95000; cursor: pointer; display: none;
             justify-content: center; align-items: center; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: all 0.2s;
         }
         #btn-settings:hover { transform: scale(1.1); box-shadow: 0 5px 20px rgba(255, 87, 34, 0.4); }
-        #btn-settings svg { width: 25px; height: 25px; fill: #ff5722; transition: transform 0.3s; }
+        #btn-settings svg { width: 25px; height: 25px; fill: #ff5722; transition: transform 0.3s; pointer-events: none; }
         #btn-settings.open svg { transform: rotate(90deg); }
 
         #controls-panel {
-            position: fixed; top: 75px; left: 20px; z-index: 9999;
+            position: fixed; top: 75px; left: 20px; z-index: 94000;
             background: rgba(26, 0, 0, 0.9); backdrop-filter: blur(8px);
             border: 2px solid #5d1a1a; border-radius: 12px; padding: 20px; color: #ffab91;
             box-shadow: 0 10px 30px rgba(0,0,0,0.8); display: flex; flex-direction: column; gap: 15px; width: 250px;
@@ -149,7 +150,7 @@
             display: flex; justify-content: center; align-items: center; transition: transform 0.2s; position: relative;
         }
         .hand-card:hover { transform: translateY(-10px); box-shadow: 0 10px 20px rgba(255, 87, 34, 0.4); border-color: #ff5722; z-index: 5; }
-        .hand-card svg { width: 95%; height: 95%; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.9)); }
+        .hand-card svg { width: 95%; height: 95%; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.9)); pointer-events: none; }
         
         #deck-info {
             color: #ffab91; font-size: 16px; font-weight: bold; background: rgba(0,0,0,0.8);
@@ -180,7 +181,7 @@
         .btn-large:hover { transform: scale(1.05); }
         .btn-join { background: #0288d1; }
         .btn-obs { background: #555; }
-        .btn-start { background: #388e3c; display: none; } /* З'являється коли є хоча б 1 гравець */
+        .btn-start { background: #388e3c; display: none; } 
 
         /* ТЕМИ ТА ГЛОБАЛЬНЕ МАЛЮВАННЯ */
         #theme-manager-btn {
@@ -198,7 +199,7 @@
         .theme-close { cursor: pointer; color: #ff5722; }
         #theme-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; overflow-y: auto; padding-right: 10px; }
         .theme-thumb { height: 100px; background-size: cover; background-position: center; border: 2px solid #555; border-radius: 8px; cursor: pointer; display: flex; align-items: flex-end; }
-        .theme-thumb span { background: rgba(0,0,0,0.7); color: white; width: 100%; text-align: center; padding: 5px 0; font-size: 14px; }
+        .theme-thumb span { background: rgba(0,0,0,0.7); color: white; width: 100%; text-align: center; padding: 5px 0; font-size: 14px; border-bottom-left-radius: 6px; border-bottom-right-radius: 6px; }
         .theme-thumb.none-bg { background: #333; }
 
         #drawing-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 90000; pointer-events: none; }
@@ -267,7 +268,7 @@
     </div>
 
     <!-- Кнопка налаштувань -->
-    <button id="btn-settings">
+    <button id="btn-settings" onclick="toggleSettings()">
         <svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 C9.64,21.59,9.84,21.76,10.08,21.76h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>
     </button>
     <div id="controls-panel">
@@ -345,7 +346,7 @@
 // ===============================
 // УНІВЕРСАЛЬНИЙ БЛОК КОНТРОЛЮ
 // ===============================
-const CONFIG = { gameId: 'mars_expedition_v2' };
+const CONFIG = { gameId: 'mars_expedition_v3' };
 const firebaseConfig = { databaseURL: "https://lesson-13c44-default-rtdb.firebaseio.com/", projectId: "lesson-13c44" };
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
@@ -376,15 +377,15 @@ db.ref('current_activity').on('value', snap => {
 // ===============================
 let isRemoteAction = false;
 let gameState = {
-    status: 'waiting', // waiting, playing
-    players: [], // {id: 0, name: 'Ім'я'}
+    status: 'waiting', 
+    players: [], 
     sequenceMultiplier: 4,
     fullPath: [],
     deck: [],
-    playerHands: {}, // { "0": [c1, c2, c3], "1": [...] }
+    playerHands: {}, 
     positions: {}
 };
-let myPlayerId = null; // null якщо спостерігач, 0,1,2... якщо гравець
+let myPlayerId = null; // null якщо спостерігач
 let zoomLevel = 1;
 let currentPanX = 0, currentPanY = 0;
 
@@ -523,7 +524,6 @@ function spawnMonsters() {
         m.innerHTML = `<div class="monster-label" style="color:${tpl.color}; border-color:${tpl.color};">${player.name}</div>
                        <svg viewBox="0 0 100 100" width="100%" height="100%">${tpl.svg}</svg>`;
                        
-        // Перевірка збереженої позиції
         const savedPos = gameState.positions && gameState.positions[m.id];
         if (savedPos) {
             if (savedPos.cardIndex !== undefined && savedPos.cardIndex !== null) {
@@ -553,13 +553,13 @@ function renderHands() {
     wrapper.innerHTML = ''; wrapper.appendChild(deckInfo);
     deckInfo.textContent = `Карток у колоді: ${gameState.deck ? gameState.deck.length : 0}`;
 
-    // Якщо спостерігач - малюємо всі. Якщо гравець - малюємо ТІЛЬКИ свою.
     const idsToRender = (myPlayerId === null) ? gameState.players.map(p=>p.id) : [myPlayerId];
     
     idsToRender.forEach(pId => {
         if(!gameState.playerHands || !gameState.playerHands[pId]) return;
         const handData = gameState.playerHands[pId];
-        const player = gameState.players.find(p => p.id === pId);
+        const player = gameState.players.find(p => Number(p.id) === Number(pId));
+        if(!player) return;
         const color = monsterTemplates[pId % monsterTemplates.length].color;
 
         const container = document.createElement('div');
@@ -569,7 +569,7 @@ function renderHands() {
         const title = document.createElement('div');
         title.className = 'player-hand-title';
         title.style.color = color;
-        title.textContent = myPlayerId === pId ? `Ваші карти (${player.name})` : `Карти: ${player.name}`;
+        title.textContent = Number(myPlayerId) === Number(pId) ? `Ваші карти (${player.name})` : `Карти: ${player.name}`;
         container.appendChild(title);
 
         handData.forEach((card, cIndex) => {
@@ -577,9 +577,10 @@ function renderHands() {
             cardDiv.className = 'hand-card';
             if(card) cardDiv.innerHTML = card.svg;
             
-            cardDiv.addEventListener('pointerdown', (e) => {
+            // Надійний onclick, з безпечною перевіркою типів (Number)
+            cardDiv.onclick = (e) => {
                 e.stopPropagation();
-                if (myPlayerId !== null && myPlayerId !== pId) return; // Не можна тягнути чужі карти
+                if (myPlayerId === null || Number(myPlayerId) !== Number(pId)) return; // Спостерігачі та інші гравці не можуть скидати карти
                 if (!gameState.deck || gameState.deck.length === 0) initDeck();
                 
                 gameState.playerHands[pId][cIndex] = gameState.deck.pop();
@@ -590,7 +591,7 @@ function renderHands() {
                     pushFullState();
                 }
                 renderHands();
-            });
+            };
             container.appendChild(cardDiv);
         });
         wrapper.appendChild(container);
@@ -600,11 +601,14 @@ function renderHands() {
 // ===============================
 // УПРАВЛІННЯ / ЗУМ / ДРЕГ
 // ===============================
-const btnSettings = document.getElementById('btn-settings');
-const controlsPanel = document.getElementById('controls-panel');
-btnSettings.addEventListener('click', () => {
-    playSound('card'); btnSettings.classList.toggle('open'); controlsPanel.classList.toggle('visible');
-});
+function toggleSettings() {
+    playSound('card'); 
+    const btn = document.getElementById('btn-settings');
+    const panel = document.getElementById('controls-panel');
+    btn.classList.toggle('open'); 
+    panel.classList.toggle('visible');
+}
+
 document.getElementById('path-length').addEventListener('input', e => document.getElementById('length-display').textContent = e.target.value);
 
 document.getElementById('btn-rebuild').addEventListener('click', () => {
@@ -613,7 +617,6 @@ document.getElementById('btn-rebuild').addEventListener('click', () => {
     generatePathData();
     renderBoard();
     
-    // Скидаємо позиції монстрів
     gameState.positions = {};
     spawnMonsters();
     
@@ -621,7 +624,7 @@ document.getElementById('btn-rebuild').addEventListener('click', () => {
         sendAction('rebuild_board', { multiplier: gameState.sequenceMultiplier, fullPath: gameState.fullPath });
         pushFullState();
     }
-    btnSettings.classList.remove('open'); controlsPanel.classList.remove('visible');
+    toggleSettings();
 });
 
 const gameBoard = document.getElementById('game-board');
@@ -645,8 +648,8 @@ window.addEventListener('pointerup', () => isPanning = false);
 function makeMonsterDraggable(monster) {
     let isDragging = false, startX, startY, initialLeft, initialTop;
     monster.addEventListener('pointerdown', e => {
-        // Дозволяємо тягнути тільки свого монстра (або всіх, якщо спостерігач/хост)
-        if (myPlayerId !== null && monster.id !== `monster_${myPlayerId}`) return;
+        // Тільки власник монстра може його тягнути
+        if (myPlayerId === null || monster.id !== 'monster_' + myPlayerId) return;
         
         isDragging = true; monster.classList.add('dragging'); playSound('pickup'); e.stopPropagation();
 
@@ -816,7 +819,7 @@ function drawLine(x0, y0, x1, y1, color, size, isEraser) {
 }
 function remoteDrawLine(data) { drawLine(data.x0*canvas.width, data.y0*canvas.height, data.x1*canvas.width, data.y1*canvas.height, data.color, data.size, data.isEraser); }
 
-// Дрег панелі
+// Дрег панелі малювання
 const drawPanel = document.getElementById('draw-panel-global');
 let dpDragging = false, dpStartX, dpStartY, dpInitX, dpInitY;
 drawPanel.querySelector('.draw-drag-handle').addEventListener('pointerdown', e => {
@@ -844,7 +847,6 @@ db.ref('mars_game_state').on('value', snap => {
             document.getElementById('lobby-screen').style.display = 'flex';
             updateLobbyUI();
         } else if (gameState.status === 'playing') {
-            // Перевіряємо чи гравець був у лобі. Якщо сторінка оновилась, знаходимо id за іменем
             if (myPlayerId === null) {
                 const found = gameState.players.find(p => p.name === myName);
                 if (found) myPlayerId = found.id;
