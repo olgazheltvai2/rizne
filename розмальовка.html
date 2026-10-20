@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Розмальовка для уроку</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f4f9; margin: 0; padding: 20px; }
+        
+        .workspace { display: flex; gap: 30px; justify-content: center; align-items: flex-start; max-width: 1300px; margin: 0 auto; }
+        
+        /* Зона з картинкою і зумом */
+        .canvas-area { display: flex; flex-direction: column; flex-grow: 1; align-items: center; width: 100%; max-width: 850px; }
+        .controls { margin-bottom: 15px; display: flex; align-items: center; gap: 15px; width: 100%; justify-content: space-between; flex-wrap: wrap; }
+        
+        .toolbar-group { display: flex; gap: 10px; align-items: center; }
+        
+        .btn-action {
+            padding: 8px 12px; font-size: 14px; cursor: pointer; border-radius: 6px; 
+            border: 1px solid #ccc; background: white; transition: background 0.2s;
+        }
+        .btn-action:hover { background: #e0e0e0; }
+        .btn-action:active { background: #ccc; }
+        .btn-action:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Контейнер для прокрутки наближеної картинки */
+        .canvas-container {
+            width: 100%; height: 75vh; overflow: auto; border: 2px dashed #bbb; background: #fff; position: relative;
+            display: flex; justify-content: center; align-items: flex-start;
+        }
+        canvas { cursor: crosshair; display: block; transform-origin: top left; margin: auto; }
+        
+        /* Права панель */
+        .sidebar { display: flex; flex-direction: column; align-items: center; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); min-width: 250px; }
+        
+        .palette-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+        .color-btn { width: 35px; height: 35px; border-radius: 50%; border: 2px solid #ddd; cursor: pointer; transition: transform 0.1s; }
+        .color-btn:hover { transform: scale(1.1); }
+        .active-color { border-color: #000; transform: scale(1.15); box-shadow: 0 0 5px rgba(0,0,0,0.5); }
+        
+        .custom-color-wrapper { text-align: center; margin-bottom: 15px; padding: 10px; border-top: 1px solid #eee; width: 100%; border-radius: 8px; cursor: pointer; }
+        .custom-color-wrapper.active-color { background: #eef8ff; border: 2px solid #000; }
+        input[type="color"] { width: 100%; height: 40px; cursor: pointer; border: none; background: none; }
+        
+        /* Блок налаштування питань */
+        .tasks-setup { width: 100%; margin-bottom: 20px; border-top: 1px solid #eee; padding-top: 15px; }
+        .tasks-setup summary { cursor: pointer; font-size: 14px; color: #555; font-weight: bold; outline: none; }
+        .tasks-setup textarea { width: 100%; box-sizing: border-box; resize: vertical; border: 1px solid #ccc; border-radius: 6px; padding: 8px; margin-top: 10px; font-family: inherit; font-size: 13px; }
+
+        /* Кнопка вчителя та підказка */
+        .lock-btn { width: 20px; height: 20px; background: #d0d0d0; border-radius: 50%; border: none; cursor: pointer; margin-top: 10px; outline: none; transition: 0.2s; }
+        .lock-btn:hover { background: #ffaaaa; transform: scale(1.2); }
+        
+        .hotkeys-memo { background: #fffde7; border: 1px solid #ffe082; padding: 10px; border-radius: 8px; font-size: 12px; color: #555; margin-top: 15px; text-align: center; line-height: 1.5; width: 100%; box-sizing: border-box; }
+
+        /* Модальне вікно із завданням */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center;
+        }
+        .modal-box { background: white; padding: 40px; border-radius: 16px; text-align: center; max-width: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .modal-box h2 { color: #333; margin-bottom: 30px; font-size: 28px; line-height: 1.4; }
+        .modal-box button { background: #4CAF50; color: white; border: none; padding: 15px 30px; font-size: 18px; border-radius: 8px; cursor: pointer; }
+        .modal-box button:hover { background: #45a049; }
+
+        .hint { font-size: 12px; color: #777; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+    <div class="workspace">
+        <!-- Ліва частина -->
+        <div class="canvas-area">
+            <div class="controls">
+                <div class="toolbar-group">
+                    <div>
+                        <input type="file" id="upload" accept="image/*">
+                        <div class="hint">або клікніть сюди і натисніть <b>Ctrl+V</b></div>
+                    </div>
+                </div>
+                
+                <div class="toolbar-group">
+                    <button id="undoBtn" class="btn-action" disabled title="Скасувати останню дію">↩️ Відмінити</button>
+                    <button id="zoomOut" class="btn-action" title="Віддалити">➖</button>
+                    <button id="resetZoom" class="btn-action" title="Вмістити цілком">🖥️ Вмістити</button>
+                    <button id="zoomIn" class="btn-action" title="Наблизити">➕</button>
+                </div>
+            </div>
+            
+            <div class="canvas-container" id="scrollContainer">
+                <canvas id="canvas"></canvas>
+            </div>
+        </div>
+
+        <!-- Права частина -->
+        <div class="sidebar">
+            <h3 style="margin-top: 0;">Палітра</h3>
+            <div class="palette-grid" id="palette"></div>
+            
+            <div class="custom-color-wrapper" id="customColorContainer">
+                <label style="font-size: 14px; color: #555; pointer-events: none;">Власний колір:</label>
+                <input type="color" id="customColor" value="#44eebb">
+            </div>
+
+            <!-- Блок для ваших питань -->
+            <details class="tasks-setup">
+                <summary>📝 Налаштувати питання</summary>
+                <textarea id="tasksInput" rows="6"></textarea>
+            </details>
+
+            <button class="lock-btn" id="lockBtn" title="Кнопка-сюрприз"></button>
+            
+            <!-- Пам'ятка для вчителя -->
+            <div class="hotkeys-memo">
+                <b>💡 Керування завданнями:</b><br>
+                <b>Стрілка ➡️</b> : Наступне питання<br>
+                <b>Стрілка ⬅️</b> : Попереднє питання<br>
+                <b>Enter / Esc</b> : Закрити питання
+            </div>
+        </div>
+    </div>
+
+    <!-- Вікно завдання -->
+    <div class="modal-overlay" id="taskModal">
+        <div class="modal-box">
+            <h2 id="taskText">Завдання</h2>
+            <button id="unlockBtn">Молодець! Продовжуємо малювати</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const scrollContainer = document.getElementById('scrollContainer');
+        
+        let currentColor = [255, 51, 51, 255]; 
+        let isLocked = false;
+        let scale = 1.0;
+        let historyStack = [];
+        let taskIndex = 0; 
+        
+        // Змінна для пам'яті оригінальних ліній
+        let originalImageData = null;
+
+        // Базові питання
+        const defaultTasks = [
+            "Скільки буде 14 + 3?",
+    "Скільки буде 25 + 4?",
+    "Скільки буде 42 + 35?",
+    "Скільки буде 60 + 20?",
+    "Скільки буде 8 + 6?",
+    "Скільки буде 37 + 2?",
+    "Скільки буде 51 + 18?",
+    "Скільки буде 9 + 5?",
+    "Скільки буде 73 + 4?",
+    "Скільки буде 20 + 50?",
+    "Скільки буде 46 + 3?",
+    "Скільки буде 12 + 6?",
+    "Скільки буде 54 + 21?",
+    "Скільки буде 7 + 8?",
+    "Скільки буде 81 + 7?",
+    "Скільки буде 30 + 40?",
+    "Скільки буде 65 + 3?",
+    "Скільки буде 24 + 13?",
+    "Скільки буде 9 + 4?",
+    "Скільки буде 72 + 15?",
+    "Скільки буде 40 + 30?",
+    "Скільки буде 18 + 1?",
+    "Скільки буде 63 + 4?",
+    "Скільки буде 8 + 7?",
+    "Скільки буде 52 + 24?",
+    "Скільки буде 10 + 70?",
+    "Скільки буде 35 + 4?",
+    "Скільки буде 21 + 38?",
+    "Скільки буде 6 + 9?",
+    "Скільки буде 44 + 32?",
+    "Скільки буде 50 + 20?",
+    "Скільки буде 83 + 5?",
+    "Скільки буде 15 + 4?",
+    "Скільки буде 7 + 6?",
+    "Скільки буде 61 + 27?",
+    "Скільки буде 30 + 60?",
+    "Скільки буде 26 + 2?",
+    "Скільки буде 53 + 14?",
+    "Скільки буде 9 + 7?",
+    "Скільки буде 42 + 16?",
+    "Скільки буде 20 + 30?",
+    "Скільки буде 75 + 3?",
+    "Скільки буде 14 + 25?",
+    "Скільки буде 8 + 8?",
+    "Скільки буде 64 + 22?",
+    "Скільки буде 40 + 40?",
+    "Скільки буде 31 + 6?",
+    "Скільки буде 17 + 2?",
+    "Скільки буде 55 + 34?",
+    "Скільки буде 9 + 6?"
+        ];
+        document.getElementById('tasksInput').value = defaultTasks.join('\n');
+
+        const colors = [
+            "#FFFFFF", "#000000", "#7F7F7F", "#C3C3C3", 
+            "#FF0000", "#FFA500", "#FFFF00", "#00FF00", 
+            "#0000FF", "#800080", "#FFC0CB", "#A52A2A", 
+            "#87CEEB", "#FF4500", "#32CD32", "#FFD700",
+            "#9370DB", "#FF1493", "#00FFFF", "#F5F5DC"
+        ];
+
+        // Ініціалізація палітри
+        colors.forEach((hex, index) => {
+            const btn = document.createElement('div');
+            btn.className = 'color-btn' + (index === 4 ? ' active-color' : '');
+            btn.style.background = hex;
+            btn.dataset.color = hex;
+            document.getElementById('palette').appendChild(btn);
+
+            btn.addEventListener('click', function() {
+                removeActiveClasses();
+                this.classList.add('active-color');
+                currentColor = hexToRgb(this.dataset.color);
+            });
+        });
+
+        const customColorContainer = document.getElementById('customColorContainer');
+        const customColorPicker = document.getElementById('customColor');
+        
+        function activateCustomColor() {
+            removeActiveClasses();
+            customColorContainer.classList.add('active-color');
+            currentColor = hexToRgb(customColorPicker.value);
+        }
+        customColorContainer.addEventListener('click', activateCustomColor);
+        customColorPicker.addEventListener('input', activateCustomColor);
+
+        function removeActiveClasses() {
+            document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active-color'));
+            customColorContainer.classList.remove('active-color');
+        }
+
+        function hexToRgb(hex) {
+            let bigint = parseInt(hex.replace('#', ''), 16);
+            return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255, 255];
+        }
+
+        // ІСТОРІЯ ТА СКАСУВАННЯ
+        const undoBtn = document.getElementById('undoBtn');
+        function saveState() {
+            if (historyStack.length >= 5) historyStack.shift();
+            historyStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+            undoBtn.disabled = false;
+        }
+
+        undoBtn.addEventListener('click', () => {
+            if (historyStack.length > 0) {
+                const prevState = historyStack.pop();
+                ctx.putImageData(prevState, 0, 0);
+                if (historyStack.length === 0) undoBtn.disabled = true;
+            }
+        });
+
+        // МАСШТАБ
+        function updateZoom() {
+            canvas.style.width = (canvas.width * scale) + 'px';
+            canvas.style.height = (canvas.height * scale) + 'px';
+        }
+        
+        function fitToScreen() {
+            const padding = 20;
+            const scaleX = (scrollContainer.clientWidth - padding) / canvas.width;
+            const scaleY = (scrollContainer.clientHeight - padding) / canvas.height;
+            scale = Math.min(scaleX, Math.min(scaleY, 1)); 
+            updateZoom();
+        }
+
+        document.getElementById('zoomIn').addEventListener('click', () => { scale += 0.2; updateZoom(); });
+        document.getElementById('zoomOut').addEventListener('click', () => { if(scale > 0.2) { scale -= 0.2; updateZoom(); } });
+        document.getElementById('resetZoom').addEventListener('click', fitToScreen);
+
+        // ЗАВАНТАЖЕННЯ (ФАЙЛ / Ctrl+V)
+        document.getElementById('upload').addEventListener('change', (e) => {
+            if (e.target.files[0]) loadImage(URL.createObjectURL(e.target.files[0]));
+        });
+
+        window.addEventListener('paste', e => {
+            const clipboardData = e.clipboardData || window.clipboardData;
+            if (!clipboardData) return;
+            for (let i = 0; i < clipboardData.items.length; i++) {
+                if (clipboardData.items[i].type.indexOf('image') !== -1) {
+                    loadImage(URL.createObjectURL(clipboardData.items[i].getAsFile()));
+                    e.preventDefault();
+                    return;
+                }
+            }
+        });
+
+        function loadImage(src) {
+            const img = new Image();
+            img.src = src;
+            img.onload = () => {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                fitToScreen(); 
+                ctx.drawImage(img, 0, 0);
+                
+                // ЗАПАМ'ЯТОВУЄМО ОРИГІНАЛЬНІ ЛІНІЇ
+                originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                
+                historyStack = [];
+                undoBtn.disabled = true;
+            };
+        }
+
+        // КЕРУВАННЯ ПИТАННЯМИ 
+        const lockBtn = document.getElementById('lockBtn');
+        const taskModal = document.getElementById('taskModal');
+        const unlockBtn = document.getElementById('unlockBtn');
+        const taskText = document.getElementById('taskText');
+        const tasksInput = document.getElementById('tasksInput');
+
+        function openTask(direction = 1) {
+            const currentTasks = tasksInput.value.split('\n').map(t => t.trim()).filter(t => t.length > 0);
+            if (currentTasks.length === 0) {
+                taskText.innerText = "Вчитель ще не додав жодного завдання 😅";
+            } else {
+                if (isLocked) {
+                    taskIndex += direction;
+                }
+                
+                if (taskIndex >= currentTasks.length) taskIndex = 0;
+                if (taskIndex < 0) taskIndex = currentTasks.length - 1;
+                
+                taskText.innerText = currentTasks[taskIndex];
+            }
+            
+            isLocked = true;
+            taskModal.style.display = "flex";
+        }
+
+        function closeTask() {
+            isLocked = false;
+            taskModal.style.display = "none";
+            taskIndex++; 
+        }
+
+        lockBtn.addEventListener('click', () => openTask(1));
+        unlockBtn.addEventListener('click', closeTask);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+
+            if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                openTask(1); 
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                openTask(-1); 
+            } else if ((e.key === 'Enter' || e.key === 'Escape') && isLocked) {
+                e.preventDefault();
+                closeTask();
+            }
+        });
+
+        // ЗАЛИВКА ІЗ ЗАХИСТОМ ОРИГІНАЛЬНИХ ЛІНІЙ
+        canvas.addEventListener('click', (e) => {
+            if (isLocked || !originalImageData) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) * (canvas.width / rect.width));
+            const y = Math.floor((e.clientY - rect.top) * (canvas.height / rect.height));
+            floodFill(x, y, currentColor);
+        });
+
+        function floodFill(startX, startY, fillColor) {
+            if (startX < 0 || startY < 0 || startX >= canvas.width || startY >= canvas.height) return;
+
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            const origData = originalImageData.data; // Пам'ять про контури
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            const startPos = (startY * width + startX) * 4;
+            const startR = data[startPos];
+            const startG = data[startPos + 1];
+            const startB = data[startPos + 2];
+
+            // Якщо клікнули прямо на ОРИГІНАЛЬНУ чорну лінію — нічого не робимо
+            if (origData[startPos] < 50 && origData[startPos + 1] < 50 && origData[startPos + 2] < 50) return;
+
+            // Якщо колір пікселя вже такий, яким ми хочемо малювати — не витрачаємо час
+            if (Math.abs(startR - fillColor[0]) < 5 && 
+                Math.abs(startG - fillColor[1]) < 5 && 
+                Math.abs(startB - fillColor[2]) < 5) return;
+
+            saveState(); // Зберігаємо для кнопки відміни
+
+            const stack = [startX, startY];
+            const visited = new Uint8Array(width * height);
+
+            while (stack.length > 0) {
+                const y = stack.pop();
+                const x = stack.pop();
+                const idx = y * width + x;
+
+                if (visited[idx]) continue;
+                visited[idx] = 1;
+
+                const pos = idx * 4;
+
+                // Перевіряємо, чи був цей піксель чорною лінією В ОРИГІНАЛІ
+                const isOriginalBlackLine = origData[pos] < 50 && origData[pos+1] < 50 && origData[pos+2] < 50;
+
+                // Малюємо ТІЛЬКИ якщо це не оригінальна лінія і колір співпадає зі стартовим
+                if (!isOriginalBlackLine && colorMatch(data[pos], data[pos+1], data[pos+2], [startR, startG, startB])) {
+                    data[pos] = fillColor[0];
+                    data[pos+1] = fillColor[1];
+                    data[pos+2] = fillColor[2];
+                    data[pos+3] = fillColor[3];
+
+                    if (x > 0 && !visited[idx - 1]) stack.push(x - 1, y);
+                    if (x < width - 1 && !visited[idx + 1]) stack.push(x + 1, y);
+                    if (y > 0 && !visited[idx - width]) stack.push(x, y - 1);
+                    if (y < height - 1 && !visited[idx + width]) stack.push(x, y + 1);
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function colorMatch(r, g, b, targetColor) {
+            return Math.abs(r - targetColor[0]) < 60 &&
+                   Math.abs(g - targetColor[1]) < 60 &&
+                   Math.abs(b - targetColor[2]) < 60;
+        }
+
+        // Ініціалізація першого екрану
+        canvas.width = 800;
+        canvas.height = 600;
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#aaa";
+        ctx.font = "24px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("Завантажте фото або натисніть Ctrl+V", canvas.width / 2, canvas.height / 2);
+        
+        // Запам'ятовуємо стартовий білий екран як "оригінал"
+        originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        fitToScreen();
+    </script>
+</body>
+</html>
