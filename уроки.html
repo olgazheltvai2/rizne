@@ -593,7 +593,7 @@
                     '<text x="50%" y="42%" dominant-baseline="middle" text-anchor="middle" font-size="46">' + emoji + '</text>' +
                     '<rect x="10" y="' + (h - 58) + '" width="' + (w - 20) + '" height="46" rx="8" fill="rgba(9,13,22,0.78)"/>' +
                     '<text x="50%" y="' + (h - 39) + '" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-family="Inter,sans-serif" font-weight="700" font-size="13">' + line1 + '</text>' +
-                    '<text x="50%" y="' + (h - 21) + '" dominant-baseline="middle" text-anchor="middle" fill="#cbd5e1" font-family="Inter,sans-serif" font-weight="500" font-size="11">' + line2 + '</text>' +
+                    '<text x="50%" y="' + (h - 21) + '" dominant-baseline="middle" text-anchor="middle" fill="#cbd5fe" font-family="Inter,sans-serif" font-weight="500" font-size="11">' + line2 + '</text>' +
                     '</svg>';
                 return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
             }
@@ -601,7 +601,7 @@
             // Повністю чистий початковий стан БЕЗ жодних демо-карток
             function buildInitialState() {
                 return {
-                    schemaVersion: 6,
+                    schemaVersion: 7,
                     isInitialTemplate: true,
                     updatedAt: 0,
                     clientId: MY_CLIENT_ID,
@@ -682,7 +682,7 @@
                     });
                 });
 
-                // 2. Міграція в ієрархію "👥 УЧНІ" та "📚 ТЕМИ", якщо файл був плоским (як ваш doshka-urokiv-avto_2.json)
+                // 2. Міграція в ієрархію "👥 УЧНІ" та "📚 ТЕМИ", якщо файл був плоским
                 const hasHierarchy = parsed.boards.some(function (b) {
                     return typeof b.parentId !== 'undefined' || b.id === 'b_root_students' || b.id === 'b_root_topics';
                 });
@@ -706,7 +706,7 @@
                 }
 
                 parsed.hasDemoData = false;
-                parsed.schemaVersion = 6;
+                parsed.schemaVersion = 7;
                 return parsed;
             }
 
@@ -716,24 +716,365 @@
 
             let editingContext = { lessonId: null, cardId: null, galleryImages: [] };
             let duplicatingContext = null;
-            let lightboxContext = { lessonId: null, cardId: null, zoom: 1, slideIndex: 0 };
+            let lightboxContext = { lessonId: null, cardId: null, zoom: 1, slideIndex: 0, images: [] };
             let dialogCallback = null;
             let genCoverTheme = { bg1: '#4f46e5', bg2: '#9333ea', emoji: '🚀' };
             let draggedCard = null;
             let draggedBoardId = null;
             let singleClickTimer = null;
+            let thumbSliderSaveTimer = null;
 
             const LS_KEY = 'VisualLessonBoard_State_v4';
             const IDB_NAME = 'VisualLessonBoardDB_v4';
             const IDB_STORE = 'boardStore';
 
             /* ========================================================================
-               АВТОМАТИЧНА ХМАРА FIREBASE (https://lesson-13c44-default-rtdb.firebaseio.com/)
-               Нова чиста гілка state_v2 — ніколи не перезаписує ваші дані демо-шаблоном!
+               СХОВИЩЕ ПОВНОРОЗМІРНИХ КАРТИНОК (card_media) ТА ЛЕГКИХ МІНІАТЮР
                ======================================================================== */
-            let fbBoardRef = null;
-            let isApplyingRemoteUpdate = false;
+            const mediaCache = {}; // cardId -> Array<string> (повнорозмірні чіткі оригінали)
+            const pendingMediaQueue = [];
+            const queuedSet = {};
+            let isUploadingQueue = false;
+            let totalQueuedInBatch = 0;
+            let uploadedInBatch = 0;
 
+            let fbBoardRef = null;
+            let fbMediaRootRef = null;
+            let isApplyingRemoteUpdate = false;
+            let idbInstancePromise = null;
+
+            function openIDB() {
+                if (idbInstancePromise) return idbInstancePromise;
+                idbInstancePromise = new Promise(function (resolve, reject) {
+                    if (!window.indexedDB) return reject(new Error('No IDB'));
+                    try {
+                        const req = window.indexedDB.open(IDB_NAME, 1);
+                        req.onupgradeneeded = function (e) {
+                            const db = e.target.result;
+                            if (!db.objectStoreNames.contains(IDB_STORE)) {
+                                db.createObjectStore(IDB_STORE);
+                            }
+                        };
+                        req.onsuccess = function (e) { resolve(e.target.result); };
+                        req.onerror = function (e) {
+                            idbInstancePromise = null;
+                            reject(e.target.error);
+                        };
+                    } catch (err) {
+                        idbInstancePromise = null;
+                        reject(err);
+                    }
+                });
+                return idbInstancePromise;
+            }
+
+            function idbGet(key) {
+                return openIDB().then(function (db) {
+                    return new Promise(function (resolve) {
+                        try {
+                            const tx = db.transaction(IDB_STORE, 'readonly');
+                            const req = tx.objectStore(IDB_STORE).get(key);
+                            req.onsuccess = function () { resolve(req.result || null); };
+                            req.onerror = function () { resolve(null); };
+                        } catch (e) {
+                            resolve(null);
+                        }
+                    });
+                }).catch(function () { return null; });
+            }
+
+            function idbPut(key, val) {
+                return openIDB().then(function (db) {
+                    return new Promise(function (resolve) {
+                        try {
+                            const tx = db.transaction(IDB_STORE, 'readwrite');
+                            tx.objectStore(IDB_STORE).put(val, key);
+                            tx.oncomplete = function () { resolve(true); };
+                            tx.onerror = function () { resolve(false); };
+                        } catch (e) {
+                            resolve(false);
+                        }
+                    });
+                }).catch(function () { return false; });
+            }
+
+            function idbDelete(key) {
+                return openIDB().then(function (db) {
+                    return new Promise(function (resolve) {
+                        try {
+                            const tx = db.transaction(IDB_STORE, 'readwrite');
+                            tx.objectStore(IDB_STORE).delete(key);
+                            tx.oncomplete = function () { resolve(true); };
+                            tx.onerror = function () { resolve(false); };
+                        } catch (e) {
+                            resolve(false);
+                        }
+                    });
+                }).catch(function () { return false; });
+            }
+
+            // Створення легкої мініатюри (~4–7 КБ, висота до 144px) для миттєвого відображення у рядку уроку
+            function createThumbnailDataUrl(srcDataUrl) {
+                return new Promise(function (resolve) {
+                    if (!srcDataUrl || typeof srcDataUrl !== 'string') {
+                        return resolve('');
+                    }
+                    if (srcDataUrl.indexOf('data:image/svg') === 0 || srcDataUrl.indexOf('http') === 0 || srcDataUrl.length < 14000) {
+                        return resolve(srcDataUrl);
+                    }
+                    const img = new Image();
+                    img.onload = function () {
+                        try {
+                            const canvas = document.createElement('canvas');
+                            const maxH = 144;
+                            const maxW = 320;
+                            let w = img.naturalWidth || img.width || 240;
+                            let h = img.naturalHeight || img.height || 144;
+                            if (h > maxH) { w = Math.round(w * (maxH / h)); h = maxH; }
+                            if (w > maxW) { h = Math.round(h * (maxW / w)); w = maxW; }
+                            canvas.width = Math.max(1, w);
+                            canvas.height = Math.max(1, h);
+                            const ctx = canvas.getContext('2d');
+                            ctx.fillStyle = '#090d16';
+                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                            const out = canvas.toDataURL('image/webp', 0.76);
+                            resolve(out.indexOf('data:image/webp') === 0 ? out : canvas.toDataURL('image/jpeg', 0.76));
+                        } catch (err) {
+                            resolve(srcDataUrl);
+                        }
+                    };
+                    img.onerror = function () {
+                        resolve(srcDataUrl);
+                    };
+                    img.src = srcDataUrl;
+                });
+            }
+
+            // Збереження повнорозмірних оригіналів картки локально та в чергу Firebase
+            function saveCardMediaLocalAndQueueCloud(cardId, galleryArray, uploadToCloud) {
+                if (!cardId || !Array.isArray(galleryArray) || galleryArray.length === 0) return;
+                mediaCache[cardId] = galleryArray.slice();
+                idbPut('media_' + cardId, mediaCache[cardId]);
+                if (uploadToCloud) {
+                    enqueueCardMediaUpload(cardId);
+                }
+            }
+
+            function deleteCardMediaEverywhere(cardId) {
+                if (!cardId) return;
+                delete mediaCache[cardId];
+                idbDelete('media_' + cardId);
+                if (fbMediaRootRef) {
+                    fbMediaRootRef.child(cardId).remove().catch(function () {});
+                }
+            }
+
+            // Отримання чітких повнорозмірних картинок при кліку (з пам'яті, IndexedDB або Firebase)
+            function ensureCardFullGallery(card) {
+                if (!card) return Promise.resolve([]);
+                const cId = card.id;
+                if (Array.isArray(card.gallery) && card.gallery.length > 0) {
+                    mediaCache[cId] = card.gallery.slice();
+                    return Promise.resolve(mediaCache[cId]);
+                }
+                if (mediaCache[cId] && mediaCache[cId].length > 0) {
+                    return Promise.resolve(mediaCache[cId]);
+                }
+                return idbGet('media_' + cId).then(function (localArr) {
+                    if (Array.isArray(localArr) && localArr.length > 0) {
+                        mediaCache[cId] = localArr;
+                        return localArr;
+                    }
+                    if (fbMediaRootRef) {
+                        return fbMediaRootRef.child(cId).once('value').then(function (snap) {
+                            const val = snap.val();
+                            const remoteArr = val && Array.isArray(val.gallery) ? val.gallery : (Array.isArray(val) ? val : null);
+                            if (remoteArr && remoteArr.length > 0) {
+                                mediaCache[cId] = remoteArr;
+                                idbPut('media_' + cId, remoteArr);
+                                return remoteArr;
+                            }
+                            return card.image ? [card.image] : [];
+                        }).catch(function () {
+                            return card.image ? [card.image] : [];
+                        });
+                    }
+                    return card.image ? [card.image] : [];
+                });
+            }
+
+            // Поштучне фонове вивантаження важких картинок у Firebase (⏳ Хмара (1/36)... ➔ 🟢)
+            function enqueueCardMediaUpload(cardId) {
+                if (!cardId || queuedSet[cardId]) return;
+                queuedSet[cardId] = true;
+                pendingMediaQueue.push(cardId);
+                totalQueuedInBatch++;
+                processMediaUploadQueue();
+            }
+
+            function processMediaUploadQueue() {
+                if (isUploadingQueue) return;
+                if (!fbMediaRootRef || pendingMediaQueue.length === 0) {
+                    if (pendingMediaQueue.length === 0 && totalQueuedInBatch > 0) {
+                        totalQueuedInBatch = 0;
+                        uploadedInBatch = 0;
+                        updateCloudBadge('online', 'Хмара синхронізована ✓');
+                    }
+                    return;
+                }
+                isUploadingQueue = true;
+                const nextCardId = pendingMediaQueue[0];
+                const currentNum = Math.min(uploadedInBatch + 1, totalQueuedInBatch);
+                if (totalQueuedInBatch > 1) {
+                    updateCloudBadge('saving', 'Хмара (' + currentNum + '/' + totalQueuedInBatch + ')...');
+                } else {
+                    updateCloudBadge('saving', 'Зберігаю...');
+                }
+
+                const getGalleryPromise = (mediaCache[nextCardId] && mediaCache[nextCardId].length > 0)
+                    ? Promise.resolve(mediaCache[nextCardId])
+                    : idbGet('media_' + nextCardId);
+
+                getGalleryPromise.then(function (galleryData) {
+                    if (!Array.isArray(galleryData) || galleryData.length === 0) {
+                        pendingMediaQueue.shift();
+                        delete queuedSet[nextCardId];
+                        uploadedInBatch++;
+                        isUploadingQueue = false;
+                        processMediaUploadQueue();
+                        return;
+                    }
+                    fbMediaRootRef.child(nextCardId).set({
+                        gallery: galleryData,
+                        updatedAt: Date.now()
+                    }).then(function () {
+                        pendingMediaQueue.shift();
+                        delete queuedSet[nextCardId];
+                        uploadedInBatch++;
+                        isUploadingQueue = false;
+                        if (pendingMediaQueue.length === 0) {
+                            totalQueuedInBatch = 0;
+                            uploadedInBatch = 0;
+                            updateCloudBadge('online', 'Хмара синхронізована ✓');
+                        } else {
+                            processMediaUploadQueue();
+                        }
+                    }).catch(function () {
+                        isUploadingQueue = false;
+                        updateCloudBadge('offline', 'Помилка мережі');
+                    });
+                });
+            }
+
+            // Автоматичне розділення існуючих карток на легку мініатюру + чіткий оригінал у card_media
+            function migrateAndOptimizeState(stateObj, shouldUploadMigratedMedia) {
+                if (!stateObj || !Array.isArray(stateObj.boards)) return Promise.resolve(false);
+                const tasks = [];
+                let anyChanged = false;
+
+                stateObj.boards.forEach(function (b) {
+                    (b.lessons || []).forEach(function (l) {
+                        (l.cards || []).forEach(function (card) {
+                            if (!card || !card.id) return;
+
+                            const hasInlineGallery = Array.isArray(card.gallery) && card.gallery.length > 0;
+                            const hasHeavyThumb = !card.thumbReady && card.image && card.image.length > 14000;
+
+                            if (hasInlineGallery || hasHeavyThumb) {
+                                const fullImages = hasInlineGallery ? card.gallery.slice() : [card.image];
+                                card.galleryCount = fullImages.length;
+                                delete card.gallery;
+                                anyChanged = true;
+
+                                mediaCache[card.id] = fullImages;
+                                idbPut('media_' + card.id, fullImages);
+                                if (shouldUploadMigratedMedia) {
+                                    enqueueCardMediaUpload(card.id);
+                                }
+
+                                tasks.push(
+                                    createThumbnailDataUrl(fullImages[0]).then(function (lightThumb) {
+                                        card.image = lightThumb;
+                                        card.thumbReady = true;
+                                    })
+                                );
+                            } else {
+                                if (!card.galleryCount) {
+                                    card.galleryCount = (mediaCache[card.id] && mediaCache[card.id].length) ? mediaCache[card.id].length : 1;
+                                }
+                                card.thumbReady = true;
+                                if (!mediaCache[card.id]) {
+                                    idbGet('media_' + card.id).then(function (cached) {
+                                        if (Array.isArray(cached) && cached.length > 0) {
+                                            mediaCache[card.id] = cached;
+                                        }
+                                    });
+                                }
+                            }
+                        });
+                    });
+                });
+
+                if (tasks.length === 0) {
+                    return Promise.resolve(anyChanged);
+                }
+                return Promise.all(tasks).then(function () {
+                    return true;
+                });
+            }
+
+            function countTotalCards(st) {
+                if (!st || !Array.isArray(st.boards)) return 0;
+                let total = 0;
+                st.boards.forEach(function (b) {
+                    (b.lessons || []).forEach(function (l) {
+                        total += (l.cards ? l.cards.length : 0);
+                    });
+                });
+                return total;
+            }
+
+            // Безпечне об'єднання при першому старті, щоб жодна картка з локальної бази не зникла, якщо хмара раніше зависла
+            function mergeUnuploadedLocalCardsIntoCloud(localSt, cloudSt) {
+                if (!localSt || !Array.isArray(localSt.boards)) return { state: cloudSt, mergedAny: false };
+                if (!cloudSt || !Array.isArray(cloudSt.boards)) return { state: localSt, mergedAny: true };
+
+                let mergedAny = false;
+                const result = JSON.parse(JSON.stringify(cloudSt));
+
+                localSt.boards.forEach(function (lb) {
+                    let cb = result.boards.find(function (x) { return x.id === lb.id; });
+                    if (!cb) {
+                        result.boards.push(JSON.parse(JSON.stringify(lb)));
+                        mergedAny = true;
+                        return;
+                    }
+                    if (!Array.isArray(cb.lessons)) cb.lessons = [];
+                    (lb.lessons || []).forEach(function (ll) {
+                        let cl = cb.lessons.find(function (y) { return y.id === ll.id; });
+                        if (!cl) {
+                            cb.lessons.push(JSON.parse(JSON.stringify(ll)));
+                            mergedAny = true;
+                            return;
+                        }
+                        if (!Array.isArray(cl.cards)) cl.cards = [];
+                        (ll.cards || []).forEach(function (lc) {
+                            const exists = cl.cards.some(function (z) { return z.id === lc.id; });
+                            if (!exists) {
+                                cl.cards.push(JSON.parse(JSON.stringify(lc)));
+                                mergedAny = true;
+                            }
+                        });
+                    });
+                });
+
+                return { state: result, mergedAny: mergedAny };
+            }
+
+            /* ========================================================================
+               АВТОМАТИЧНА ХМАРА FIREBASE (https://lesson-13c44-default-rtdb.firebaseio.com/)
+               ======================================================================== */
             function updateCloudBadge(status, text) {
                 const dot = document.getElementById('cloudStatusDot');
                 const lbl = document.getElementById('cloudStatusText');
@@ -761,30 +1102,72 @@
                     }
                     const db = firebase.database();
                     fbBoardRef = db.ref('visual_lesson_board_olga/state_v2');
+                    fbMediaRootRef = db.ref('visual_lesson_board_olga/card_media');
+
+                    // Якщо вже є локально мігровані картки в черзі — починаємо їх фонове вивантаження
+                    if (pendingMediaQueue.length > 0) {
+                        processMediaUploadQueue();
+                    }
 
                     fbBoardRef.once('value').then(function (snap) {
                         const cloudVal = snap.val();
 
                         if (cloudVal && Array.isArray(cloudVal.boards)) {
-                            const cloudTime = cloudVal.updatedAt || 0;
+                            const cloudClean = normalizeAndCleanState(cloudVal);
+                            const cloudTime = cloudClean.updatedAt || 0;
                             const localTime = appState.updatedAt || 0;
-                            if (appState.isInitialTemplate || cloudTime >= localTime) {
+                            const localCardsCount = countTotalCards(appState);
+                            const cloudCardsCount = countTotalCards(cloudClean);
+
+                            if (appState.isInitialTemplate) {
                                 isApplyingRemoteUpdate = true;
                                 const keepActiveBoard = appState.activeBoardId;
-                                appState = normalizeAndCleanState(cloudVal);
+                                appState = cloudClean;
                                 appState.isInitialTemplate = false;
                                 if (keepActiveBoard && getBoardById(keepActiveBoard)) {
                                     appState.activeBoardId = keepActiveBoard;
                                 }
-                                saveLocalOnly();
-                                renderApp();
-                                isApplyingRemoteUpdate = false;
-                            } else if (!appState.isInitialTemplate && localTime > cloudTime) {
-                                pushStateToFirebase();
+                                migrateAndOptimizeState(appState, true).then(function (changed) {
+                                    saveLocalOnly();
+                                    renderApp();
+                                    isApplyingRemoteUpdate = false;
+                                    if (changed) pushStateToFirebase();
+                                });
+                            } else if (localCardsCount > cloudCardsCount || localTime > cloudTime) {
+                                // У локальній базі більше карток (наприклад, всі 36 карток, які раніше не влізли одним пакетом)
+                                const merged = mergeUnuploadedLocalCardsIntoCloud(appState, cloudClean);
+                                if (localTime >= cloudTime) {
+                                    // Залишаємо локальний порядок і доповнюємо, якщо щось було в хмарі
+                                    const reverseMerge = mergeUnuploadedLocalCardsIntoCloud(cloudClean, appState);
+                                    appState = reverseMerge.state;
+                                } else {
+                                    appState = merged.state;
+                                }
+                                appState.isInitialTemplate = false;
+                                migrateAndOptimizeState(appState, true).then(function () {
+                                    saveLocalOnly();
+                                    renderApp();
+                                    pushStateToFirebase();
+                                });
+                            } else {
+                                isApplyingRemoteUpdate = true;
+                                const keepActiveBoard = appState.activeBoardId;
+                                appState = cloudClean;
+                                appState.isInitialTemplate = false;
+                                if (keepActiveBoard && getBoardById(keepActiveBoard)) {
+                                    appState.activeBoardId = keepActiveBoard;
+                                }
+                                migrateAndOptimizeState(appState, true).then(function (changed) {
+                                    saveLocalOnly();
+                                    renderApp();
+                                    isApplyingRemoteUpdate = false;
+                                    if (changed) pushStateToFirebase();
+                                });
                             }
-                            updateCloudBadge('online', 'Хмара синхронізована ✓');
+                            if (pendingMediaQueue.length === 0) {
+                                updateCloudBadge('online', 'Хмара синхронізована ✓');
+                            }
                         } else {
-                            // У хмарі ще порожньо: якщо у нас вже є реальні дані (не стартовий шаблон) — вивантажуємо їх
                             if (!appState.isInitialTemplate) {
                                 pushStateToFirebase();
                             } else {
@@ -803,15 +1186,23 @@
                             if (appState.isInitialTemplate || remoteTime > localTime) {
                                 isApplyingRemoteUpdate = true;
                                 const keepActiveBoard = appState.activeBoardId;
+                                const keepActiveLesson = appState.activeLessonId;
                                 appState = normalizeAndCleanState(remote);
                                 appState.isInitialTemplate = false;
                                 if (keepActiveBoard && getBoardById(keepActiveBoard)) {
                                     appState.activeBoardId = keepActiveBoard;
                                 }
-                                saveLocalOnly();
-                                renderApp();
-                                isApplyingRemoteUpdate = false;
-                                updateCloudBadge('online', 'Оновлено з хмари ✓');
+                                if (keepActiveLesson) {
+                                    appState.activeLessonId = keepActiveLesson;
+                                }
+                                migrateAndOptimizeState(appState, false).then(function () {
+                                    saveLocalOnly();
+                                    renderApp();
+                                    isApplyingRemoteUpdate = false;
+                                    if (pendingMediaQueue.length === 0) {
+                                        updateCloudBadge('online', 'Оновлено з хмари ✓');
+                                    }
+                                });
                             }
                         });
                     }).catch(function () {
@@ -824,12 +1215,18 @@
 
             function pushStateToFirebase() {
                 if (!fbBoardRef || isApplyingRemoteUpdate) return;
-                updateCloudBadge('saving', 'Зберігаю...');
+                if (pendingMediaQueue.length === 0) {
+                    updateCloudBadge('saving', 'Зберігаю...');
+                }
                 appState.isInitialTemplate = false;
                 appState.updatedAt = Date.now();
                 appState.clientId = MY_CLIENT_ID;
                 fbBoardRef.set(appState).then(function () {
-                    updateCloudBadge('online', 'Хмара синхронізована ✓');
+                    if (pendingMediaQueue.length === 0) {
+                        updateCloudBadge('online', 'Хмара синхронізована ✓');
+                    } else {
+                        processMediaUploadQueue();
+                    }
                 }).catch(function () {
                     updateCloudBadge('offline', 'Помилка мережі');
                 });
@@ -842,13 +1239,19 @@
                 return (rawUrl || '').trim().replace(/^["']+|["']+$/g, '').trim();
             }
 
-            function getCardGalleryArray(card) {
-                if (!card) return [];
+            function getCardGalleryCount(card) {
+                if (!card) return 0;
                 if (Array.isArray(card.gallery) && card.gallery.length > 0) {
-                    return card.gallery;
+                    return card.gallery.length;
                 }
-                if (card.image) return [card.image];
-                return [];
+                if (mediaCache[card.id] && mediaCache[card.id].length > 0) {
+                    return mediaCache[card.id].length;
+                }
+                if (typeof card.galleryCount === 'number' && card.galleryCount > 0) {
+                    return card.galleryCount;
+                }
+                if (card.image) return 1;
+                return 0;
             }
 
             function classifyCard(card) {
@@ -859,10 +1262,10 @@
                 if (badge === 'local') return 'local';
                 if (badge === 'web') return 'web';
 
-                const gal = getCardGalleryArray(card);
+                const galCount = getCardGalleryCount(card);
                 const u = cleanPathQuotes(card.url);
 
-                if (gal.length > 1 || !u) {
+                if (galCount > 1 || !u) {
                     return 'gallery';
                 }
 
@@ -917,104 +1320,112 @@
                 const found = findLessonAndCard(lessonId, cardId);
                 if (!found.card) return;
                 const card = found.card;
-                const images = getCardGalleryArray(card);
-                if (images.length === 0) {
-                    showToast('У цій картці немає зображень', 'rose');
-                    return;
-                }
-
                 const winTitle = card.title || (found.lesson ? found.lesson.number : 'Перегляд картинок');
+
+                // Відкриваємо вікно синхронно при кліку, щоб браузер не блокував popup
                 const popup = window.open('', '_blank', 'width=1150,height=820,resizable=yes,scrollbars=yes');
                 if (!popup) {
                     showToast('Браузер заблокував спливаюче вікно — дозвольте відкриття вікон для цього сайту', 'rose');
                     return;
                 }
 
-                const imagesJson = JSON.stringify(images);
-                const safeTitle = escapeHtml(winTitle);
+                popup.document.open();
+                popup.document.write('<!DOCTYPE html><html lang="uk"><head><meta charset="UTF-8"><title>Завантаження...</title></head><body style="margin:0;background:#090d16;color:#cbd5e1;font-family:Inter,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;">⏳ Завантаження чітких оригіналів...</body></html>');
+                popup.document.close();
 
-                const html = '<!DOCTYPE html><html lang="uk"><head><meta charset="UTF-8">' +
-                    '<title>🖥️ ' + safeTitle + ' (' + images.length + ' шт.)</title>' +
-                    '<style>' +
-                    '*{box-sizing:border-box;}body{margin:0;background:#090d16;color:#f3f4f6;font-family:Inter,Arial,sans-serif;display:flex;flex-direction:column;height:100vh;overflow:hidden;}' +
-                    'header{background:#111827;border-bottom:1px solid #1f2937;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;z-index:20;}' +
-                    '.btn{background:#1f2937;color:#e5e7eb;border:1px solid #374151;padding:6px 12px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:0.15s;}' +
-                    '.btn:hover{background:#374151;color:#fff;}' +
-                    '.btn.active{background:#4f46e5;border-color:#6366f1;color:#fff;}' +
-                    '#viewport{flex:1;overflow:auto;padding:20px;display:flex;flex-direction:column;align-items:center;gap:24px;}' +
-                    '.img-card{background:#111827;border:2px solid #374151;border-radius:14px;padding:10px;box-shadow:0 10px 30px rgba(0,0,0,0.6);max-width:100%;transition:transform 0.15s ease;position:relative;}' +
-                    '.img-card img{display:block;max-width:100%;height:auto;border-radius:8px;margin:0 auto;}' +
-                    '.img-num{position:absolute;top:16px;left:16px;background:rgba(17,24,39,0.85);color:#a5b4fc;border:1px solid #4f46e5;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;}' +
-                    '.slide-mode #viewport{justify-content:center;}' +
-                    '.slide-mode .img-card img{max-height:calc(100vh - 110px);width:auto;}' +
-                    '</style></head><body>' +
-                    '<header>' +
-                        '<div style="display:flex;align-items:center;gap:10px;">' +
-                            '<span style="font-weight:800;font-size:14px;color:#c084fc;">🖥️ ' + safeTitle + '</span>' +
-                            '<span style="font-size:12px;color:#9ca3af;">(Перетягніть це вікно на 2-й монітор)</span>' +
-                        '</div>' +
-                        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
-                            '<button id="btnModeStrip" class="btn active" onclick="setMode(\'strip\')">📜 Стрічка (усі підряд)</button>' +
-                            '<button id="btnModeSlide" class="btn" onclick="setMode(\'slide\')">🖼️ Слайди (по одній)</button>' +
-                            '<div id="slideControls" style="display:none;align-items:center;gap:6px;margin-left:6px;">' +
-                                '<button class="btn" onclick="prevSlide()">⬅️ Попередня</button>' +
-                                '<span id="slideCounter" style="font-size:13px;font-weight:700;padding:0 6px;color:#e0e7ff;">1 / ' + images.length + '</span>' +
-                                '<button class="btn" onclick="nextSlide()">Наступна ➡️</button>' +
+                ensureCardFullGallery(card).then(function (images) {
+                    if (!images || images.length === 0) {
+                        popup.close();
+                        showToast('У цій картці немає зображень', 'rose');
+                        return;
+                    }
+
+                    const imagesJson = JSON.stringify(images);
+                    const safeTitle = escapeHtml(winTitle);
+
+                    const html = '<!DOCTYPE html><html lang="uk"><head><meta charset="UTF-8">' +
+                        '<title>🖥️ ' + safeTitle + ' (' + images.length + ' шт.)</title>' +
+                        '<style>' +
+                        '*{box-sizing:border-box;}body{margin:0;background:#090d16;color:#f3f4f6;font-family:Inter,Arial,sans-serif;display:flex;flex-direction:column;height:100vh;overflow:hidden;}' +
+                        'header{background:#111827;border-bottom:1px solid #1f2937;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;z-index:20;}' +
+                        '.btn{background:#1f2937;color:#e5e7eb;border:1px solid #374151;padding:6px 12px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:0.15s;}' +
+                        '.btn:hover{background:#374151;color:#fff;}' +
+                        '.btn.active{background:#4f46e5;border-color:#6366f1;color:#fff;}' +
+                        '#viewport{flex:1;overflow:auto;padding:20px;display:flex;flex-direction:column;align-items:center;gap:24px;}' +
+                        '.img-card{background:#111827;border:2px solid #374151;border-radius:14px;padding:10px;box-shadow:0 10px 30px rgba(0,0,0,0.6);max-width:100%;transition:transform 0.15s ease;position:relative;}' +
+                        '.img-card img{display:block;max-width:100%;height:auto;border-radius:8px;margin:0 auto;}' +
+                        '.img-num{position:absolute;top:16px;left:16px;background:rgba(17,24,39,0.85);color:#a5b4fc;border:1px solid #4f46e5;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;}' +
+                        '.slide-mode #viewport{justify-content:center;}' +
+                        '.slide-mode .img-card img{max-height:calc(100vh - 110px);width:auto;}' +
+                        '</style></head><body>' +
+                        '<header>' +
+                            '<div style="display:flex;align-items:center;gap:10px;">' +
+                                '<span style="font-weight:800;font-size:14px;color:#c084fc;">🖥️ ' + safeTitle + '</span>' +
+                                '<span style="font-size:12px;color:#9ca3af;">(Перетягніть це вікно на 2-й монітор)</span>' +
                             '</div>' +
-                            '<div style="display:flex;align-items:center;gap:4px;margin-left:8px;">' +
-                                '<button class="btn" onclick="changeZoom(-15)">🔍 −</button>' +
-                                '<span id="zoomLabel" style="font-size:12px;font-family:monospace;min-width:46px;text-align:center;">100%</span>' +
-                                '<button class="btn" onclick="changeZoom(15)">🔍 +</button>' +
-                                '<button class="btn" onclick="resetZoom()">1:1</button>' +
+                            '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+                                '<button id="btnModeStrip" class="btn active" onclick="setMode(\'strip\')">📜 Стрічка (усі підряд)</button>' +
+                                '<button id="btnModeSlide" class="btn" onclick="setMode(\'slide\')">🖼️ Слайди (по одній)</button>' +
+                                '<div id="slideControls" style="display:none;align-items:center;gap:6px;margin-left:6px;">' +
+                                    '<button class="btn" onclick="prevSlide()">⬅️ Попередня</button>' +
+                                    '<span id="slideCounter" style="font-size:13px;font-weight:700;padding:0 6px;color:#e0e7ff;">1 / ' + images.length + '</span>' +
+                                    '<button class="btn" onclick="nextSlide()">Наступна ➡️</button>' +
+                                '</div>' +
+                                '<div style="display:flex;align-items:center;gap:4px;margin-left:8px;">' +
+                                    '<button class="btn" onclick="changeZoom(-15)">🔍 −</button>' +
+                                    '<span id="zoomLabel" style="font-size:12px;font-family:monospace;min-width:46px;text-align:center;">100%</span>' +
+                                    '<button class="btn" onclick="changeZoom(15)">🔍 +</button>' +
+                                    '<button class="btn" onclick="resetZoom()">1:1</button>' +
+                                '</div>' +
                             '</div>' +
-                        '</div>' +
-                    '</header>' +
-                    '<div id="viewport"></div>' +
-                    '<script>' +
-                        'const imgs = ' + imagesJson + ';' +
-                        'let mode = imgs.length > 1 ? "strip" : "slide";' +
-                        'let currentIdx = 0;' +
-                        'let zoom = 100;' +
-                        'function render(){' +
-                            'document.body.className = mode === "slide" ? "slide-mode" : "";' +
-                            'document.getElementById("btnModeStrip").className = "btn" + (mode === "strip" ? " active" : "");' +
-                            'document.getElementById("btnModeSlide").className = "btn" + (mode === "slide" ? " active" : "");' +
-                            'document.getElementById("slideControls").style.display = (mode === "slide" && imgs.length > 1) ? "flex" : "none";' +
-                            'document.getElementById("slideCounter").textContent = (currentIdx + 1) + " / " + imgs.length;' +
-                            'const vp = document.getElementById("viewport");' +
-                            'vp.innerHTML = "";' +
-                            'if(mode === "strip"){' +
-                                'imgs.forEach(function(src, i){' +
+                        '</header>' +
+                        '<div id="viewport"></div>' +
+                        '<script>' +
+                            'const imgs = ' + imagesJson + ';' +
+                            'let mode = imgs.length > 1 ? "strip" : "slide";' +
+                            'let currentIdx = 0;' +
+                            'let zoom = 100;' +
+                            'function render(){' +
+                                'document.body.className = mode === "slide" ? "slide-mode" : "";' +
+                                'document.getElementById("btnModeStrip").className = "btn" + (mode === "strip" ? " active" : "");' +
+                                'document.getElementById("btnModeSlide").className = "btn" + (mode === "slide" ? " active" : "");' +
+                                'document.getElementById("slideControls").style.display = (mode === "slide" && imgs.length > 1) ? "flex" : "none";' +
+                                'document.getElementById("slideCounter").textContent = (currentIdx + 1) + " / " + imgs.length;' +
+                                'const vp = document.getElementById("viewport");' +
+                                'vp.innerHTML = "";' +
+                                'if(mode === "strip"){' +
+                                    'imgs.forEach(function(src, i){' +
+                                        'const box = document.createElement("div");' +
+                                        'box.className = "img-card";' +
+                                        'box.style.width = zoom + "%";' +
+                                        'box.innerHTML = (imgs.length > 1 ? "<span class=\\"img-num\\">Картинка " + (i+1) + " з " + imgs.length + "</span>" : "") + "<img src=\\"" + src + "\\">";' +
+                                        'vp.appendChild(box);' +
+                                    '});' +
+                                '} else {' +
                                     'const box = document.createElement("div");' +
                                     'box.className = "img-card";' +
-                                    'box.style.width = zoom + "%";' +
-                                    'box.innerHTML = (imgs.length > 1 ? "<span class=\\"img-num\\">Картинка " + (i+1) + " з " + imgs.length + "</span>" : "") + "<img src=\\"" + src + "\\">";' +
+                                    'box.style.transform = "scale(" + (zoom/100) + ")";' +
+                                    'box.style.transformOrigin = "top center";' +
+                                    'box.innerHTML = (imgs.length > 1 ? "<span class=\\"img-num\\">Картинка " + (currentIdx+1) + " з " + imgs.length + "</span>" : "") + "<img src=\\"" + imgs[currentIdx] + "\\">";' +
                                     'vp.appendChild(box);' +
-                                '});' +
-                            '} else {' +
-                                'const box = document.createElement("div");' +
-                                'box.className = "img-card";' +
-                                'box.style.transform = "scale(" + (zoom/100) + ")";' +
-                                'box.style.transformOrigin = "top center";' +
-                                'box.innerHTML = (imgs.length > 1 ? "<span class=\\"img-num\\">Картинка " + (currentIdx+1) + " з " + imgs.length + "</span>" : "") + "<img src=\\"" + imgs[currentIdx] + "\\">";' +
-                                'vp.appendChild(box);' +
+                                '}' +
                             '}' +
-                        '}' +
-                        'function setMode(m){ mode = m; zoom = 100; document.getElementById("zoomLabel").textContent = "100%"; render(); }' +
-                        'function prevSlide(){ currentIdx = (currentIdx - 1 + imgs.length) % imgs.length; render(); }' +
-                        'function nextSlide(){ currentIdx = (currentIdx + 1) % imgs.length; render(); }' +
-                        'function changeZoom(d){ zoom = Math.max(40, Math.min(250, zoom + d)); document.getElementById("zoomLabel").textContent = zoom + "%"; render(); }' +
-                        'function resetZoom(){ zoom = 100; document.getElementById("zoomLabel").textContent = "100%"; render(); }' +
-                        'window.addEventListener("keydown", function(e){' +
-                            'if(e.key === "ArrowRight") nextSlide();' +
-                            'else if(e.key === "ArrowLeft") prevSlide();' +
-                        '});' +
-                        'render();' +
-                    '<\/script></body></html>';
+                            'function setMode(m){ mode = m; zoom = 100; document.getElementById("zoomLabel").textContent = "100%"; render(); }' +
+                            'function prevSlide(){ currentIdx = (currentIdx - 1 + imgs.length) % imgs.length; render(); }' +
+                            'function nextSlide(){ currentIdx = (currentIdx + 1) % imgs.length; render(); }' +
+                            'function changeZoom(d){ zoom = Math.max(40, Math.min(250, zoom + d)); document.getElementById("zoomLabel").textContent = zoom + "%"; render(); }' +
+                            'function resetZoom(){ zoom = 100; document.getElementById("zoomLabel").textContent = "100%"; render(); }' +
+                            'window.addEventListener("keydown", function(e){' +
+                                'if(e.key === "ArrowRight") nextSlide();' +
+                                'else if(e.key === "ArrowLeft") prevSlide();' +
+                            '});' +
+                            'render();' +
+                        '<\/script></body></html>';
 
-                popup.document.open();
-                popup.document.write(html);
-                popup.document.close();
+                    popup.document.open();
+                    popup.document.write(html);
+                    popup.document.close();
+                });
             }
 
             /* ========================================================================
@@ -1121,78 +1532,71 @@
                 children.forEach(function (ch) {
                     deleteBoardAndDescendants(ch.id);
                 });
-                appState.boards = appState.boards.filter(function (b) { return b.id !== boardId; });
+                const b = getBoardById(boardId);
+                if (b && Array.isArray(b.lessons)) {
+                    b.lessons.forEach(function (l) {
+                        (l.cards || []).forEach(function (c) {
+                            deleteCardMediaEverywhere(c.id);
+                        });
+                    });
+                }
+                appState.boards = appState.boards.filter(function (x) { return x.id !== boardId; });
             }
 
             /* ========================================================================
-               4. ЛОКАЛЬНИЙ КЕШ + ХМАРНЕ ЗБЕРЕЖЕННЯ
+               4. АСИНХРОННИЙ КЕШ (IndexedDB) + ХМАРНЕ ЗБЕРЕЖЕННЯ (БЕЗ ЗАВИСАННЯ LOCALSTORAGE)
                ======================================================================== */
-            function openIDB() {
-                return new Promise(function (resolve, reject) {
-                    if (!window.indexedDB) return reject(new Error('No IDB'));
-                    try {
-                        const req = window.indexedDB.open(IDB_NAME, 1);
-                        req.onupgradeneeded = function (e) {
-                            const db = e.target.result;
-                            if (!db.objectStoreNames.contains(IDB_STORE)) {
-                                db.createObjectStore(IDB_STORE);
-                            }
-                        };
-                        req.onsuccess = function (e) { resolve(e.target.result); };
-                        req.onerror = function (e) { reject(e.target.error); };
-                    } catch (err) {
-                        reject(err);
-                    }
-                });
-            }
-
             function loadSavedStateAndStartCloud() {
+                let lsParsed = null;
                 try {
                     const raw = window.localStorage.getItem(LS_KEY);
                     if (raw) {
-                        const parsed = JSON.parse(raw);
-                        if (parsed && Array.isArray(parsed.boards) && parsed.boards.length > 0) {
-                            appState = normalizeAndCleanState(parsed);
-                            appState.isInitialTemplate = false;
-                            renderApp();
+                        const p = JSON.parse(raw);
+                        if (p && Array.isArray(p.boards) && p.boards.length > 0) {
+                            lsParsed = normalizeAndCleanState(p);
                         }
                     }
                 } catch (e) {}
 
-                openIDB().then(function (db) {
-                    try {
-                        const tx = db.transaction(IDB_STORE, 'readonly');
-                        const req = tx.objectStore(IDB_STORE).get('root');
-                        req.onsuccess = function () {
-                            if (req.result && Array.isArray(req.result.boards) && req.result.boards.length > 0) {
-                                appState = normalizeAndCleanState(req.result);
-                                appState.isInitialTemplate = false;
+                idbGet('root').then(function (idbResult) {
+                    let chosenState = null;
+                    if (idbResult && Array.isArray(idbResult.boards) && idbResult.boards.length > 0) {
+                        chosenState = normalizeAndCleanState(idbResult);
+                        if (lsParsed && countTotalCards(lsParsed) > countTotalCards(chosenState)) {
+                            chosenState = mergeUnuploadedLocalCardsIntoCloud(lsParsed, chosenState).state;
+                        }
+                    } else if (lsParsed) {
+                        chosenState = lsParsed;
+                    }
+
+                    if (chosenState) {
+                        appState = chosenState;
+                        appState.isInitialTemplate = false;
+                        renderApp();
+                        migrateAndOptimizeState(appState, true).then(function (wasMigrated) {
+                            saveLocalOnly();
+                            // Очищуємо старий важкий ключ у localStorage, щоб звільнити ліміт 5 МБ
+                            try { window.localStorage.removeItem(LS_KEY); } catch (e) {}
+                            if (wasMigrated) {
                                 renderApp();
                             }
                             initFirebaseAutoCloud();
-                        };
-                        req.onerror = function () {
-                            initFirebaseAutoCloud();
-                        };
-                    } catch (e) {
+                        });
+                    } else {
                         initFirebaseAutoCloud();
                     }
                 }).catch(function () {
+                    if (lsParsed) {
+                        appState = lsParsed;
+                        appState.isInitialTemplate = false;
+                        renderApp();
+                    }
                     initFirebaseAutoCloud();
                 });
             }
 
             function saveLocalOnly() {
-                try {
-                    window.localStorage.setItem(LS_KEY, JSON.stringify(appState));
-                } catch (e) {}
-
-                openIDB().then(function (db) {
-                    try {
-                        const tx = db.transaction(IDB_STORE, 'readwrite');
-                        tx.objectStore(IDB_STORE).put(appState, 'root');
-                    } catch (e) {}
-                }).catch(function () {});
+                idbPut('root', appState);
             }
 
             function saveState() {
@@ -1230,9 +1634,12 @@
                         if (parsed && Array.isArray(parsed.boards)) {
                             appState = normalizeAndCleanState(parsed);
                             appState.isInitialTemplate = false;
-                            saveState();
-                            renderApp();
-                            showToast('Вашу базу відновлено без демо-карток та збережено у Firebase!', 'emerald');
+                            showToast('Оптимізую мініатюри та завантажую у хмару...', 'info');
+                            migrateAndOptimizeState(appState, true).then(function () {
+                                saveState();
+                                renderApp();
+                                showToast('Вашу базу відновлено та збережено у швидкому форматі!', 'emerald');
+                            });
                         } else {
                             showToast('Невірний формат файлу JSON', 'rose');
                         }
@@ -1244,7 +1651,7 @@
             }
 
             /* ========================================================================
-               5. РЕНДЕРИНГ ІНТЕРФЕЙСУ
+               5. РЕНДЕРИНГ ІНТЕРФЕЙСУ ТА МИТТЄВЕ ПЕРЕМИКАННЯ РЯДКА УРОКУ
                ======================================================================== */
             function ensureActiveLesson() {
                 const board = getBoardById(appState.activeBoardId);
@@ -1257,6 +1664,37 @@
                     appState.activeLessonId = board.lessons[0].id;
                 }
                 return appState.activeLessonId;
+            }
+
+            // Точкове оновлення підсвітки активного уроку в DOM без перемальовування картинок
+            function updateActiveLessonHighlightInDOM() {
+                const container = document.getElementById('lessonsContainer');
+                if (!container) return;
+                const rows = container.querySelectorAll('section[data-lesson-id]');
+                rows.forEach(function (sec) {
+                    const lId = sec.dataset.lessonId;
+                    const isAct = lId === appState.activeLessonId;
+                    if (isAct) {
+                        sec.classList.add('lesson-row-active');
+                        sec.classList.remove('border-gray-800/90');
+                    } else {
+                        sec.classList.remove('lesson-row-active');
+                        sec.classList.add('border-gray-800/90');
+                    }
+
+                    const numBtn = sec.querySelector('[data-role="lesson-num-btn"]');
+                    if (numBtn) {
+                        numBtn.className = 'font-bold text-xs px-2 py-0.5 rounded truncate cursor-pointer transition ' +
+                            (isAct ? 'bg-indigo-600 text-white' : 'bg-indigo-500/15 text-indigo-300 hover:bg-indigo-600 hover:text-white');
+                    }
+
+                    const statusSlot = sec.querySelector('[data-role="active-status-slot"]');
+                    if (statusSlot) {
+                        statusSlot.innerHTML = isAct
+                            ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-[10px] font-semibold">🎯 Активний для Ctrl+V</span>'
+                            : '<button type="button" data-action="set-active-lesson" data-lesson-id="' + lId + '" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-800/80 hover:bg-indigo-600/30 border border-gray-700 text-gray-400 hover:text-indigo-200 text-[10px] font-medium cursor-pointer">Зробити активним</button>';
+                    }
+                });
             }
 
             function renderApp() {
@@ -1467,6 +1905,73 @@
                 txt.textContent = appState.sortNewestFirst ? '⬆️ Нові зверху' : '⬇️ Нові знизу';
             }
 
+            function buildCardDomElement(lesson, card) {
+                const cType = classifyCard(card);
+                const galCount = getCardGalleryCount(card);
+                const fInfo = getFrameInfo(cType, galCount);
+                const cardEl = document.createElement('div');
+                cardEl.className = 'card-thumb-box relative rounded-xl bg-gray-950 overflow-hidden cursor-pointer select-none group/card flex items-center justify-center ' + fInfo.frameClass;
+                cardEl.draggable = true;
+                cardEl.dataset.action = 'card-click';
+                cardEl.dataset.lessonId = lesson.id;
+                cardEl.dataset.cardId = card.id;
+
+                const tipLines = [];
+                if (card.title) tipLines.push(card.title);
+                if (galCount > 1) tipLines.push('Набір картинок: ' + galCount + ' шт. (клік відкриє окреме вікно для 2-го монітора)');
+                if (card.url) tipLines.push('Шлях: ' + card.url);
+                cardEl.title = tipLines.join('\n') || 'Клік — відкрити / скопіювати';
+
+                cardEl.addEventListener('dragstart', function (e) {
+                    draggedCard = { lessonId: lesson.id, cardId: card.id };
+                    e.dataTransfer.effectAllowed = 'copyMove';
+                    setTimeout(function () { cardEl.classList.add('opacity-40'); }, 0);
+                });
+                cardEl.addEventListener('dragend', function () {
+                    cardEl.classList.remove('opacity-40');
+                    draggedCard = null;
+                    document.querySelectorAll('.drag-target-card').forEach(function (el) { el.classList.remove('drag-target-card'); });
+                });
+                cardEl.addEventListener('dragover', function (e) {
+                    if (draggedCard && draggedCard.cardId !== card.id) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        cardEl.classList.add('drag-target-card');
+                    }
+                });
+                cardEl.addEventListener('dragleave', function () {
+                    cardEl.classList.remove('drag-target-card');
+                });
+                cardEl.addEventListener('drop', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    cardEl.classList.remove('drag-target-card');
+                    if (draggedCard && draggedCard.cardId !== card.id) {
+                        const isCopy = e.ctrlKey || e.altKey || e.metaKey;
+                        moveOrCopyCardBetweenLessons(draggedCard.lessonId, draggedCard.cardId, lesson.id, card.id, isCopy);
+                    }
+                });
+
+                cardEl.innerHTML =
+                    '<img src="' + (card.image || '') + '" alt="Мініатюра" loading="lazy" decoding="async" class="h-full w-auto max-w-full object-contain pointer-events-none select-none mx-auto">' +
+                    '<span class="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-bold ' + fInfo.badgeClass + ' shadow pointer-events-none">' +
+                        fInfo.badgeText +
+                    '</span>' +
+                    '<div class="copy-flash-overlay hidden absolute inset-0 bg-emerald-600/90 flex flex-col items-center justify-center text-white z-30 pointer-events-none px-2 text-center">' +
+                        '<span class="text-lg">✓</span>' +
+                        '<span class="text-[11px] font-bold">Скопійовано!</span>' +
+                    '</div>' +
+                    '<div class="absolute top-1 right-1 flex items-center gap-0.5 bg-gray-950/95 border border-gray-700 rounded-lg p-0.5 opacity-0 group-hover/card:opacity-100 transition-opacity z-20">' +
+                        '<button type="button" data-action="open-second-monitor" data-lesson-id="' + lesson.id + '" data-card-id="' + card.id + '" title="Відкрити картинки в окремому вікні для 2-го монітора" class="w-6 h-6 rounded flex items-center justify-center text-purple-300 hover:bg-purple-600 hover:text-white text-xs cursor-pointer">🖥️</button>' +
+                        '<button type="button" data-action="zoom-card" data-lesson-id="' + lesson.id + '" data-card-id="' + card.id + '" title="Наблизити тут (або подвійний клік)" class="w-6 h-6 rounded flex items-center justify-center text-amber-300 hover:bg-amber-500 hover:text-gray-950 text-xs cursor-pointer">🔍</button>' +
+                        '<button type="button" data-action="duplicate-card" data-lesson-id="' + lesson.id + '" data-card-id="' + card.id + '" title="Скопіювати завдання в інший урок чи іншому учню" class="w-6 h-6 rounded flex items-center justify-center text-indigo-300 hover:bg-indigo-600 hover:text-white text-xs cursor-pointer">📋</button>' +
+                        '<button type="button" data-action="edit-card" data-lesson-id="' + lesson.id + '" data-card-id="' + card.id + '" title="Редагувати або додати ще картинки" class="w-6 h-6 rounded flex items-center justify-center text-gray-200 hover:bg-indigo-600 hover:text-white text-xs cursor-pointer">✏️</button>' +
+                        '<button type="button" data-action="delete-card" data-lesson-id="' + lesson.id + '" data-card-id="' + card.id + '" title="Видалити картку" class="w-6 h-6 rounded flex items-center justify-center text-rose-300 hover:bg-rose-600 hover:text-white text-xs cursor-pointer">🗑️</button>' +
+                    '</div>';
+
+                return cardEl;
+            }
+
             function renderLessonsList() {
                 const container = document.getElementById('lessonsContainer');
                 if (!container) return;
@@ -1525,6 +2030,8 @@
                     return;
                 }
 
+                const fragment = document.createDocumentFragment();
+
                 rows.forEach(function (lesson) {
                     const isActiveRow = lesson.id === appState.activeLessonId;
 
@@ -1553,7 +2060,7 @@
                             (lesson._boardName ? '<div class="text-[10px] text-indigo-400 font-bold truncate">' + escapeHtml(lesson._boardName) + '</div>' : '') +
                             '<div class="flex items-center justify-between gap-1">' +
                                 '<div class="flex items-center gap-1.5 min-w-0">' +
-                                    '<button type="button" data-action="edit-lesson-title" data-lesson-id="' + lesson.id + '" title="Змінити номер або тему уроку" class="font-bold text-xs px-2 py-0.5 rounded truncate cursor-pointer transition ' +
+                                    '<button type="button" data-role="lesson-num-btn" data-action="edit-lesson-title" data-lesson-id="' + lesson.id + '" title="Змінити номер або тему уроку" class="font-bold text-xs px-2 py-0.5 rounded truncate cursor-pointer transition ' +
                                         (isActiveRow ? 'bg-indigo-600 text-white' : 'bg-indigo-500/15 text-indigo-300 hover:bg-indigo-600 hover:text-white') + '">' +
                                         escapeHtml(lesson.number) +
                                     '</button>' +
@@ -1570,7 +2077,7 @@
                                 (lesson.title ? escapeHtml(lesson.title) : '<span class="text-gray-600 italic text-[11px]">+ Підписати дату/тему...</span>') +
                             '</div>' +
                         '</div>' +
-                        '<div class="pt-1">' +
+                        '<div class="pt-1" data-role="active-status-slot">' +
                             (isActiveRow
                                 ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-[10px] font-semibold">🎯 Активний для Ctrl+V</span>'
                                 : '<button type="button" data-action="set-active-lesson" data-lesson-id="' + lesson.id + '" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-800/80 hover:bg-indigo-600/30 border border-gray-700 text-gray-400 hover:text-indigo-200 text-[10px] font-medium cursor-pointer">Зробити активним</button>'
@@ -1578,79 +2085,18 @@
                         '</div>';
 
                     const strip = document.createElement('div');
+                    strip.dataset.role = 'cards-strip';
                     strip.className = 'flex-1 flex items-center flex-wrap gap-2.5 min-w-0';
 
                     (lesson.cards || []).forEach(function (card) {
                         const cType = classifyCard(card);
                         if (activeFilter !== 'all' && cType !== activeFilter) return;
-
-                        const galArr = getCardGalleryArray(card);
-                        const fInfo = getFrameInfo(cType, galArr.length);
-                        const cardEl = document.createElement('div');
-                        cardEl.className = 'card-thumb-box relative rounded-xl bg-gray-950 overflow-hidden cursor-pointer select-none group/card flex items-center justify-center ' + fInfo.frameClass;
-                        cardEl.draggable = true;
-                        cardEl.dataset.action = 'card-click';
-                        cardEl.dataset.lessonId = lesson.id;
-                        cardEl.dataset.cardId = card.id;
-
-                        const tipLines = [];
-                        if (card.title) tipLines.push(card.title);
-                        if (galArr.length > 1) tipLines.push('Набір картинок: ' + galArr.length + ' шт. (клік відкриє окреме вікно для 2-го монітора)');
-                        if (card.url) tipLines.push('Шлях: ' + card.url);
-                        cardEl.title = tipLines.join('\n') || 'Клік — відкрити / скопіювати';
-
-                        cardEl.addEventListener('dragstart', function (e) {
-                            draggedCard = { lessonId: lesson.id, cardId: card.id };
-                            e.dataTransfer.effectAllowed = 'copyMove';
-                            setTimeout(function () { cardEl.classList.add('opacity-40'); }, 0);
-                        });
-                        cardEl.addEventListener('dragend', function () {
-                            cardEl.classList.remove('opacity-40');
-                            draggedCard = null;
-                            document.querySelectorAll('.drag-target-card').forEach(function (el) { el.classList.remove('drag-target-card'); });
-                        });
-                        cardEl.addEventListener('dragover', function (e) {
-                            if (draggedCard && draggedCard.cardId !== card.id) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                cardEl.classList.add('drag-target-card');
-                            }
-                        });
-                        cardEl.addEventListener('dragleave', function () {
-                            cardEl.classList.remove('drag-target-card');
-                        });
-                        cardEl.addEventListener('drop', function (e) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            cardEl.classList.remove('drag-target-card');
-                            if (draggedCard && draggedCard.cardId !== card.id) {
-                                const isCopy = e.ctrlKey || e.altKey || e.metaKey;
-                                moveOrCopyCardBetweenLessons(draggedCard.lessonId, draggedCard.cardId, lesson.id, card.id, isCopy);
-                            }
-                        });
-
-                        cardEl.innerHTML =
-                            '<img src="' + (galArr[0] || card.image) + '" alt="Мініатюра" loading="lazy" class="h-full w-auto max-w-full object-contain pointer-events-none select-none mx-auto">' +
-                            '<span class="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-bold ' + fInfo.badgeClass + ' shadow pointer-events-none">' +
-                                fInfo.badgeText +
-                            '</span>' +
-                            '<div class="copy-flash-overlay hidden absolute inset-0 bg-emerald-600/90 flex flex-col items-center justify-center text-white z-30 pointer-events-none px-2 text-center">' +
-                                '<span class="text-lg">✓</span>' +
-                                '<span class="text-[11px] font-bold">Скопійовано!</span>' +
-                            '</div>' +
-                            '<div class="absolute top-1 right-1 flex items-center gap-0.5 bg-gray-950/95 border border-gray-700 rounded-lg p-0.5 opacity-0 group-hover/card:opacity-100 transition-opacity z-20">' +
-                                '<button type="button" data-action="open-second-monitor" data-lesson-id="' + lesson.id + '" data-card-id="' + card.id + '" title="Відкрити картинки в окремому вікні для 2-го монітора" class="w-6 h-6 rounded flex items-center justify-center text-purple-300 hover:bg-purple-600 hover:text-white text-xs cursor-pointer">🖥️</button>' +
-                                '<button type="button" data-action="zoom-card" data-lesson-id="' + lesson.id + '" data-card-id="' + card.id + '" title="Наблизити тут (або подвійний клік)" class="w-6 h-6 rounded flex items-center justify-center text-amber-300 hover:bg-amber-500 hover:text-gray-950 text-xs cursor-pointer">🔍</button>' +
-                                '<button type="button" data-action="duplicate-card" data-lesson-id="' + lesson.id + '" data-card-id="' + card.id + '" title="Скопіювати завдання в інший урок чи іншому учню" class="w-6 h-6 rounded flex items-center justify-center text-indigo-300 hover:bg-indigo-600 hover:text-white text-xs cursor-pointer">📋</button>' +
-                                '<button type="button" data-action="edit-card" data-lesson-id="' + lesson.id + '" data-card-id="' + card.id + '" title="Редагувати або додати ще картинки" class="w-6 h-6 rounded flex items-center justify-center text-gray-200 hover:bg-indigo-600 hover:text-white text-xs cursor-pointer">✏️</button>' +
-                                '<button type="button" data-action="delete-card" data-lesson-id="' + lesson.id + '" data-card-id="' + card.id + '" title="Видалити картку" class="w-6 h-6 rounded flex items-center justify-center text-rose-300 hover:bg-rose-600 hover:text-white text-xs cursor-pointer">🗑️</button>' +
-                            '</div>';
-
-                        strip.appendChild(cardEl);
+                        strip.appendChild(buildCardDomElement(lesson, card));
                     });
 
                     const addBtn = document.createElement('button');
                     addBtn.type = 'button';
+                    addBtn.dataset.role = 'add-card-btn';
                     addBtn.dataset.action = 'open-add-card';
                     addBtn.dataset.lessonId = lesson.id;
                     addBtn.title = 'Додати нову картинку, набір картинок 1,2,3 або посилання';
@@ -1660,8 +2106,10 @@
 
                     section.appendChild(leftCol);
                     section.appendChild(strip);
-                    container.appendChild(section);
+                    fragment.appendChild(section);
                 });
+
+                container.appendChild(fragment);
             }
 
             function updateFooterStatus(timeStr) {
@@ -1709,10 +2157,10 @@
                 const card = found.card;
                 if (!card) return;
 
-                const gal = getCardGalleryArray(card);
+                const galCount = getCardGalleryCount(card);
                 const cleanUrl = cleanPathQuotes(card.url);
 
-                if (gal.length > 1 || (!cleanUrl && gal.length > 0)) {
+                if (galCount > 1 || (!cleanUrl && galCount > 0)) {
                     openSecondMonitorViewer(lessonId, cardId);
                     return;
                 }
@@ -1734,27 +2182,39 @@
                 if (!found.card) return;
                 const card = found.card;
                 const lesson = found.lesson;
-                const gal = getCardGalleryArray(card);
+                const galCount = getCardGalleryCount(card);
 
-                lightboxContext = { lessonId: lessonId, cardId: cardId, zoom: 1, slideIndex: 0 };
+                lightboxContext = {
+                    lessonId: lessonId,
+                    cardId: cardId,
+                    zoom: 1,
+                    slideIndex: 0,
+                    images: [card.image]
+                };
                 const cType = classifyCard(card);
-                const fInfo = getFrameInfo(cType, gal.length);
+                const fInfo = getFrameInfo(cType, galCount);
 
                 const badge = document.getElementById('lbTypeBadge');
                 badge.textContent = fInfo.badgeText;
                 badge.className = 'px-2.5 py-1 rounded-lg text-xs font-bold shrink-0 ' + fInfo.badgeClass;
 
                 document.getElementById('lbTitleText').textContent = card.title || (lesson.number + (lesson.title ? ' — ' + lesson.title : ''));
-                document.getElementById('lbUrlText').textContent = card.url || ('Набір картинок (' + gal.length + ' шт.)');
+                document.getElementById('lbUrlText').textContent = card.url || ('Набір картинок (' + galCount + ' шт.)');
 
                 renderLightboxSlide();
                 document.getElementById('lightboxModal').classList.remove('hidden');
+
+                // Підвантажуємо чіткі оригінали високої роздільності з card_media
+                ensureCardFullGallery(card).then(function (fullImgs) {
+                    if (lightboxContext.cardId === cardId && Array.isArray(fullImgs) && fullImgs.length > 0) {
+                        lightboxContext.images = fullImgs;
+                        renderLightboxSlide();
+                    }
+                });
             }
 
             function renderLightboxSlide() {
-                const found = findLessonAndCard(lightboxContext.lessonId, lightboxContext.cardId);
-                if (!found.card) return;
-                const gal = getCardGalleryArray(found.card);
+                const gal = (lightboxContext.images && lightboxContext.images.length > 0) ? lightboxContext.images : [''];
                 const total = gal.length;
                 const idx = ((lightboxContext.slideIndex % total) + total) % total;
                 lightboxContext.slideIndex = idx;
@@ -1804,6 +2264,7 @@
 
                 appState.activeBoardId = board.id;
                 appState.activeLessonId = lesson.id;
+                updateActiveLessonHighlightInDOM();
                 editingContext = { lessonId: lesson.id, cardId: cardId || null, galleryImages: [] };
 
                 const sel = document.getElementById('modalLessonSelect');
@@ -1824,8 +2285,16 @@
                     urlInp.value = card.url || '';
                     titleInp.value = card.title || '';
                     typeSel.value = card.badge || 'auto';
-                    editingContext.galleryImages = getCardGalleryArray(card).slice();
+                    editingContext.galleryImages = card.image ? [card.image] : [];
                     copyBtn.classList.remove('hidden');
+
+                    ensureCardFullGallery(card).then(function (fullImgs) {
+                        if (editingContext.cardId === cardId && Array.isArray(fullImgs) && fullImgs.length > 0) {
+                            editingContext.galleryImages = fullImgs.slice();
+                            renderModalGalleryStrip();
+                            updateModalUrlTypeIndicator();
+                        }
+                    });
                 } else {
                     headerTitle.textContent = '➕ Додати матеріал в урок (' + board.name + ')';
                     urlInp.value = '';
@@ -1839,7 +2308,6 @@
                 updateModalUrlTypeIndicator();
                 switchModalImageTab('upload');
                 document.getElementById('cardModal').classList.remove('hidden');
-                renderLessonsList();
                 setTimeout(function () { urlInp.focus(); }, 50);
             }
 
@@ -1936,7 +2404,7 @@
                 const tempCard = {
                     url: document.getElementById('modalCardUrlInput').value,
                     badge: document.getElementById('modalCardTypeSelect').value,
-                    gallery: editingContext.galleryImages
+                    galleryCount: editingContext.galleryImages.length
                 };
                 const cType = classifyCard(tempCard);
                 const info = getFrameInfo(cType, editingContext.galleryImages.length);
@@ -1960,47 +2428,70 @@
                 const title = document.getElementById('modalCardTitleInput').value.trim();
                 const badge = document.getElementById('modalCardTypeSelect').value;
 
-                let gallery = (editingContext.galleryImages || []).slice();
-                if (gallery.length === 0) {
-                    const tempType = classifyCard({ url: url, badge: badge, gallery: [] });
+                let fullGallery = (editingContext.galleryImages || []).slice();
+                if (fullGallery.length === 0) {
+                    const tempType = classifyCard({ url: url, badge: badge, galleryCount: 0 });
                     const bg = tempType === 'pdf' ? ['#9f1239', '#f43f5e', '📄'] : (tempType === 'local' ? ['#065f46', '#10b981', '💻'] : ['#1e3a8a', '#3b82f6', '🌐']);
-                    gallery = [createSvgThumb(bg[0], bg[1], bg[2], (title || 'МАТЕРІАЛ').slice(0, 18).toUpperCase(), 'Клік — відкрити', 'landscape')];
-                }
-
-                const coverImg = gallery[0];
-
-                if (editingContext.cardId && !asCopy) {
-                    const originLesson = board.lessons.find(function (l) { return l.id === editingContext.lessonId; });
-                    const idx = originLesson ? originLesson.cards.findIndex(function (c) { return c.id === editingContext.cardId; }) : -1;
-                    if (originLesson && idx !== -1) {
-                        const card = originLesson.cards[idx];
-                        card.url = url;
-                        card.title = title;
-                        card.badge = badge;
-                        card.image = coverImg;
-                        card.gallery = gallery;
-                        if (originLesson.id !== targetLesson.id) {
-                            originLesson.cards.splice(idx, 1);
-                            targetLesson.cards.push(card);
-                        }
-                    }
-                    showToast('Завдання оновлено!', 'emerald');
-                } else {
-                    if (!Array.isArray(targetLesson.cards)) targetLesson.cards = [];
-                    targetLesson.cards.push({
-                        id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-                        title: title,
-                        url: url,
-                        badge: badge,
-                        image: coverImg,
-                        gallery: gallery
-                    });
-                    showToast('Додано у «' + targetLesson.number + '» (' + gallery.length + ' карт.)!', 'emerald');
+                    fullGallery = [createSvgThumb(bg[0], bg[1], bg[2], (title || 'МАТЕРІАЛ').slice(0, 18).toUpperCase(), 'Клік — відкрити', 'landscape')];
                 }
 
                 document.getElementById('cardModal').classList.add('hidden');
-                saveState();
-                renderApp();
+
+                // Генеруємо легку мініатюру для списку уроку, а оригінали зберігаємо в card_media
+                createThumbnailDataUrl(fullGallery[0]).then(function (lightThumb) {
+                    if (editingContext.cardId && !asCopy) {
+                        const originLesson = board.lessons.find(function (l) { return l.id === editingContext.lessonId; });
+                        const idx = originLesson ? originLesson.cards.findIndex(function (c) { return c.id === editingContext.cardId; }) : -1;
+                        if (originLesson && idx !== -1) {
+                            const card = originLesson.cards[idx];
+                            card.url = url;
+                            card.title = title;
+                            card.badge = badge;
+                            card.image = lightThumb;
+                            card.galleryCount = fullGallery.length;
+                            card.thumbReady = true;
+                            delete card.gallery;
+
+                            saveCardMediaLocalAndQueueCloud(card.id, fullGallery, true);
+
+                            if (originLesson.id !== targetLesson.id) {
+                                originLesson.cards.splice(idx, 1);
+                                targetLesson.cards.push(card);
+                            }
+                        }
+                        showToast('Завдання оновлено!', 'emerald');
+                        saveState();
+                        renderLessonsList();
+                    } else {
+                        if (!Array.isArray(targetLesson.cards)) targetLesson.cards = [];
+                        const newCard = {
+                            id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                            title: title,
+                            url: url,
+                            badge: badge,
+                            image: lightThumb,
+                            galleryCount: fullGallery.length,
+                            thumbReady: true
+                        };
+                        targetLesson.cards.push(newCard);
+                        saveCardMediaLocalAndQueueCloud(newCard.id, fullGallery, true);
+
+                        // Додаємо нову картку точково в кінець ряду без перемальовування попередніх 40 карток
+                        const rowSec = document.querySelector('#lessonsContainer section[data-lesson-id="' + targetLesson.id + '"]');
+                        const strip = rowSec ? rowSec.querySelector('[data-role="cards-strip"]') : null;
+                        const addBtn = strip ? strip.querySelector('[data-role="add-card-btn"]') : null;
+                        const cType = classifyCard(newCard);
+                        if (strip && addBtn && (activeFilter === 'all' || activeFilter === cType) && !searchQuery.trim()) {
+                            strip.insertBefore(buildCardDomElement(targetLesson, newCard), addBtn);
+                            updateActiveLessonHighlightInDOM();
+                        } else {
+                            renderLessonsList();
+                        }
+
+                        saveState();
+                        showToast('Додано у «' + targetLesson.number + '» (' + fullGallery.length + ' карт.)!', 'emerald');
+                    }
+                });
             }
 
             function compressImageFile(file, callback) {
@@ -2070,19 +2561,29 @@
                 const card = found.card;
                 const lesson = found.lesson;
                 const board = found.board;
+                const galCount = getCardGalleryCount(card);
 
                 duplicatingContext = {
+                    sourceCardId: card.id,
                     cardData: {
                         title: card.title || '',
                         url: card.url || '',
                         badge: card.badge || 'auto',
                         image: card.image,
-                        gallery: getCardGalleryArray(card).slice()
+                        galleryCount: galCount,
+                        gallery: [card.image]
                     }
                 };
 
+                ensureCardFullGallery(card).then(function (fullImgs) {
+                    if (duplicatingContext && duplicatingContext.sourceCardId === card.id && Array.isArray(fullImgs) && fullImgs.length > 0) {
+                        duplicatingContext.cardData.gallery = fullImgs.slice();
+                        duplicatingContext.cardData.galleryCount = fullImgs.length;
+                    }
+                });
+
                 document.getElementById('dupPreviewImg').src = card.image;
-                document.getElementById('dupPreviewUrl').textContent = card.url || ('Набір картинок (' + duplicatingContext.cardData.gallery.length + ' шт.)');
+                document.getElementById('dupPreviewUrl').textContent = card.url || ('Набір картинок (' + galCount + ' шт.)');
                 document.getElementById('dupPreviewOrigin').textContent = 'Поточний урок: ' + getBoardFullTitle(board.id) + ' • ' + lesson.number;
 
                 const activeLesson = board.lessons.find(function (l) { return l.id === appState.activeLessonId; }) || board.lessons[board.lessons.length - 1];
@@ -2111,6 +2612,24 @@
                     const sel = (preferredId && l.id === preferredId) ? ' selected' : '';
                     return '<option value="' + l.id + '"' + sel + '>' + escapeHtml(l.number + (l.title ? ' — ' + l.title : '')) + '</option>';
                 }).join('');
+            }
+
+            function insertDuplicatedCardIntoLesson(targetLesson) {
+                if (!duplicatingContext || !targetLesson) return;
+                if (!Array.isArray(targetLesson.cards)) targetLesson.cards = [];
+                const newCardId = 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+                const fullGal = duplicatingContext.cardData.gallery.slice();
+                const newCard = {
+                    id: newCardId,
+                    title: duplicatingContext.cardData.title,
+                    url: duplicatingContext.cardData.url,
+                    badge: duplicatingContext.cardData.badge,
+                    image: duplicatingContext.cardData.image,
+                    galleryCount: fullGal.length,
+                    thumbReady: true
+                };
+                targetLesson.cards.push(newCard);
+                saveCardMediaLocalAndQueueCloud(newCardId, fullGal, true);
             }
 
             /* ========================================================================
@@ -2377,36 +2896,45 @@
                 const idx = fromL.cards.findIndex(function (c) { return c.id === draggedCardId; });
                 if (idx === -1) return;
 
-                let cardObj;
                 if (isCopy) {
                     const src = fromL.cards[idx];
-                    cardObj = {
-                        id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-                        title: src.title,
-                        url: src.url,
-                        badge: src.badge,
-                        image: src.image,
-                        gallery: getCardGalleryArray(src).slice()
-                    };
+                    ensureCardFullGallery(src).then(function (fullGal) {
+                        const newId = 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+                        const cardObj = {
+                            id: newId,
+                            title: src.title,
+                            url: src.url,
+                            badge: src.badge,
+                            image: src.image,
+                            galleryCount: fullGal.length || getCardGalleryCount(src),
+                            thumbReady: true
+                        };
+                        saveCardMediaLocalAndQueueCloud(newId, fullGal, true);
+                        if (!Array.isArray(toL.cards)) toL.cards = [];
+                        if (beforeCardId) {
+                            const targetIdx = toL.cards.findIndex(function (c) { return c.id === beforeCardId; });
+                            if (targetIdx !== -1) toL.cards.splice(targetIdx, 0, cardObj);
+                            else toL.cards.push(cardObj);
+                        } else {
+                            toL.cards.push(cardObj);
+                        }
+                        saveState();
+                        renderLessonsList();
+                        showToast('Завдання скопійовано у «' + toL.number + '»!', 'emerald');
+                    });
                 } else {
-                    cardObj = fromL.cards.splice(idx, 1)[0];
-                }
-
-                if (!Array.isArray(toL.cards)) toL.cards = [];
-                if (beforeCardId) {
-                    const targetIdx = toL.cards.findIndex(function (c) { return c.id === beforeCardId; });
-                    if (targetIdx !== -1) {
-                        toL.cards.splice(targetIdx, 0, cardObj);
+                    const cardObj = fromL.cards.splice(idx, 1)[0];
+                    if (!Array.isArray(toL.cards)) toL.cards = [];
+                    if (beforeCardId) {
+                        const targetIdx = toL.cards.findIndex(function (c) { return c.id === beforeCardId; });
+                        if (targetIdx !== -1) toL.cards.splice(targetIdx, 0, cardObj);
+                        else toL.cards.push(cardObj);
                     } else {
                         toL.cards.push(cardObj);
                     }
-                } else {
-                    toL.cards.push(cardObj);
+                    saveState();
+                    renderLessonsList();
                 }
-
-                saveState();
-                renderApp();
-                if (isCopy) showToast('Завдання скопійовано у «' + toL.number + '»!', 'emerald');
             }
 
             function handleDropOnLessonRow(e, lessonId, rowEl) {
@@ -2433,18 +2961,39 @@
                 }
             }
 
+            // Повний експорт JSON із підстановкою всіх чітких оригіналів із card_media
             function exportJsonBackup() {
-                const str = JSON.stringify(appState, null, 2);
-                const blob = new Blob([str], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'doshka-urokiv-avto.json';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                showToast('Резервну копію doshka-urokiv-avto.json завантажено!', 'emerald');
+                showToast('Готую повну резервну копію з усіма картинками...', 'info');
+                const clone = JSON.parse(JSON.stringify(appState));
+                const tasks = [];
+
+                clone.boards.forEach(function (b) {
+                    (b.lessons || []).forEach(function (l) {
+                        (l.cards || []).forEach(function (c) {
+                            tasks.push(
+                                ensureCardFullGallery(c).then(function (fullGal) {
+                                    if (Array.isArray(fullGal) && fullGal.length > 0) {
+                                        c.gallery = fullGal;
+                                    }
+                                })
+                            );
+                        });
+                    });
+                });
+
+                Promise.all(tasks).then(function () {
+                    const str = JSON.stringify(clone, null, 2);
+                    const blob = new Blob([str], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'doshka-urokiv-avto.json';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    showToast('Резервну копію doshka-urokiv-avto.json завантажено!', 'emerald');
+                });
             }
 
             /* ========================================================================
@@ -2570,7 +3119,8 @@
 
                     case 'set-filter': {
                         activeFilter = target.dataset.filter || 'all';
-                        renderApp();
+                        renderFilterButtons();
+                        renderLessonsList();
                         break;
                     }
 
@@ -2585,7 +3135,8 @@
                     case 'toggle-sort-order': {
                         appState.sortNewestFirst = !appState.sortNewestFirst;
                         saveState();
-                        renderApp();
+                        renderSortOrderButton();
+                        renderLessonsList();
                         break;
                     }
 
@@ -2599,10 +3150,18 @@
                         const lId = target.dataset.lessonId;
                         const found = findLessonAndCard(lId, null);
                         if (found.lesson && found.board) {
+                            const boardChanged = appState.activeBoardId !== found.board.id;
+                            const lessonChanged = appState.activeLessonId !== lId;
                             appState.activeBoardId = found.board.id;
                             appState.activeLessonId = lId;
-                            renderApp();
-                            showToast('«' + found.lesson.number + '» активний для вставки скріншотів Ctrl + V', 'info');
+                            if (boardChanged) {
+                                renderApp();
+                            } else if (lessonChanged) {
+                                updateActiveLessonHighlightInDOM();
+                            }
+                            if (lessonChanged || action === 'set-active-lesson') {
+                                showToast('«' + found.lesson.number + '» активний для вставки скріншотів Ctrl + V', 'info');
+                            }
                         }
                         break;
                     }
@@ -2666,6 +3225,9 @@
                             'Видалити урок',
                             'bg-rose-600 hover:bg-rose-500',
                             function () {
+                                (les.cards || []).forEach(function (c) {
+                                    deleteCardMediaEverywhere(c.id);
+                                });
                                 b.lessons = b.lessons.filter(function (l) { return l.id !== lId; });
                                 ensureActiveLesson();
                                 closeCustomDialog();
@@ -2680,7 +3242,10 @@
                     case 'card-click': {
                         const lId = target.dataset.lessonId;
                         const cId = target.dataset.cardId;
-                        appState.activeLessonId = lId;
+                        if (appState.activeLessonId !== lId) {
+                            appState.activeLessonId = lId;
+                            updateActiveLessonHighlightInDOM();
+                        }
                         if (singleClickTimer) clearTimeout(singleClickTimer);
                         singleClickTimer = setTimeout(function () {
                             handleCardPrimaryAction(lId, cId, target);
@@ -2712,11 +3277,19 @@
                     }
 
                     case 'delete-card': {
-                        const found = findLessonAndCard(target.dataset.lessonId, target.dataset.cardId);
+                        const cId = target.dataset.cardId;
+                        const lId = target.dataset.lessonId;
+                        const found = findLessonAndCard(lId, cId);
                         if (found.lesson) {
-                            found.lesson.cards = (found.lesson.cards || []).filter(function (c) { return c.id !== target.dataset.cardId; });
+                            found.lesson.cards = (found.lesson.cards || []).filter(function (c) { return c.id !== cId; });
+                            deleteCardMediaEverywhere(cId);
+                            const domCard = target.closest('.card-thumb-box');
+                            if (domCard && domCard.parentNode) {
+                                domCard.parentNode.removeChild(domCard);
+                            } else {
+                                renderLessonsList();
+                            }
                             saveState();
-                            renderApp();
                             showToast('Картку видалено', 'info');
                         }
                         break;
@@ -2805,18 +3378,10 @@
                         if (!duplicatingContext || !currentBoard) break;
                         const actLes = currentBoard.lessons.find(function (l) { return l.id === appState.activeLessonId; }) || currentBoard.lessons[currentBoard.lessons.length - 1];
                         if (actLes) {
-                            if (!Array.isArray(actLes.cards)) actLes.cards = [];
-                            actLes.cards.push({
-                                id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-                                title: duplicatingContext.cardData.title,
-                                url: duplicatingContext.cardData.url,
-                                badge: duplicatingContext.cardData.badge,
-                                image: duplicatingContext.cardData.image,
-                                gallery: duplicatingContext.cardData.gallery.slice()
-                            });
+                            insertDuplicatedCardIntoLesson(actLes);
                             document.getElementById('duplicateModal').classList.add('hidden');
                             saveState();
-                            renderApp();
+                            renderLessonsList();
                             showToast('Завдання скопійовано у «' + actLes.number + '»!', 'emerald');
                         }
                         break;
@@ -2834,15 +3399,7 @@
                             targetB.lessons.push(targetL);
                         }
                         if (targetL) {
-                            if (!Array.isArray(targetL.cards)) targetL.cards = [];
-                            targetL.cards.push({
-                                id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-                                title: duplicatingContext.cardData.title,
-                                url: duplicatingContext.cardData.url,
-                                badge: duplicatingContext.cardData.badge,
-                                image: duplicatingContext.cardData.image,
-                                gallery: duplicatingContext.cardData.gallery.slice()
-                            });
+                            insertDuplicatedCardIntoLesson(targetL);
                             document.getElementById('duplicateModal').classList.add('hidden');
                             saveState();
                             renderApp();
@@ -2862,15 +3419,9 @@
                             number: 'Урок ' + nextN,
                             title: new Date().toLocaleDateString('uk-UA'),
                             date: '',
-                            cards: [{
-                                id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-                                title: duplicatingContext.cardData.title,
-                                url: duplicatingContext.cardData.url,
-                                badge: duplicatingContext.cardData.badge,
-                                image: duplicatingContext.cardData.image,
-                                gallery: duplicatingContext.cardData.gallery.slice()
-                            }]
+                            cards: []
                         };
+                        insertDuplicatedCardIntoLesson(newestL);
                         targetB.lessons.push(newestL);
                         document.getElementById('duplicateModal').classList.add('hidden');
                         saveState();
@@ -3013,7 +3564,10 @@
                 } else if (id === 'thumbSizeSlider') {
                     appState.thumbHeight = parseInt(e.target.value, 10) || 96;
                     applyThumbHeight(appState.thumbHeight);
-                    saveState();
+                    if (thumbSliderSaveTimer) clearTimeout(thumbSliderSaveTimer);
+                    thumbSliderSaveTimer = setTimeout(function () {
+                        saveState();
+                    }, 350);
                 } else if (id === 'modalCardUrlInput') {
                     updateModalUrlTypeIndicator();
                 } else if (id === 'genCoverTitleInput') {
