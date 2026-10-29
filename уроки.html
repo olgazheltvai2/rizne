@@ -59,8 +59,8 @@
 
         /* =====================================================================
            ЗОЛОТА СЕРЕДИНА ДЛЯ РАМОК:
-           Насичений чіткий колір (3.5px), тонка темна внутрішня окантовка
-           (щоб не зливалося з білим фоном), м'яке світіння без різкого неону.
+           Насичений чіткий колір (3.5px), тонка темна внутрішня окантовка,
+           м'яке світіння без різкого неону.
            ===================================================================== */
         
         /* 1. САЙТ — Насичена блакитно-синя рамка */
@@ -93,6 +93,16 @@
             box-shadow: 0 6px 16px rgba(244, 63, 94, 0.62), inset 0 0 0 1.5px #090d16 !important;
         }
 
+        /* 4. НАБІР КАРТИНОК (ГАЛЕРЕЯ ДЛЯ 2-ГО МОНІТОРА) — Насичена фіолетово-золотиста рамка */
+        .frame-gallery {
+            border: 3.5px solid #a855f7 !important;
+            box-shadow: 0 4px 12px rgba(168, 85, 247, 0.42), inset 0 0 0 1.5px #090d16 !important;
+        }
+        .frame-gallery:hover {
+            border-color: #c084fc !important;
+            box-shadow: 0 6px 16px rgba(168, 85, 247, 0.65), inset 0 0 0 1.5px #090d16 !important;
+        }
+
         /* Виділення активного ряду уроку для Ctrl+V */
         .lesson-row-active {
             border-color: #6366f1 !important;
@@ -106,6 +116,10 @@
         }
         .drag-target-card {
             outline: 3px solid #fbbf24 !important;
+        }
+        .drag-target-board {
+            outline: 3px dashed #fbbf24 !important;
+            transform: scale(1.02);
         }
         .modal-bg {
             background-color: rgba(4, 7, 15, 0.86);
@@ -148,16 +162,24 @@
                         + Піддошка
                     </button>
                     <div id="boardManageBtns" class="flex items-center gap-0.5 border-l border-gray-800 pl-1">
+                        <button type="button" data-action="move-board-left" title="Пересунути поточну дошку лівіше/вище у списку"
+                            class="px-1.5 py-1 rounded-md text-xs font-bold text-gray-300 hover:text-white hover:bg-gray-800 transition cursor-pointer">
+                            ◀
+                        </button>
+                        <button type="button" data-action="move-board-right" title="Пересунути поточну дошку правіше/нижче у списку"
+                            class="px-1.5 py-1 rounded-md text-xs font-bold text-gray-300 hover:text-white hover:bg-gray-800 transition cursor-pointer">
+                            ▶
+                        </button>
                         <button type="button" data-action="open-rename-board" title="Перейменувати поточну дошку"
-                            class="px-2 py-1 rounded-md text-xs font-medium text-gray-300 hover:text-white hover:bg-gray-800 transition cursor-pointer">
+                            class="px-1.5 py-1 rounded-md text-xs font-medium text-gray-300 hover:text-white hover:bg-gray-800 transition cursor-pointer">
                             ✏️
                         </button>
                         <button type="button" data-action="open-move-board" title="Перемістити цю дошку в інший розділ/папку"
-                            class="px-2 py-1 rounded-md text-xs font-medium text-gray-300 hover:text-amber-300 hover:bg-gray-800 transition cursor-pointer">
+                            class="px-1.5 py-1 rounded-md text-xs font-medium text-gray-300 hover:text-amber-300 hover:bg-gray-800 transition cursor-pointer">
                             📂
                         </button>
                         <button type="button" data-action="open-delete-board" title="Видалити поточну дошку"
-                            class="px-2 py-1 rounded-md text-xs font-medium text-gray-300 hover:text-rose-400 hover:bg-gray-800 transition cursor-pointer">
+                            class="px-1.5 py-1 rounded-md text-xs font-medium text-gray-300 hover:text-rose-400 hover:bg-gray-800 transition cursor-pointer">
                             🗑️
                         </button>
                     </div>
@@ -239,8 +261,11 @@
                 <button type="button" data-action="set-filter" data-filter="pdf" id="fltBtn_pdf" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded font-semibold text-rose-300 bg-rose-950/60 border border-rose-400/60 hover:bg-rose-900/70 cursor-pointer transition">
                     <span class="w-2.5 h-2.5 rounded-sm bg-rose-500 inline-block"></span> 📄 PDF (Червона)
                 </button>
+                <button type="button" data-action="set-filter" data-filter="gallery" id="fltBtn_gallery" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded font-semibold text-purple-300 bg-purple-950/60 border border-purple-400/60 hover:bg-purple-900/70 cursor-pointer transition">
+                    <span class="w-2.5 h-2.5 rounded-sm bg-purple-400 inline-block"></span> 🖥️ Набір картинок (Фіолетова)
+                </button>
                 <span class="text-gray-600 hidden xl:inline">|</span>
-                <span class="hidden xl:inline"><b>1 клік</b> — копіює посилання • <b>2 кліки</b> (або 🔍) — на весь екран • <b>Ctrl + V</b> — вставляє скріншот 🎯</span>
+                <span class="hidden xl:inline"><b>1 клік</b> — копіює шлях (або відкриває вікно картинок для 2-го монітора) • <b>Ctrl + V</b> — додає скріншоти 🎯</span>
             </div>
         </div>
     </header>
@@ -260,45 +285,60 @@
         <div id="footerSaveStatus" class="text-[11px] text-gray-400 font-mono">Автоматична хмара активна</div>
     </footer>
 
-    <!-- ================= МОДАЛКА 1: ДОДАТИ / РЕДАГУВАТИ ЗАВДАННЯ ================= -->
+    <!-- ================= МОДАЛКА 1: ДОДАТИ / РЕДАГУВАТИ ЗАВДАННЯ (З ПІДТРИМКОЮ ДЕКІЛЬКОХ КАРТИНОК 1, 2, 3...) ================= -->
     <div id="cardModal" class="fixed inset-0 z-50 hidden modal-bg flex items-center justify-center p-3 sm:p-4">
-        <div class="bg-[#111827] border border-gray-700 rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden">
+        <div class="bg-[#111827] border border-gray-700 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden">
             <div class="px-5 py-3.5 bg-gray-900 border-b border-gray-800 flex items-center justify-between">
                 <h3 id="cardModalHeaderTitle" class="font-bold text-sm sm:text-base text-white">Додати завдання в урок</h3>
                 <button type="button" data-action="close-card-modal" class="text-gray-400 hover:text-white px-2 py-1 rounded-lg hover:bg-gray-800 cursor-pointer">✕</button>
             </div>
 
-            <div class="p-5 space-y-4 max-h-[82vh] overflow-y-auto">
+            <div class="p-5 space-y-4 max-h-[84vh] overflow-y-auto">
                 <!-- Вибір уроку -->
                 <div class="bg-indigo-950/35 border border-indigo-500/40 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <label for="modalLessonSelect" class="text-xs font-semibold text-indigo-200">🎯 У який урок зберегти:</label>
                     <select id="modalLessonSelect" class="bg-gray-900 border border-indigo-500/50 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-semibold text-white focus:outline-none min-w-[230px]"></select>
                 </div>
 
-                <!-- Обкладинка (Ctrl+V, Файл, або Кольорова авто-обкладинка) -->
+                <!-- 1. ЗАВАНТАЖЕННЯ ОДНІЄЇ АБО ДЕКІЛЬКОХ КАРТИНОК (1, 2, 3...) -->
                 <div>
                     <div class="flex items-center justify-between mb-2 flex-wrap gap-1">
-                        <label class="text-xs font-semibold uppercase tracking-wider text-gray-400">1. Мініатюра (натисніть Ctrl + V або оберіть файл)</label>
+                        <label class="text-xs font-semibold uppercase tracking-wider text-gray-300">
+                            1. Картинки (можна обрати одразу декілька файлів 1, 2, 3 або натискати Ctrl + V кілька разів)
+                        </label>
                         <div class="flex gap-1 bg-gray-900 p-0.5 rounded-lg border border-gray-800 text-[11px]">
-                            <button type="button" id="tabBtnUpload" data-action="switch-img-tab" data-tab="upload" class="px-2.5 py-1 rounded-md bg-indigo-600 text-white font-medium cursor-pointer">Скріншот / Файл</button>
+                            <button type="button" id="tabBtnUpload" data-action="switch-img-tab" data-tab="upload" class="px-2.5 py-1 rounded-md bg-indigo-600 text-white font-medium cursor-pointer">Скріншоти / Файли (1, 2, 3...)</button>
                             <button type="button" id="tabBtnGen" data-action="switch-img-tab" data-tab="gen" class="px-2.5 py-1 rounded-md text-gray-400 hover:text-white cursor-pointer">Авто-обкладинка</button>
                             <button type="button" id="tabBtnUrl" data-action="switch-img-tab" data-tab="url" class="px-2.5 py-1 rounded-md text-gray-400 hover:text-white cursor-pointer">URL картинки</button>
                         </div>
                     </div>
 
-                    <!-- Вкладка 1: Завантаження / Ctrl+V -->
-                    <div id="paneImgUpload">
-                        <div data-action="trigger-card-file" class="border-2 border-dashed border-gray-700 hover:border-indigo-500 rounded-xl p-4 text-center cursor-pointer bg-gray-900/50 hover:bg-gray-900 transition flex flex-col items-center justify-center min-h-[140px]">
-                            <div id="modalImgPreviewBox" class="hidden flex-col items-center gap-2">
-                                <img id="modalImgPreview" src="" alt="Прев'ю" class="max-h-32 rounded-lg border border-gray-700 object-contain">
-                                <span class="text-[11px] text-indigo-300 font-medium">Натисніть <b>Ctrl + V</b>, щоб замінити картинку зі скріншоту, або клікніть сюди</span>
+                    <!-- Вкладка 1: Завантаження одної чи декількох картинок -->
+                    <div id="paneImgUpload" class="space-y-3">
+                        <div data-action="trigger-card-file" class="border-2 border-dashed border-gray-700 hover:border-indigo-500 rounded-xl p-4 text-center cursor-pointer bg-gray-900/50 hover:bg-gray-900 transition flex flex-col items-center justify-center min-h-[115px]">
+                            <div class="space-y-1">
+                                <div class="text-2xl">🖼️</div>
+                                <p class="text-xs sm:text-sm font-semibold text-gray-200">
+                                    Клікніть, щоб обрати <span class="text-indigo-300 underline">одну або одразу декілька картинок (1, 2, 3...)</span> з комп'ютера
+                                </p>
+                                <p class="text-[11px] text-gray-400">
+                                    Або натискайте <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-600 rounded text-indigo-300 font-mono text-xs">Ctrl + V</kbd> стільки разів, скільки картинок хочете зібрати в це завдання!
+                                </p>
                             </div>
-                            <div id="modalImgPlaceholder" class="space-y-1">
-                                <div class="text-2xl">📋</div>
-                                <p class="text-xs sm:text-sm font-medium text-gray-200">Натисніть <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-600 rounded text-indigo-300 font-mono text-xs">Ctrl + V</kbd>, щоб вставити скріншот</p>
-                                <p class="text-[11px] text-gray-400">Працює і при створенні, і при редагуванні! Або клікніть для вибору файлу</p>
+                            <!-- multiple дозволяє виділити одразу картинки 1, 2, 3 у вікні вибору файлів! -->
+                            <input id="cardImageFileInput" type="file" accept="image/*" multiple class="hidden">
+                        </div>
+
+                        <!-- Стрічка завантажених картинок (1, 2, 3...) -->
+                        <div id="modalGalleryBox" class="hidden bg-gray-950 border border-gray-800 rounded-xl p-3 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <span id="modalGalleryCountText" class="text-xs font-bold text-purple-300">Завантажено картинок: 1</span>
+                                <button type="button" data-action="clear-gallery-images" class="text-[11px] text-rose-400 hover:underline cursor-pointer">🗑️ Очистити всі картинки</button>
                             </div>
-                            <input id="cardImageFileInput" type="file" accept="image/*" class="hidden">
+                            <div id="modalGalleryStrip" class="flex items-center gap-2.5 overflow-x-auto pb-1"></div>
+                            <p class="text-[11px] text-gray-400">
+                                💡 Усі додані сюди картинки назавжди зберігаються у вашій хмарі Firebase — після збереження ви можете видалити їх з комп'ютера. При натисканні на картку вони відкриються в <b>окремому вікні для другого монітора</b>.
+                            </p>
                         </div>
                     </div>
 
@@ -329,21 +369,23 @@
                     </div>
                 </div>
 
-                <!-- 2. Посилання або шлях до файлу -->
+                <!-- 2. Посилання або шлях до файлу (необов'язково, якщо це просто набір картинок!) -->
                 <div>
                     <div class="flex items-center justify-between mb-1">
-                        <label class="text-xs font-semibold uppercase tracking-wider text-gray-400">2. Посилання на сайт, PDF або шлях на ПК/флешці</label>
+                        <label class="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                            2. Посилання на сайт/файл (або залиште порожнім, якщо це набір картинок для 2-го монітора)
+                        </label>
                         <span id="modalDetectedTypeBadge" class="text-[11px] px-2.5 py-0.5 rounded font-bold bg-sky-600 text-white">🌐 Сайт</span>
                     </div>
-                    <input id="modalCardUrlInput" type="text" placeholder="https://... або D:\Ігри\гра.html або файл.pdf"
+                    <input id="modalCardUrlInput" type="text" placeholder="https://... або D:\Ігри\гра.html (або залиште порожнім для показу картинок)"
                         class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white font-mono placeholder-gray-500 focus:border-indigo-500 focus:outline-none">
                 </div>
 
                 <!-- 3. Колір рамки та необов'язкова підказка при наведенні -->
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div class="sm:col-span-2">
-                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">3. Нотатка при наведенні миші (необов'язково)</label>
-                        <input id="modalCardTitleInput" type="text" placeholder="Показується при наведенні мишки"
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">3. Підпис / нотатка при наведенні (необов'язково)</label>
+                        <input id="modalCardTitleInput" type="text" placeholder="Напр.: Картки на увагу 1-3"
                             class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none">
                     </div>
                     <div>
@@ -353,6 +395,7 @@
                             <option value="web">🔵 Сайт (Синя)</option>
                             <option value="local">🟢 ПК / Флешка (Зелена)</option>
                             <option value="pdf">🔴 PDF (Червона)</option>
+                            <option value="gallery">🟣 Набір картинок (Фіолетова)</option>
                         </select>
                     </div>
                 </div>
@@ -415,7 +458,7 @@
         </div>
     </div>
 
-    <!-- ================= МОДАЛКА 3: ЗБІЛЬШЕНИЙ ПЕРЕГЛЯД КАРТИНКИ (LIGHTBOX) ================= -->
+    <!-- ================= МОДАЛКА 3: ЗБІЛЬШЕНИЙ ПЕРЕГЛЯД КАРТИНКИ (LIGHTBOX У ТІЙ САМІЙ ВКЛАДЦІ) ================= -->
     <div id="lightboxModal" data-action="close-lightbox-backdrop" class="fixed inset-0 z-50 hidden modal-bg flex flex-col items-center justify-between p-3 sm:p-6 select-none">
         <div class="w-full max-w-5xl bg-gray-900/95 border border-gray-700 rounded-2xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-2xl">
             <div class="flex items-center gap-2.5 min-w-0 flex-1">
@@ -426,11 +469,16 @@
                 </div>
             </div>
             <div class="flex items-center gap-1.5 flex-wrap">
+                <button type="button" data-action="lb-prev-img" id="lbPrevBtn" class="hidden px-2.5 py-1 rounded-xl bg-gray-800 hover:bg-indigo-600 text-white text-xs font-bold cursor-pointer">⬅️</button>
+                <span id="lbSlideCounter" class="hidden text-xs font-bold text-purple-300 px-1.5">1 / 1</span>
+                <button type="button" data-action="lb-next-img" id="lbNextBtn" class="hidden px-2.5 py-1 rounded-xl bg-gray-800 hover:bg-indigo-600 text-white text-xs font-bold cursor-pointer">➡️</button>
+
                 <div class="flex items-center bg-gray-950 border border-gray-800 rounded-xl p-0.5">
                     <button type="button" data-action="lb-zoom-out" class="px-2.5 py-1 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg text-xs font-bold cursor-pointer">−</button>
                     <button type="button" data-action="lb-zoom-reset" id="lbZoomPercent" class="px-2.5 py-1 text-xs font-mono text-indigo-300 hover:text-white cursor-pointer">100%</button>
                     <button type="button" data-action="lb-zoom-in" class="px-2.5 py-1 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg text-xs font-bold cursor-pointer">+</button>
                 </div>
+                <button type="button" data-action="lb-open-second-monitor" class="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold cursor-pointer">🖥️ В окремому вікні (2-й монітор)</button>
                 <button type="button" data-action="lb-copy-url" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold cursor-pointer">📋 Скопіювати шлях</button>
                 <button type="button" data-action="lb-edit-card" class="px-3 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-medium cursor-pointer">✏️ Редагувати</button>
                 <button type="button" data-action="close-lightbox" class="px-3 py-1.5 rounded-xl bg-gray-800 hover:bg-rose-600 text-gray-200 hover:text-white text-xs font-bold cursor-pointer">✕</button>
@@ -443,7 +491,7 @@
         </div>
 
         <div class="text-[11px] text-gray-300 bg-gray-900/90 px-4 py-1.5 rounded-full border border-gray-700">
-            Коліщатко миші або клік по картинці — наблизити ще більше • <b>Esc</b> або клік по фону — закрити
+            Коліщатко миші або клік по картинці — наблизити • <b>Esc</b> або клік по фону — закрити
         </div>
     </div>
 
@@ -525,7 +573,6 @@
             const BS = String.fromCharCode(92);
             const MY_CLIENT_ID = 'client_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
 
-            // Генератор чітких SVG-ілюстрацій
             function createSvgThumb(bg1, bg2, emoji, line1, line2, shape) {
                 const w = shape === 'portrait' ? 180 : (shape === 'square' ? 200 : 280);
                 const h = 180;
@@ -545,10 +592,10 @@
 
             function buildInitialState() {
                 return {
-                    schemaVersion: 4,
+                    schemaVersion: 5,
                     updatedAt: 0,
                     clientId: MY_CLIENT_ID,
-                    activeBoardId: null, // null = Головний екран ("👥 УЧНІ" та "📚 ТЕМИ")
+                    activeBoardId: null,
                     activeLessonId: 'l_201',
                     thumbHeight: 96,
                     sortNewestFirst: false,
@@ -600,7 +647,7 @@
                                         {
                                             id: 'c_1793261932480_lwth',
                                             title: 'Е / И — Ніндзя і монстри',
-                                            url: 'https://olgazheltvai2.github.io/mova/%D0%B5_%D0%B8_%D0%BD%D1%96%D0%BD%D0%B4%D0%B7%D1%8F_%D1%96_%D0%BC%D0%BE%D0%BD%D1%81%D1%82%D1%80%D0%B8.html',
+                                            url: 'https://olgazheltvai2.github.io/mova/%D0%B5_%D0%B8_%D0%BD%D1%96%D0%BD%D1%B4%D0%B7%D1%8F_%D1%96_%D0%BC%D0%BE%D0%BD%D1%81%D1%82%D1%80%D0%B8.html',
                                             badge: 'web',
                                             image: createSvgThumb('#4338ca', '#818cf8', '🥷', 'НІНДЗЯ І МОНСТРИ', 'Літери Е та И', 'landscape')
                                         },
@@ -669,93 +716,6 @@
                                             image: createSvgThumb('#9f1239', '#f43f5e', '📄', 'АРКУШ №1 (PDF)', 'Роздруківка / PDF', 'portrait')
                                         }
                                     ]
-                                },
-                                {
-                                    id: 'l_2',
-                                    number: 'Урок 2',
-                                    title: 'Березень — Геометрія та периметр',
-                                    date: '10 бер.',
-                                    cards: [
-                                        {
-                                            id: 'c_201',
-                                            title: 'Трикутник — знайди периметр',
-                                            url: 'D:' + BS + 'Ігри' + BS + 'Трикутник' + BS + 'index.html',
-                                            badge: 'auto',
-                                            image: createSvgThumb('#15803d', '#22c55e', '📐', 'ТРИКУТНИК', 'Периметр фігури', 'landscape')
-                                        },
-                                        {
-                                            id: 'c_202',
-                                            title: 'Рахуємо яблука в саду',
-                                            url: 'https://learningapps.org/view-apples',
-                                            badge: 'auto',
-                                            image: createSvgThumb('#0284c7', '#38bdf8', '🍎', 'РАХУЄМО В САДУ', 'Онлайн-вправа', 'landscape')
-                                        },
-                                        {
-                                            id: 'c_203',
-                                            title: 'Робочий зошит 2 клас (с. 18)',
-                                            url: 'https://drive.google.com/file/d/workbook-p18.pdf',
-                                            badge: 'pdf',
-                                            image: createSvgThumb('#be123c', '#fb7185', '📒', 'ЗОШИТ с. 18', 'PDF документ', 'landscape')
-                                        }
-                                    ]
-                                },
-                                {
-                                    id: 'l_3',
-                                    number: 'Урок 3',
-                                    title: 'Травень — Дроби, сонце і хмарка',
-                                    date: '19 трав.',
-                                    cards: [
-                                        {
-                                            id: 'c_301',
-                                            title: 'Сонце і хмарка — слова протилежності',
-                                            url: 'https://wordwall.net/uk/resource/sun-cloud',
-                                            badge: 'auto',
-                                            image: createSvgThumb('#0369a1', '#38bdf8', '⛅', 'СОНЦЕ І ХМАРКА', 'Антоніми (Сайт)', 'landscape')
-                                        },
-                                        {
-                                            id: 'c_302',
-                                            title: 'Де сховався чорний котик?',
-                                            url: 'D:' + BS + 'Ігри' + BS + 'Котик_прийменники' + BS + 'index.html',
-                                            badge: 'auto',
-                                            image: createSvgThumb('#0f766e', '#14b8a6', '🐈‍⬛', 'ДЕ КОТИК?', 'На, під, за, біля', 'square')
-                                        },
-                                        {
-                                            id: 'c_303',
-                                            title: 'Порівняй десяткові дроби 0,3 і 0,5',
-                                            url: 'https://olgazheltvai2.github.io/math/fractions.html',
-                                            badge: 'auto',
-                                            image: createSvgThumb('#1d4ed8', '#60a5fa', '🔢', '0,3  <  0,5', 'Тренажер GitHub', 'landscape')
-                                        },
-                                        {
-                                            id: 'c_304',
-                                            title: 'Математика з лисеням — PDF аркуші',
-                                            url: 'D:' + BS + 'Матеріали' + BS + 'Математика_лисеня.pdf',
-                                            badge: 'auto',
-                                            image: createSvgThumb('#b91c1c', '#ef4444', '🦊', 'ЛИСЕНЯ (PDF)', 'Робочі листи', 'landscape')
-                                        }
-                                    ]
-                                },
-                                {
-                                    id: 'l_4',
-                                    number: 'Урок 4',
-                                    title: 'Липень — Повторення та ігри',
-                                    date: '14 лип.',
-                                    cards: [
-                                        {
-                                            id: 'c_401',
-                                            title: 'Космічна таблиця множення',
-                                            url: 'https://olgazheltvai2.github.io/math/space.html',
-                                            badge: 'auto',
-                                            image: createSvgThumb('#4338ca', '#818cf8', '🚀', 'КОСМІЧНИЙ БІЙ', 'Множення на 6 і 7', 'landscape')
-                                        },
-                                        {
-                                            id: 'c_402',
-                                            title: 'Лісова історія — читання PDF',
-                                            url: 'D:' + BS + 'Матеріали' + BS + 'Лісова_історія.pdf',
-                                            badge: 'auto',
-                                            image: createSvgThumb('#991b1b', '#f87171', '🌳', 'ЛІСОВА КАЗКА', 'Читання PDF', 'landscape')
-                                        }
-                                    ]
                                 }
                             ]
                         }
@@ -763,7 +723,6 @@
                 };
             }
 
-            // Підрахунок загальної кількості карток (щоб при першому запуску автоматично обрати найповнішу базу)
             function countTotalCards(stateObj) {
                 if (!stateObj || !Array.isArray(stateObj.boards)) return 0;
                 let total = 0;
@@ -810,22 +769,22 @@
                     });
                 }
 
-                parsed.schemaVersion = 4;
+                parsed.schemaVersion = 5;
                 return parsed;
             }
 
-            // Глобальний стан
             let appState = buildInitialState();
             let activeFilter = 'all';
             let searchQuery = '';
 
-            // Стан модалок
-            let editingContext = { lessonId: null, cardId: null, imageBase64: '' };
+            // Стан модалки картки (підтримує масив картинок galleryImages: [img1, img2, img3...])
+            let editingContext = { lessonId: null, cardId: null, galleryImages: [] };
             let duplicatingContext = null;
-            let lightboxContext = { lessonId: null, cardId: null, zoom: 1 };
+            let lightboxContext = { lessonId: null, cardId: null, zoom: 1, slideIndex: 0 };
             let dialogCallback = null;
             let genCoverTheme = { bg1: '#4f46e5', bg2: '#9333ea', emoji: '🚀' };
             let draggedCard = null;
+            let draggedBoardId = null;
             let singleClickTimer = null;
 
             const LS_KEY = 'VisualLessonBoard_State_v3';
@@ -834,7 +793,6 @@
 
             /* ========================================================================
                АВТОМАТИЧНА ХМАРА FIREBASE (https://lesson-13c44-default-rtdb.firebaseio.com/)
-               Працює повністю автоматично без токенів і налаштувань!
                ======================================================================== */
             let fbBoardRef = null;
             let isApplyingRemoteUpdate = false;
@@ -867,17 +825,14 @@
                     const db = firebase.database();
                     fbBoardRef = db.ref('visual_lesson_board_olga/state');
 
-                    // Первинна розумна звірка між локальною пам'яттю профілю та хмарою Firebase
                     fbBoardRef.once('value').then(function (snap) {
                         const cloudVal = snap.val();
                         const localCardsCount = countTotalCards(appState);
                         const cloudCardsCount = countTotalCards(cloudVal);
 
                         if (!cloudVal || localCardsCount > cloudCardsCount) {
-                            // У цьому профілі браузера більше карток (напр., ваші 16 скріншотів!) — автоматично відправляємо їх у Firebase!
                             pushStateToFirebase();
                         } else if (cloudVal && Array.isArray(cloudVal.boards)) {
-                            // У хмарі свіжіша/повніша база — застосовуємо її!
                             isApplyingRemoteUpdate = true;
                             const keepActiveBoard = appState.activeBoardId;
                             appState = normalizeAndMigrateState(cloudVal);
@@ -890,7 +845,6 @@
                             updateCloudBadge('online', 'Хмара синхронізована');
                         }
 
-                        // Слухаємо всі подальші зміни в реальному часі з інших вкладок чи пристроїв
                         fbBoardRef.on('value', function (liveSnap) {
                             const remote = liveSnap.val();
                             if (!remote || !Array.isArray(remote.boards)) return;
@@ -900,7 +854,11 @@
                             const localTime = appState.updatedAt || 0;
                             if (remoteTime > localTime || countTotalCards(remote) > countTotalCards(appState)) {
                                 isApplyingRemoteUpdate = true;
+                                const keepActiveBoard = appState.activeBoardId;
                                 appState = normalizeAndMigrateState(remote);
+                                if (keepActiveBoard && getBoardById(keepActiveBoard)) {
+                                    appState.activeBoardId = keepActiveBoard;
+                                }
                                 saveLocalOnly();
                                 renderApp();
                                 isApplyingRemoteUpdate = false;
@@ -928,21 +886,38 @@
             }
 
             /* ========================================================================
-               1. КЛАСИФІКАЦІЯ ТИПІВ ПОСИЛАНЬ (СИНЯ / ЗЕЛЕНА / ЧЕРВОНА РАМКА)
+               1. КЛАСИФІКАЦІЯ ТИПІВ КАРТОК І РАМОК
                ======================================================================== */
             function cleanPathQuotes(rawUrl) {
                 return (rawUrl || '').trim().replace(/^["']+|["']+$/g, '').trim();
             }
 
-            function classifyUrl(rawUrl, manualBadge) {
-                const badge = (manualBadge || 'auto').toLowerCase();
+            function getCardGalleryArray(card) {
+                if (!card) return [];
+                if (Array.isArray(card.gallery) && card.gallery.length > 0) {
+                    return card.gallery;
+                }
+                if (card.image) return [card.image];
+                return [];
+            }
+
+            function classifyCard(card) {
+                if (!card) return 'web';
+                const badge = (card.badge || 'auto').toLowerCase();
+                if (badge === 'gallery') return 'gallery';
                 if (badge === 'pdf') return 'pdf';
                 if (badge === 'local') return 'local';
                 if (badge === 'web') return 'web';
 
-                const u = cleanPathQuotes(rawUrl);
-                const lower = u.toLowerCase();
+                const gal = getCardGalleryArray(card);
+                const u = cleanPathQuotes(card.url);
 
+                // Якщо завантажено декілька картинок (1, 2, 3...) або посилання порожнє — це Набір картинок для 2-го монітора
+                if (gal.length > 1 || !u) {
+                    return 'gallery';
+                }
+
+                const lower = u.toLowerCase();
                 if (lower.endsWith('.pdf') || lower.indexOf('.pdf?') !== -1 || lower.indexOf('.pdf#') !== -1 || lower.indexOf('/pdf/') !== -1) {
                     return 'pdf';
                 }
@@ -956,7 +931,15 @@
                 return 'web';
             }
 
-            function getFrameInfo(type) {
+            function getFrameInfo(type, galleryCount) {
+                if (type === 'gallery') {
+                    const countLbl = (galleryCount && galleryCount > 1) ? ('🖥️ ' + galleryCount + ' карт.') : '🖥️ Картинка';
+                    return {
+                        frameClass: 'frame-gallery',
+                        badgeText: countLbl,
+                        badgeClass: 'bg-purple-600/95 text-white'
+                    };
+                }
                 if (type === 'pdf') {
                     return {
                         frameClass: 'frame-pdf',
@@ -979,7 +962,115 @@
             }
 
             /* ========================================================================
-               2. РОБОТА З ІЄРАРХІЄЮ ДОЩОК І ПІДДОШОК
+               2. ОКРЕМЕ ВІКНО ПОКАЗУ КАРТИНОК (1, 2, 3...) ДЛЯ ДРУГОГО МОНІТОРА
+               Відкривається окремо від програми, можна перетягнути на 2-й екран!
+               ======================================================================== */
+            function openSecondMonitorViewer(lessonId, cardId) {
+                const found = findLessonAndCard(lessonId, cardId);
+                if (!found.card) return;
+                const card = found.card;
+                const images = getCardGalleryArray(card);
+                if (images.length === 0) {
+                    showToast('У цій картці немає зображень', 'rose');
+                    return;
+                }
+
+                const winTitle = card.title || (found.lesson ? found.lesson.number : 'Перегляд картинок');
+                const popup = window.open('', '_blank', 'width=1150,height=820,resizable=yes,scrollbars=yes');
+                if (!popup) {
+                    showToast('Браузер заблокував спливаюче вікно — дозвольте відкриття вікон для цього сайту', 'rose');
+                    return;
+                }
+
+                const imagesJson = JSON.stringify(images);
+                const safeTitle = escapeHtml(winTitle);
+
+                const html = '<!DOCTYPE html><html lang="uk"><head><meta charset="UTF-8">' +
+                    '<title>🖥️ ' + safeTitle + ' (' + images.length + ' шт.)</title>' +
+                    '<style>' +
+                    '*{box-sizing:border-box;}body{margin:0;background:#090d16;color:#f3f4f6;font-family:Inter,Arial,sans-serif;display:flex;flex-direction:column;height:100vh;overflow:hidden;}' +
+                    'header{background:#111827;border-bottom:1px solid #1f2937;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;z-index:20;}' +
+                    '.btn{background:#1f2937;color:#e5e7eb;border:1px solid #374151;padding:6px 12px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:0.15s;}' +
+                    '.btn:hover{background:#374151;color:#fff;}' +
+                    '.btn.active{background:#4f46e5;border-color:#6366f1;color:#fff;}' +
+                    '#viewport{flex:1;overflow:auto;padding:20px;display:flex;flex-direction:column;align-items:center;gap:24px;}' +
+                    '.img-card{background:#111827;border:2px solid #374151;border-radius:14px;padding:10px;box-shadow:0 10px 30px rgba(0,0,0,0.6);max-width:100%;transition:transform 0.15s ease;position:relative;}' +
+                    '.img-card img{display:block;max-width:100%;height:auto;border-radius:8px;margin:0 auto;}' +
+                    '.img-num{position:absolute;top:16px;left:16px;background:rgba(17,24,39,0.85);color:#a5b4fc;border:1px solid #4f46e5;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;}' +
+                    '.slide-mode #viewport{justify-content:center;}' +
+                    '.slide-mode .img-card img{max-height:calc(100vh - 110px);width:auto;}' +
+                    '</style></head><body>' +
+                    '<header>' +
+                        '<div style="display:flex;align-items:center;gap:10px;">' +
+                            '<span style="font-weight:800;font-size:14px;color:#c084fc;">🖥️ ' + safeTitle + '</span>' +
+                            '<span style="font-size:12px;color:#9ca3af;">(Перетягніть це вікно на 2-й монітор)</span>' +
+                        '</div>' +
+                        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+                            '<button id="btnModeStrip" class="btn active" onclick="setMode(\'strip\')">📜 Стрічка (усі підряд)</button>' +
+                            '<button id="btnModeSlide" class="btn" onclick="setMode(\'slide\')">🖼️ Слайди (по одній)</button>' +
+                            '<div id="slideControls" style="display:none;align-items:center;gap:6px;margin-left:6px;">' +
+                                '<button class="btn" onclick="prevSlide()">⬅️ Попередня</button>' +
+                                '<span id="slideCounter" style="font-size:13px;font-weight:700;padding:0 6px;color:#e0e7ff;">1 / ' + images.length + '</span>' +
+                                '<button class="btn" onclick="nextSlide()">Наступна ➡️</button>' +
+                            '</div>' +
+                            '<div style="display:flex;align-items:center;gap:4px;margin-left:8px;">' +
+                                '<button class="btn" onclick="changeZoom(-15)">🔍 −</button>' +
+                                '<span id="zoomLabel" style="font-size:12px;font-family:monospace;min-width:46px;text-align:center;">100%</span>' +
+                                '<button class="btn" onclick="changeZoom(15)">🔍 +</button>' +
+                                '<button class="btn" onclick="resetZoom()">1:1</button>' +
+                            '</div>' +
+                        '</div>' +
+                    '</header>' +
+                    '<div id="viewport"></div>' +
+                    '<script>' +
+                        'const imgs = ' + imagesJson + ';' +
+                        'let mode = imgs.length > 1 ? "strip" : "slide";' +
+                        'let currentIdx = 0;' +
+                        'let zoom = 100;' +
+                        'function render(){' +
+                            'document.body.className = mode === "slide" ? "slide-mode" : "";' +
+                            'document.getElementById("btnModeStrip").className = "btn" + (mode === "strip" ? " active" : "");' +
+                            'document.getElementById("btnModeSlide").className = "btn" + (mode === "slide" ? " active" : "");' +
+                            'document.getElementById("slideControls").style.display = (mode === "slide" && imgs.length > 1) ? "flex" : "none";' +
+                            'document.getElementById("slideCounter").textContent = (currentIdx + 1) + " / " + imgs.length;' +
+                            'const vp = document.getElementById("viewport");' +
+                            'vp.innerHTML = "";' +
+                            'if(mode === "strip"){' +
+                                'imgs.forEach(function(src, i){' +
+                                    'const box = document.createElement("div");' +
+                                    'box.className = "img-card";' +
+                                    'box.style.width = zoom + "%";' +
+                                    'box.innerHTML = (imgs.length > 1 ? "<span class=\\"img-num\\">Картинка " + (i+1) + " з " + imgs.length + "</span>" : "") + "<img src=\\"" + src + "\\">";' +
+                                    'vp.appendChild(box);' +
+                                '});' +
+                            '} else {' +
+                                'const box = document.createElement("div");' +
+                                'box.className = "img-card";' +
+                                'box.style.transform = "scale(" + (zoom/100) + ")";' +
+                                'box.style.transformOrigin = "top center";' +
+                                'box.innerHTML = (imgs.length > 1 ? "<span class=\\"img-num\\">Картинка " + (currentIdx+1) + " з " + imgs.length + "</span>" : "") + "<img src=\\"" + imgs[currentIdx] + "\\">";' +
+                                'vp.appendChild(box);' +
+                            '}' +
+                        '}' +
+                        'function setMode(m){ mode = m; zoom = 100; document.getElementById("zoomLabel").textContent = "100%"; render(); }' +
+                        'function prevSlide(){ currentIdx = (currentIdx - 1 + imgs.length) % imgs.length; render(); }' +
+                        'function nextSlide(){ currentIdx = (currentIdx + 1) % imgs.length; render(); }' +
+                        'function changeZoom(d){ zoom = Math.max(40, Math.min(250, zoom + d)); document.getElementById("zoomLabel").textContent = zoom + "%"; render(); }' +
+                        'function resetZoom(){ zoom = 100; document.getElementById("zoomLabel").textContent = "100%"; render(); }' +
+                        'window.addEventListener("keydown", function(e){' +
+                            'if(e.key === "ArrowRight") nextSlide();' +
+                            'else if(e.key === "ArrowLeft") prevSlide();' +
+                        '});' +
+                        'render();' +
+                    '<\/script></body></html>';
+
+                popup.document.open();
+                popup.document.write(html);
+                popup.document.close();
+            }
+
+            /* ========================================================================
+               3. РОБОТА З ІЄРАРХІЄЮ ТА ЗМІНОЮ МІСЦЯМИ ДОЩОК І ПІДДОШОК
                ======================================================================== */
             function getBoardById(id) {
                 if (!id) return null;
@@ -991,6 +1082,42 @@
                 return appState.boards.filter(function (b) {
                     return (b.parentId || null) === pid;
                 });
+            }
+
+            // Зміна порядку дощок/піддошок місцями (вліво/вправо або перетягуванням)
+            function reorderSiblingBoard(boardId, directionOrTargetId) {
+                const board = getBoardById(boardId);
+                if (!board) return;
+                const parentId = board.parentId || null;
+                const siblings = getChildBoards(parentId);
+                if (siblings.length < 2) return;
+
+                const currentIndexInSiblings = siblings.findIndex(function (b) { return b.id === boardId; });
+                if (currentIndexInSiblings === -1) return;
+
+                let targetSibling = null;
+                if (directionOrTargetId === 'left') {
+                    if (currentIndexInSiblings === 0) return;
+                    targetSibling = siblings[currentIndexInSiblings - 1];
+                } else if (directionOrTargetId === 'right') {
+                    if (currentIndexInSiblings >= siblings.length - 1) return;
+                    targetSibling = siblings[currentIndexInSiblings + 1];
+                } else {
+                    targetSibling = siblings.find(function (b) { return b.id === directionOrTargetId; });
+                }
+
+                if (!targetSibling || targetSibling.id === board.id) return;
+
+                const idxA = appState.boards.findIndex(function (b) { return b.id === board.id; });
+                const idxB = appState.boards.findIndex(function (b) { return b.id === targetSibling.id; });
+                if (idxA !== -1 && idxB !== -1) {
+                    const temp = appState.boards[idxA];
+                    appState.boards[idxA] = appState.boards[idxB];
+                    appState.boards[idxB] = temp;
+                    saveState();
+                    renderApp();
+                    showToast('Порядок дощок змінено!', 'emerald');
+                }
             }
 
             function getBoardBreadcrumbPath(boardId) {
@@ -1051,7 +1178,7 @@
             }
 
             /* ========================================================================
-               3. ЛОКАЛЬНИЙ КЕШ + ХМАРНЕ ЗБЕРЕЖЕННЯ
+               4. ЛОКАЛЬНИЙ КЕШ + ХМАРНЕ ЗБЕРЕЖЕННЯ
                ======================================================================== */
             function openIDB() {
                 return new Promise(function (resolve, reject) {
@@ -1130,7 +1257,7 @@
             }
 
             /* ========================================================================
-               4. РЕНДЕРИНГ ІНТЕРФЕЙСУ
+               5. РЕНДЕРИНГ ІНТЕРФЕЙСУ
                ======================================================================== */
             function ensureActiveLesson() {
                 const board = getBoardById(appState.activeBoardId);
@@ -1237,6 +1364,7 @@
                 }
             }
 
+            // Сітка карток дощок та піддошок із кнопками переміщення ◀ ▶ та Drag & Drop
             function renderSubboardsCardsArea() {
                 const box = document.getElementById('subboardsSection');
                 if (!box) return;
@@ -1247,10 +1375,18 @@
                 if (!currentBoard || childBoards.length > 0) {
                     box.classList.remove('hidden');
                     const headingText = currentBoard
-                        ? ('📂 Піддошки у розділі «' + escapeHtml(currentBoard.name) + '»:')
-                        : '🗂️ Оберіть розділ (дошку):';
+                        ? ('📂 Піддошки у розділі «' + escapeHtml(currentBoard.name) + '» (можна міняти місцями стрілочками ◀ ▶ або перетягуванням):')
+                        : '🗂️ Головні розділи (можна міняти місцями стрілочками ◀ ▶ або перетягуванням):';
 
-                    const cardsHtml = childBoards.map(function (ch) {
+                    box.innerHTML =
+                        '<div class="mb-2.5 flex items-center justify-between">' +
+                            '<h2 class="text-xs font-bold uppercase tracking-wider text-indigo-300">' + headingText + '</h2>' +
+                        '</div>' +
+                        '<div id="subboardsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5"></div>';
+
+                    const grid = document.getElementById('subboardsGrid');
+
+                    childBoards.forEach(function (ch) {
                         const st = getBoardStats(ch.id);
                         const subInfo = [];
                         if (st.subboardsCount > 0) subInfo.push(st.subboardsCount + ' піддошок');
@@ -1258,8 +1394,44 @@
                         if (st.cardsCount > 0) subInfo.push(st.cardsCount + ' завдань');
                         const subtitle = subInfo.length > 0 ? subInfo.join(' • ') : 'Порожня дошка';
 
-                        return '<div data-action="select-board" data-board-id="' + ch.id + '" ' +
-                            'class="group relative bg-gradient-to-br from-[#131c31] to-[#0f1523] hover:from-indigo-950/80 hover:to-[#151f38] border-2 border-indigo-500/40 hover:border-indigo-400 rounded-2xl p-5 cursor-pointer transition-all shadow-lg hover:shadow-indigo-500/20 hover:-translate-y-0.5 flex items-center justify-between gap-4">' +
+                        const cardDiv = document.createElement('div');
+                        cardDiv.draggable = true;
+                        cardDiv.dataset.action = 'select-board';
+                        cardDiv.dataset.boardId = ch.id;
+                        cardDiv.className = 'group relative bg-gradient-to-br from-[#131c31] to-[#0f1523] hover:from-indigo-950/80 hover:to-[#151f38] border-2 border-indigo-500/40 hover:border-indigo-400 rounded-2xl p-5 cursor-pointer transition-all shadow-lg hover:shadow-indigo-500/20 hover:-translate-y-0.5 flex items-center justify-between gap-4 select-none';
+
+                        // Drag & Drop для зміни порядку дощок/піддошок місцями
+                        cardDiv.addEventListener('dragstart', function (e) {
+                            draggedBoardId = ch.id;
+                            e.dataTransfer.effectAllowed = 'move';
+                            setTimeout(function () { cardDiv.classList.add('opacity-40'); }, 0);
+                        });
+                        cardDiv.addEventListener('dragend', function () {
+                            cardDiv.classList.remove('opacity-40');
+                            draggedBoardId = null;
+                            document.querySelectorAll('.drag-target-board').forEach(function (el) { el.classList.remove('drag-target-board'); });
+                        });
+                        cardDiv.addEventListener('dragover', function (e) {
+                            if (draggedBoardId && draggedBoardId !== ch.id) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                cardDiv.classList.add('drag-target-board');
+                            }
+                        });
+                        cardDiv.addEventListener('dragleave', function () {
+                            cardDiv.classList.remove('drag-target-board');
+                        });
+                        cardDiv.addEventListener('drop', function (e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            cardDiv.classList.remove('drag-target-board');
+                            if (draggedBoardId && draggedBoardId !== ch.id) {
+                                reorderSiblingBoard(draggedBoardId, ch.id);
+                                draggedBoardId = null;
+                            }
+                        });
+
+                        cardDiv.innerHTML =
                             '<div class="flex items-center gap-3.5 min-w-0">' +
                                 '<div class="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-2xl shrink-0 group-hover:scale-110 transition-transform">📁</div>' +
                                 '<div class="min-w-0">' +
@@ -1268,22 +1440,25 @@
                                 '</div>' +
                             '</div>' +
                             '<div class="text-indigo-400 group-hover:translate-x-1 transition-transform text-lg font-bold">➔</div>' +
-                        '</div>';
-                    }).join('');
+                            /* Панель швидких дій на самій картці піддошки (переміщення ◀ ▶, перейменування, перенесення, видалення) */
+                            '<div class="absolute top-2 right-2 flex items-center gap-1 bg-gray-950/95 border border-gray-700 rounded-xl p-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">' +
+                                '<button type="button" data-action="board-card-left" data-board-id="' + ch.id + '" title="Перемістити лівіше / вище" class="w-6 h-6 rounded hover:bg-gray-800 text-gray-300 hover:text-white text-xs font-bold cursor-pointer">◀</button>' +
+                                '<button type="button" data-action="board-card-right" data-board-id="' + ch.id + '" title="Перемістити правіше / нижче" class="w-6 h-6 rounded hover:bg-gray-800 text-gray-300 hover:text-white text-xs font-bold cursor-pointer">▶</button>' +
+                                '<button type="button" data-action="board-card-rename" data-board-id="' + ch.id + '" title="Перейменувати" class="w-6 h-6 rounded hover:bg-gray-800 text-gray-300 hover:text-indigo-300 text-xs cursor-pointer">✏️</button>' +
+                                '<button type="button" data-action="board-card-move" data-board-id="' + ch.id + '" title="Перемістити в іншу папку / змінити рівень" class="w-6 h-6 rounded hover:bg-gray-800 text-gray-300 hover:text-amber-300 text-xs cursor-pointer">📂</button>' +
+                                '<button type="button" data-action="board-card-delete" data-board-id="' + ch.id + '" title="Видалити" class="w-6 h-6 rounded hover:bg-gray-800 text-gray-300 hover:text-rose-400 text-xs cursor-pointer">🗑️</button>' +
+                            '</div>';
 
-                    const addCardHtml = '<button type="button" data-action="open-new-subboard" ' +
-                        'class="border-2 border-dashed border-gray-700 hover:border-indigo-500 bg-gray-900/40 hover:bg-indigo-950/30 rounded-2xl p-5 flex items-center justify-center gap-3 text-gray-400 hover:text-indigo-200 transition cursor-pointer min-h-[88px]">' +
-                        '<span class="text-2xl font-bold">+</span>' +
-                        '<span class="text-xs sm:text-sm font-semibold">' + (currentBoard ? ('Додати піддошку в «' + escapeHtml(currentBoard.name) + '»') : 'Створити новий розділ') + '</span>' +
-                    '</button>';
+                        grid.appendChild(cardDiv);
+                    });
 
-                    box.innerHTML =
-                        '<div class="mb-2 flex items-center justify-between">' +
-                            '<h2 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-indigo-300">' + headingText + '</h2>' +
-                        '</div>' +
-                        '<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">' +
-                            cardsHtml + addCardHtml +
-                        '</div>';
+                    const addBtn = document.createElement('button');
+                    addBtn.type = 'button';
+                    addBtn.dataset.action = 'open-new-subboard';
+                    addBtn.className = 'border-2 border-dashed border-gray-700 hover:border-indigo-500 bg-gray-900/40 hover:bg-indigo-950/30 rounded-2xl p-5 flex items-center justify-center gap-3 text-gray-400 hover:text-indigo-200 transition cursor-pointer min-h-[88px]';
+                    addBtn.innerHTML = '<span class="text-2xl font-bold">+</span>' +
+                        '<span class="text-xs sm:text-sm font-semibold">' + (currentBoard ? ('Додати піддошку в «' + escapeHtml(currentBoard.name) + '»') : 'Створити новий розділ') + '</span>';
+                    grid.appendChild(addBtn);
                 } else {
                     box.classList.add('hidden');
                     box.innerHTML = '';
@@ -1291,7 +1466,7 @@
             }
 
             function renderFilterButtons() {
-                ['all', 'web', 'local', 'pdf'].forEach(function (f) {
+                ['all', 'web', 'local', 'pdf', 'gallery'].forEach(function (f) {
                     const btn = document.getElementById('fltBtn_' + f);
                     if (!btn) return;
                     if (activeFilter === f) {
@@ -1352,7 +1527,7 @@
                     rows = rows.filter(function (lesson) {
                         const lessonHeaderMatch = q ? ((lesson.number + ' ' + (lesson.title || '') + ' ' + (lesson.date || '')).toLowerCase().indexOf(q) !== -1) : false;
                         const hasMatchingCard = (lesson.cards || []).some(function (card) {
-                            const cType = classifyUrl(card.url, card.badge);
+                            const cType = classifyCard(card);
                             const filterOk = activeFilter === 'all' || cType === activeFilter;
                             const queryOk = !q || ((card.title || '').toLowerCase().indexOf(q) !== -1) || ((card.url || '').toLowerCase().indexOf(q) !== -1);
                             return filterOk && queryOk;
@@ -1422,10 +1597,11 @@
                     strip.className = 'flex-1 flex items-center flex-wrap gap-2.5 min-w-0';
 
                     (lesson.cards || []).forEach(function (card) {
-                        const cType = classifyUrl(card.url, card.badge);
+                        const cType = classifyCard(card);
                         if (activeFilter !== 'all' && cType !== activeFilter) return;
 
-                        const fInfo = getFrameInfo(cType);
+                        const galArr = getCardGalleryArray(card);
+                        const fInfo = getFrameInfo(cType, galArr.length);
                         const cardEl = document.createElement('div');
                         cardEl.className = 'card-thumb-box relative rounded-xl bg-gray-950 overflow-hidden cursor-pointer select-none group/card flex items-center justify-center ' + fInfo.frameClass;
                         cardEl.draggable = true;
@@ -1435,9 +1611,9 @@
 
                         const tipLines = [];
                         if (card.title) tipLines.push(card.title);
+                        if (galArr.length > 1) tipLines.push('Набір картинок: ' + galArr.length + ' шт. (клік відкриє окреме вікно для 2-го монітора)');
                         if (card.url) tipLines.push('Шлях: ' + card.url);
-                        tipLines.push('1 клік — скопіювати шлях | Подвійний клік (або 🔍) — збільшити');
-                        cardEl.title = tipLines.join('\n');
+                        cardEl.title = tipLines.join('\n') || 'Клік — відкрити / скопіювати';
 
                         cardEl.addEventListener('dragstart', function (e) {
                             draggedCard = { lessonId: lesson.id, cardId: card.id };
@@ -1470,7 +1646,7 @@
                         });
 
                         cardEl.innerHTML =
-                            '<img src="' + card.image + '" alt="Мініатюра" loading="lazy" class="h-full w-auto max-w-full object-contain pointer-events-none select-none mx-auto">' +
+                            '<img src="' + (galArr[0] || card.image) + '" alt="Мініатюра" loading="lazy" class="h-full w-auto max-w-full object-contain pointer-events-none select-none mx-auto">' +
                             '<span class="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-bold ' + fInfo.badgeClass + ' shadow pointer-events-none">' +
                                 fInfo.badgeText +
                             '</span>' +
@@ -1479,10 +1655,10 @@
                                 '<span class="text-[11px] font-bold">Скопійовано!</span>' +
                             '</div>' +
                             '<div class="absolute top-1 right-1 flex items-center gap-0.5 bg-gray-950/95 border border-gray-700 rounded-lg p-0.5 opacity-0 group-hover/card:opacity-100 transition-opacity z-20">' +
-                                '<button type="button" data-action="zoom-card" data-lesson-id="' + lesson.id + '" data-card-id="' + card.id + '" title="Наблизити / роздивитися (або подвійний клік)" class="w-6 h-6 rounded flex items-center justify-center text-amber-300 hover:bg-amber-500 hover:text-gray-950 text-xs cursor-pointer">🔍</button>' +
+                                '<button type="button" data-action="open-second-monitor" data-lesson-id="' + lesson.id + '" data-card-id="' + card.id + '" title="Відкрити картинки в окремому вікні для 2-го монітора" class="w-6 h-6 rounded flex items-center justify-center text-purple-300 hover:bg-purple-600 hover:text-white text-xs cursor-pointer">🖥️</button>' +
+                                '<button type="button" data-action="zoom-card" data-lesson-id="' + lesson.id + '" data-card-id="' + card.id + '" title="Наблизити тут (або подвійний клік)" class="w-6 h-6 rounded flex items-center justify-center text-amber-300 hover:bg-amber-500 hover:text-gray-950 text-xs cursor-pointer">🔍</button>' +
                                 '<button type="button" data-action="duplicate-card" data-lesson-id="' + lesson.id + '" data-card-id="' + card.id + '" title="Скопіювати завдання в інший урок чи іншому учню" class="w-6 h-6 rounded flex items-center justify-center text-indigo-300 hover:bg-indigo-600 hover:text-white text-xs cursor-pointer">📋</button>' +
-                                '<button type="button" data-action="edit-card" data-lesson-id="' + lesson.id + '" data-card-id="' + card.id + '" title="Редагувати завдання або замінити картинку (Ctrl+V)" class="w-6 h-6 rounded flex items-center justify-center text-gray-200 hover:bg-indigo-600 hover:text-white text-xs cursor-pointer">✏️</button>' +
-                                '<button type="button" data-action="open-card-url" data-lesson-id="' + lesson.id + '" data-card-id="' + card.id + '" title="Відкрити посилання у новій вкладці" class="w-6 h-6 rounded flex items-center justify-center text-sky-300 hover:bg-sky-600 hover:text-white text-xs cursor-pointer">↗</button>' +
+                                '<button type="button" data-action="edit-card" data-lesson-id="' + lesson.id + '" data-card-id="' + card.id + '" title="Редагувати або додати ще картинки" class="w-6 h-6 rounded flex items-center justify-center text-gray-200 hover:bg-indigo-600 hover:text-white text-xs cursor-pointer">✏️</button>' +
                                 '<button type="button" data-action="delete-card" data-lesson-id="' + lesson.id + '" data-card-id="' + card.id + '" title="Видалити картку" class="w-6 h-6 rounded flex items-center justify-center text-rose-300 hover:bg-rose-600 hover:text-white text-xs cursor-pointer">🗑️</button>' +
                             '</div>';
 
@@ -1493,7 +1669,7 @@
                     addBtn.type = 'button';
                     addBtn.dataset.action = 'open-add-card';
                     addBtn.dataset.lessonId = lesson.id;
-                    addBtn.title = 'Додати нову картинку з посиланням у цей урок';
+                    addBtn.title = 'Додати нову картинку, набір картинок 1,2,3 або посилання';
                     addBtn.className = 'card-add-btn rounded-xl border border-dashed border-gray-700 hover:border-indigo-500 bg-gray-900/40 hover:bg-indigo-950/30 text-gray-400 hover:text-indigo-300 flex flex-col items-center justify-center gap-1 transition shrink-0 cursor-pointer';
                     addBtn.innerHTML = '<span class="text-base font-bold">+</span><span class="text-[10px] font-medium">Додати</span>';
                     strip.appendChild(addBtn);
@@ -1514,7 +1690,7 @@
             }
 
             /* ========================================================================
-               5. ПОШУК КАРТКИ, КОПІЮВАННЯ ТА LIGHTBOX
+               6. ПОШУК КАРТКИ, КЛІК ПО КАРТЦІ ТА LIGHTBOX
                ======================================================================== */
             function findLessonAndCard(lessonId, cardId) {
                 for (let i = 0; i < appState.boards.length; i++) {
@@ -1544,18 +1720,20 @@
                 }
             }
 
-            function triggerCardCopy(lessonId, cardId, cardDomEl) {
+            function handleCardPrimaryAction(lessonId, cardId, cardDomEl) {
                 const found = findLessonAndCard(lessonId, cardId);
                 const card = found.card;
                 if (!card) return;
 
-                if (!card.url || !card.url.trim()) {
-                    showToast('У цієї картки ще не вказано посилання — відкриваю редагування', 'info');
-                    openCardModal(lessonId, cardId);
+                const gal = getCardGalleryArray(card);
+                const cleanUrl = cleanPathQuotes(card.url);
+
+                // Якщо це набір із декількох картинок (1, 2, 3...) АБО посилання не вказано — одразу відкриваємо окреме вікно для 2-го монітора!
+                if (gal.length > 1 || (!cleanUrl && gal.length > 0)) {
+                    openSecondMonitorViewer(lessonId, cardId);
                     return;
                 }
 
-                const cleanUrl = cleanPathQuotes(card.url);
                 copyToClipboard(cleanUrl);
 
                 if (cardDomEl) {
@@ -1573,23 +1751,48 @@
                 if (!found.card) return;
                 const card = found.card;
                 const lesson = found.lesson;
+                const gal = getCardGalleryArray(card);
 
-                lightboxContext = { lessonId: lessonId, cardId: cardId, zoom: 1 };
-                const cType = classifyUrl(card.url, card.badge);
-                const fInfo = getFrameInfo(cType);
+                lightboxContext = { lessonId: lessonId, cardId: cardId, zoom: 1, slideIndex: 0 };
+                const cType = classifyCard(card);
+                const fInfo = getFrameInfo(cType, gal.length);
 
                 const badge = document.getElementById('lbTypeBadge');
                 badge.textContent = fInfo.badgeText;
                 badge.className = 'px-2.5 py-1 rounded-lg text-xs font-bold shrink-0 ' + fInfo.badgeClass;
 
                 document.getElementById('lbTitleText').textContent = card.title || (lesson.number + (lesson.title ? ' — ' + lesson.title : ''));
-                document.getElementById('lbUrlText').textContent = card.url || 'Посилання не вказано';
+                document.getElementById('lbUrlText').textContent = card.url || ('Набір картинок (' + gal.length + ' шт.)');
+
+                renderLightboxSlide();
+                document.getElementById('lightboxModal').classList.remove('hidden');
+            }
+
+            function renderLightboxSlide() {
+                const found = findLessonAndCard(lightboxContext.lessonId, lightboxContext.cardId);
+                if (!found.card) return;
+                const gal = getCardGalleryArray(found.card);
+                const total = gal.length;
+                const idx = ((lightboxContext.slideIndex % total) + total) % total;
+                lightboxContext.slideIndex = idx;
 
                 const img = document.getElementById('lbMainImage');
-                img.src = card.image;
-                applyLightboxZoom();
+                img.src = gal[idx] || '';
 
-                document.getElementById('lightboxModal').classList.remove('hidden');
+                const prevBtn = document.getElementById('lbPrevBtn');
+                const nextBtn = document.getElementById('lbNextBtn');
+                const counter = document.getElementById('lbSlideCounter');
+                if (total > 1) {
+                    prevBtn.classList.remove('hidden');
+                    nextBtn.classList.remove('hidden');
+                    counter.classList.remove('hidden');
+                    counter.textContent = (idx + 1) + ' / ' + total;
+                } else {
+                    prevBtn.classList.add('hidden');
+                    nextBtn.classList.add('hidden');
+                    counter.classList.add('hidden');
+                }
+                applyLightboxZoom();
             }
 
             function applyLightboxZoom() {
@@ -1600,7 +1803,7 @@
             }
 
             /* ========================================================================
-               6. ДОДАВАННЯ, РЕДАГУВАННЯ ТА ВСТАВКА СКРІНШОТІВ CTRL + V
+               7. МОДАЛКА ДОДАВАННЯ / РЕДАГУВАННЯ КАРТОК І МУЛЬТИ-КАРТИНОК (1, 2, 3...)
                ======================================================================== */
             function openCardModal(lessonId, cardId) {
                 const found = findLessonAndCard(lessonId, cardId);
@@ -1618,7 +1821,7 @@
 
                 appState.activeBoardId = board.id;
                 appState.activeLessonId = lesson.id;
-                editingContext = { lessonId: lesson.id, cardId: cardId || null, imageBase64: '' };
+                editingContext = { lessonId: lesson.id, cardId: cardId || null, galleryImages: [] };
 
                 const sel = document.getElementById('modalLessonSelect');
                 sel.innerHTML = board.lessons.map(function (l) {
@@ -1638,17 +1841,18 @@
                     urlInp.value = card.url || '';
                     titleInp.value = card.title || '';
                     typeSel.value = card.badge || 'auto';
-                    setModalPreviewImage(card.image);
+                    editingContext.galleryImages = getCardGalleryArray(card).slice();
                     copyBtn.classList.remove('hidden');
                 } else {
                     headerTitle.textContent = '➕ Додати матеріал в урок (' + board.name + ')';
                     urlInp.value = '';
                     titleInp.value = '';
                     typeSel.value = 'auto';
-                    setModalPreviewImage('');
+                    editingContext.galleryImages = [];
                     copyBtn.classList.add('hidden');
                 }
 
+                renderModalGalleryStrip();
                 updateModalUrlTypeIndicator();
                 switchModalImageTab('upload');
                 document.getElementById('cardModal').classList.remove('hidden');
@@ -1656,22 +1860,40 @@
                 setTimeout(function () { urlInp.focus(); }, 50);
             }
 
-            function setModalPreviewImage(dataUrl) {
-                editingContext.imageBase64 = dataUrl || '';
-                const previewBox = document.getElementById('modalImgPreviewBox');
-                const placeholder = document.getElementById('modalImgPlaceholder');
-                const img = document.getElementById('modalImgPreview');
-                if (dataUrl) {
-                    img.src = dataUrl;
-                    previewBox.classList.remove('hidden');
-                    previewBox.classList.add('flex');
-                    placeholder.classList.add('hidden');
-                } else {
-                    img.src = '';
-                    previewBox.classList.add('hidden');
-                    previewBox.classList.remove('flex');
-                    placeholder.classList.remove('hidden');
+            function renderModalGalleryStrip() {
+                const box = document.getElementById('modalGalleryBox');
+                const strip = document.getElementById('modalGalleryStrip');
+                const countTxt = document.getElementById('modalGalleryCountText');
+                const imgs = editingContext.galleryImages || [];
+
+                if (imgs.length === 0) {
+                    box.classList.add('hidden');
+                    strip.innerHTML = '';
+                    return;
                 }
+
+                box.classList.remove('hidden');
+                countTxt.textContent = 'Завантажено картинок у це завдання: ' + imgs.length + ' шт.';
+                strip.innerHTML = imgs.map(function (src, idx) {
+                    return '<div class="relative shrink-0 bg-gray-900 border-2 ' + (idx === 0 ? 'border-indigo-500' : 'border-gray-700') + ' rounded-xl p-1.5 flex flex-col items-center gap-1">' +
+                        '<div class="relative">' +
+                            '<img src="' + src + '" class="h-20 w-28 object-contain rounded bg-gray-950">' +
+                            '<span class="absolute top-1 left-1 px-1.5 py-0.2 rounded bg-gray-950/90 text-[10px] font-bold text-indigo-300">#' + (idx + 1) + '</span>' +
+                        '</div>' +
+                        '<div class="flex items-center gap-1">' +
+                            '<button type="button" data-action="gallery-img-left" data-idx="' + idx + '" title="Перемістити лівіше" class="px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-[10px] text-gray-300 cursor-pointer">◀</button>' +
+                            '<button type="button" data-action="gallery-img-del" data-idx="' + idx + '" title="Видалити цю картинку" class="px-1.5 py-0.5 rounded bg-rose-950 hover:bg-rose-700 text-[10px] text-rose-300 hover:text-white cursor-pointer">✕</button>' +
+                            '<button type="button" data-action="gallery-img-right" data-idx="' + idx + '" title="Перемістити правіше" class="px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-[10px] text-gray-300 cursor-pointer">▶</button>' +
+                        '</div>' +
+                    '</div>';
+                }).join('');
+            }
+
+            function addImageToModalGallery(dataUrl) {
+                if (!dataUrl) return;
+                editingContext.galleryImages.push(dataUrl);
+                renderModalGalleryStrip();
+                updateModalUrlTypeIndicator();
             }
 
             function switchModalImageTab(tabName) {
@@ -1722,14 +1944,19 @@
                 ctx.font = 'bold 14px Inter, sans-serif';
                 ctx.fillText(label.slice(0, 22), w / 2, h - 30);
 
-                editingContext.imageBase64 = canvas.toDataURL('image/webp', 0.88);
+                const generatedUrl = canvas.toDataURL('image/webp', 0.88);
+                editingContext.galleryImages = [generatedUrl];
+                renderModalGalleryStrip();
             }
 
             function updateModalUrlTypeIndicator() {
-                const rawUrl = document.getElementById('modalCardUrlInput').value;
-                const manual = document.getElementById('modalCardTypeSelect').value;
-                const cType = classifyUrl(rawUrl, manual);
-                const info = getFrameInfo(cType);
+                const tempCard = {
+                    url: document.getElementById('modalCardUrlInput').value,
+                    badge: document.getElementById('modalCardTypeSelect').value,
+                    gallery: editingContext.galleryImages
+                };
+                const cType = classifyCard(tempCard);
+                const info = getFrameInfo(cType, editingContext.galleryImages.length);
                 const badge = document.getElementById('modalDetectedTypeBadge');
                 if (badge) {
                     badge.textContent = info.badgeText;
@@ -1750,12 +1977,14 @@
                 const title = document.getElementById('modalCardTitleInput').value.trim();
                 const badge = document.getElementById('modalCardTypeSelect').value;
 
-                let finalImg = editingContext.imageBase64;
-                if (!finalImg) {
-                    const cType = classifyUrl(url, badge);
-                    const bg = cType === 'pdf' ? ['#9f1239', '#f43f5e', '📄'] : (cType === 'local' ? ['#065f46', '#10b981', '💻'] : ['#1e3a8a', '#3b82f6', '🌐']);
-                    finalImg = createSvgThumb(bg[0], bg[1], bg[2], (title || 'МАТЕРІАЛ').slice(0, 18).toUpperCase(), 'Клік — копіювати шлях', 'landscape');
+                let gallery = (editingContext.galleryImages || []).slice();
+                if (gallery.length === 0) {
+                    const tempType = classifyCard({ url: url, badge: badge, gallery: [] });
+                    const bg = tempType === 'pdf' ? ['#9f1239', '#f43f5e', '📄'] : (tempType === 'local' ? ['#065f46', '#10b981', '💻'] : ['#1e3a8a', '#3b82f6', '🌐']);
+                    gallery = [createSvgThumb(bg[0], bg[1], bg[2], (title || 'МАТЕРІАЛ').slice(0, 18).toUpperCase(), 'Клік — відкрити', 'landscape')];
                 }
+
+                const coverImg = gallery[0];
 
                 if (editingContext.cardId && !asCopy) {
                     const originLesson = board.lessons.find(function (l) { return l.id === editingContext.lessonId; });
@@ -1765,7 +1994,8 @@
                         card.url = url;
                         card.title = title;
                         card.badge = badge;
-                        card.image = finalImg;
+                        card.image = coverImg;
+                        card.gallery = gallery;
                         if (originLesson.id !== targetLesson.id) {
                             originLesson.cards.splice(idx, 1);
                             targetLesson.cards.push(card);
@@ -1779,9 +2009,10 @@
                         title: title,
                         url: url,
                         badge: badge,
-                        image: finalImg
+                        image: coverImg,
+                        gallery: gallery
                     });
-                    showToast('Додано у «' + targetLesson.number + '»!', 'emerald');
+                    showToast('Додано у «' + targetLesson.number + '» (' + gallery.length + ' карт.)!', 'emerald');
                 }
 
                 document.getElementById('cardModal').classList.add('hidden');
@@ -1791,7 +2022,6 @@
 
             function compressImageFile(file, callback) {
                 if (!file || file.type.indexOf('image/') !== 0) {
-                    showToast('Оберіть або вставте файл зображення', 'rose');
                     return;
                 }
                 const reader = new FileReader();
@@ -1800,7 +2030,7 @@
                     img.onload = function () {
                         const canvas = document.createElement('canvas');
                         const maxW = 1100;
-                        const maxH = 800;
+                        const maxH = 820;
                         let w = img.naturalWidth || img.width || 640;
                         let h = img.naturalHeight || img.height || 400;
                         if (h > maxH) { w = Math.round(w * (maxH / h)); h = maxH; }
@@ -1819,6 +2049,7 @@
                 reader.readAsDataURL(file);
             }
 
+            // Глобальна вставка скріншотів по Ctrl + V (можна натискати кілька разів поспіль для картинок 1, 2, 3!)
             window.addEventListener('paste', function (e) {
                 const items = (e.clipboardData || (e.originalEvent && e.originalEvent.clipboardData)) ? (e.clipboardData || e.originalEvent.clipboardData).items : null;
                 if (!items) return;
@@ -1840,9 +2071,8 @@
                                 openCardModal(ensureActiveLesson(), null);
                             }
                             switchModalImageTab('upload');
-                            setModalPreviewImage(dataUrl);
-                            showToast(editingContext.cardId ? 'Обкладинку замінено зі скріншоту!' : 'Скріншот вставлено в активний урок!', 'emerald');
-                            document.getElementById('modalCardUrlInput').focus();
+                            addImageToModalGallery(dataUrl);
+                            showToast('Додано картинку #' + editingContext.galleryImages.length + ' (можна вставити ще через Ctrl+V)!', 'emerald');
                         });
                         break;
                     }
@@ -1850,7 +2080,7 @@
             });
 
             /* ========================================================================
-               7. ДУБЛЮВАННЯ ЗАВДАННЯ В ІНШИЙ УРОК ЧИ ІНШУ ПІДДОШКУ
+               8. ДУБЛЮВАННЯ ЗАВДАННЯ В ІНШИЙ УРОК ЧИ ІНШУ ПІДДОШКУ
                ======================================================================== */
             function openDuplicateModal(lessonId, cardId) {
                 const found = findLessonAndCard(lessonId, cardId);
@@ -1864,12 +2094,13 @@
                         title: card.title || '',
                         url: card.url || '',
                         badge: card.badge || 'auto',
-                        image: card.image
+                        image: card.image,
+                        gallery: getCardGalleryArray(card).slice()
                     }
                 };
 
                 document.getElementById('dupPreviewImg').src = card.image;
-                document.getElementById('dupPreviewUrl').textContent = card.url || 'Без посилання';
+                document.getElementById('dupPreviewUrl').textContent = card.url || ('Набір картинок (' + duplicatingContext.cardData.gallery.length + ' шт.)');
                 document.getElementById('dupPreviewOrigin').textContent = 'Поточний урок: ' + getBoardFullTitle(board.id) + ' • ' + lesson.number;
 
                 const activeLesson = board.lessons.find(function (l) { return l.id === appState.activeLessonId; }) || board.lessons[board.lessons.length - 1];
@@ -1901,7 +2132,7 @@
             }
 
             /* ========================================================================
-               8. МАСОВА ЗАМІНА ШЛЯХУ ФЛЕШКИ / ДИСКА / ПАПКИ
+               9. МАСОВА ЗАМІНА ШЛЯХУ ФЛЕШКИ / ДИСКА / ПАПКИ
                ======================================================================== */
             function extractLocalPrefix(rawUrl) {
                 const u = cleanPathQuotes(rawUrl);
@@ -2031,7 +2262,7 @@
             }
 
             /* ========================================================================
-               9. ДОПОМІЖНІ ОПЕРАЦІЇ З УРОКАМИ ТА ДОШКАМИ
+               10. ДОПОМІЖНІ ОПЕРАЦІЇ З УРОКАМИ ТА ДОШКАМИ
                ======================================================================== */
             function openCustomDialog(title, htmlContent, confirmText, confirmBtnClass, onConfirm) {
                 document.getElementById('dialogModalTitle').textContent = title;
@@ -2050,6 +2281,85 @@
             function closeCustomDialog() {
                 document.getElementById('dialogModal').classList.add('hidden');
                 dialogCallback = null;
+            }
+
+            function promptRenameBoardById(boardId) {
+                const targetBoard = getBoardById(boardId);
+                if (!targetBoard) return;
+                openCustomDialog(
+                    '✏️ Перейменувати «' + targetBoard.name + '»',
+                    '<label class="block text-xs text-gray-400 mb-1">Нова назва:</label>' +
+                    '<input id="dlgRenameBoardInput" type="text" value="' + escapeHtml(targetBoard.name) + '" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">',
+                    'Зберегти назву',
+                    'bg-indigo-600 hover:bg-indigo-500',
+                    function () {
+                        const val = (document.getElementById('dlgRenameBoardInput').value || '').trim();
+                        if (val) {
+                            targetBoard.name = val;
+                            saveState();
+                            renderApp();
+                            showToast('Перейменовано на «' + val + '»', 'emerald');
+                        }
+                        closeCustomDialog();
+                    }
+                );
+            }
+
+            function promptMoveBoardById(boardId) {
+                const targetBoard = getBoardById(boardId);
+                if (!targetBoard) return;
+                const optionsHtml = ['<option value="__root__"' + (!targetBoard.parentId ? ' selected' : '') + '>🏠 На Головний екран (верхній рівень)</option>'];
+                appState.boards.forEach(function (b) {
+                    if (b.id !== targetBoard.id && !isDescendantOf(b.id, targetBoard.id)) {
+                        const sel = targetBoard.parentId === b.id ? ' selected' : '';
+                        optionsHtml.push('<option value="' + b.id + '"' + sel + '>📁 Усередину: ' + escapeHtml(getBoardFullTitle(b.id)) + '</option>');
+                    }
+                });
+
+                openCustomDialog(
+                    '📂 Перемістити дошку «' + targetBoard.name + '»',
+                    '<label class="block text-xs text-gray-400 mb-1">Оберіть, куди вкласти цю дошку разом з усіма її піддошками та уроками:</label>' +
+                    '<select id="dlgMoveBoardParentSelect" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none">' +
+                        optionsHtml.join('') +
+                    '</select>',
+                    'Перемістити',
+                    'bg-indigo-600 hover:bg-indigo-500',
+                    function () {
+                        const val = document.getElementById('dlgMoveBoardParentSelect').value;
+                        targetBoard.parentId = val === '__root__' ? null : val;
+                        closeCustomDialog();
+                        saveState();
+                        renderApp();
+                        showToast('Дошку переміщено!', 'emerald');
+                    }
+                );
+            }
+
+            function promptDeleteBoardById(boardId) {
+                const targetBoard = getBoardById(boardId);
+                if (!targetBoard) return;
+                const st = getBoardStats(targetBoard.id);
+                openCustomDialog(
+                    '🗑️ Видалити «' + targetBoard.name + '»?',
+                    '<p>Буде видалено цю дошку, її піддошки (' + st.subboardsCount + ' шт.) та уроки (' + st.lessonsCount + ' шт.).</p>',
+                    'Видалити',
+                    'bg-rose-600 hover:bg-rose-500',
+                    function () {
+                        const parentId = targetBoard.parentId || null;
+                        const wasActive = appState.activeBoardId === targetBoard.id;
+                        deleteBoardAndDescendants(targetBoard.id);
+                        if (appState.boards.length === 0) {
+                            appState = buildInitialState();
+                        } else if (wasActive) {
+                            appState.activeBoardId = parentId;
+                        }
+                        ensureActiveLesson();
+                        closeCustomDialog();
+                        saveState();
+                        renderApp();
+                        showToast('Дошку видалено', 'info');
+                    }
+                );
             }
 
             function createNewLessonRow() {
@@ -2093,7 +2403,8 @@
                         title: src.title,
                         url: src.url,
                         badge: src.badge,
-                        image: src.image
+                        image: src.image,
+                        gallery: getCardGalleryArray(src).slice()
                     };
                 } else {
                     cardObj = fromL.cards.splice(idx, 1)[0];
@@ -2120,10 +2431,12 @@
                 e.preventDefault();
                 rowEl.classList.remove('drag-target-row');
                 if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                    const file = e.dataTransfer.files[0];
-                    compressImageFile(file, function (dataUrl) {
-                        openCardModal(lessonId, null);
-                        setModalPreviewImage(dataUrl);
+                    const files = Array.from(e.dataTransfer.files);
+                    openCardModal(lessonId, null);
+                    files.forEach(function (f) {
+                        compressImageFile(f, function (dataUrl) {
+                            addImageToModalGallery(dataUrl);
+                        });
                     });
                     return;
                 }
@@ -2149,7 +2462,7 @@
             }
 
             /* ========================================================================
-               10. ЦЕНТРАЛЬНИЙ ОБРОБНИК КЛІКІВ ТА ПОДІЙ
+               11. ЦЕНТРАЛЬНИЙ ОБРОБНИК КЛІКІВ ТА ПОДІЙ
                ======================================================================== */
             document.addEventListener('click', function (e) {
                 const target = e.target.closest('[data-action]');
@@ -2185,6 +2498,36 @@
                         ensureActiveLesson();
                         saveState();
                         renderApp();
+                        break;
+                    }
+
+                    // Кнопки зміни порядку дощок і піддошок місцями (◀ ▶)
+                    case 'move-board-left': {
+                        if (currentBoard) reorderSiblingBoard(currentBoard.id, 'left');
+                        break;
+                    }
+                    case 'move-board-right': {
+                        if (currentBoard) reorderSiblingBoard(currentBoard.id, 'right');
+                        break;
+                    }
+                    case 'board-card-left': {
+                        reorderSiblingBoard(target.dataset.boardId, 'left');
+                        break;
+                    }
+                    case 'board-card-right': {
+                        reorderSiblingBoard(target.dataset.boardId, 'right');
+                        break;
+                    }
+                    case 'board-card-rename': {
+                        promptRenameBoardById(target.dataset.boardId);
+                        break;
+                    }
+                    case 'board-card-move': {
+                        promptMoveBoardById(target.dataset.boardId);
+                        break;
+                    }
+                    case 'board-card-delete': {
+                        promptDeleteBoardById(target.dataset.boardId);
                         break;
                     }
 
@@ -2229,80 +2572,17 @@
                     }
 
                     case 'open-rename-board': {
-                        if (!currentBoard) break;
-                        openCustomDialog(
-                            '✏️ Перейменувати «' + currentBoard.name + '»',
-                            '<label class="block text-xs text-gray-400 mb-1">Нова назва:</label>' +
-                            '<input id="dlgRenameBoardInput" type="text" value="' + escapeHtml(currentBoard.name) + '" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">',
-                            'Зберегти назву',
-                            'bg-indigo-600 hover:bg-indigo-500',
-                            function () {
-                                const val = (document.getElementById('dlgRenameBoardInput').value || '').trim();
-                                if (val) {
-                                    currentBoard.name = val;
-                                    saveState();
-                                    renderApp();
-                                    showToast('Перейменовано на «' + val + '»', 'emerald');
-                                }
-                                closeCustomDialog();
-                            }
-                        );
+                        if (currentBoard) promptRenameBoardById(currentBoard.id);
                         break;
                     }
 
                     case 'open-move-board': {
-                        if (!currentBoard) break;
-                        const optionsHtml = ['<option value="__root__"' + (!currentBoard.parentId ? ' selected' : '') + '>🏠 На Головний екран (верхній рівень)</option>'];
-                        appState.boards.forEach(function (b) {
-                            if (b.id !== currentBoard.id && !isDescendantOf(b.id, currentBoard.id)) {
-                                const sel = currentBoard.parentId === b.id ? ' selected' : '';
-                                optionsHtml.push('<option value="' + b.id + '"' + sel + '>📁 Усередину: ' + escapeHtml(getBoardFullTitle(b.id)) + '</option>');
-                            }
-                        });
-
-                        openCustomDialog(
-                            '📂 Перемістити дошку «' + currentBoard.name + '»',
-                            '<label class="block text-xs text-gray-400 mb-1">Оберіть, куди перемістити цю дошку разом з її вмістом:</label>' +
-                            '<select id="dlgMoveBoardParentSelect" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none">' +
-                                optionsHtml.join('') +
-                            '</select>',
-                            'Перемістити',
-                            'bg-indigo-600 hover:bg-indigo-500',
-                            function () {
-                                const val = document.getElementById('dlgMoveBoardParentSelect').value;
-                                currentBoard.parentId = val === '__root__' ? null : val;
-                                closeCustomDialog();
-                                saveState();
-                                renderApp();
-                                showToast('Дошку переміщено!', 'emerald');
-                            }
-                        );
+                        if (currentBoard) promptMoveBoardById(currentBoard.id);
                         break;
                     }
 
                     case 'open-delete-board': {
-                        if (!currentBoard) break;
-                        const st = getBoardStats(currentBoard.id);
-                        openCustomDialog(
-                            '🗑️ Видалити «' + currentBoard.name + '»?',
-                            '<p>Буде видалено цю дошку, її піддошки (' + st.subboardsCount + ' шт.) та уроки (' + st.lessonsCount + ' шт.).</p>',
-                            'Видалити',
-                            'bg-rose-600 hover:bg-rose-500',
-                            function () {
-                                const parentId = currentBoard.parentId || null;
-                                deleteBoardAndDescendants(currentBoard.id);
-                                if (appState.boards.length === 0) {
-                                    appState = buildInitialState();
-                                } else {
-                                    appState.activeBoardId = parentId;
-                                }
-                                ensureActiveLesson();
-                                closeCustomDialog();
-                                saveState();
-                                renderApp();
-                                showToast('Дошку видалено', 'info');
-                            }
-                        );
+                        if (currentBoard) promptDeleteBoardById(currentBoard.id);
                         break;
                     }
 
@@ -2422,9 +2702,15 @@
                         appState.activeLessonId = lId;
                         if (singleClickTimer) clearTimeout(singleClickTimer);
                         singleClickTimer = setTimeout(function () {
-                            triggerCardCopy(lId, cId, target);
+                            handleCardPrimaryAction(lId, cId, target);
                             singleClickTimer = null;
                         }, 200);
+                        break;
+                    }
+
+                    case 'open-second-monitor': {
+                        if (singleClickTimer) { clearTimeout(singleClickTimer); singleClickTimer = null; }
+                        openSecondMonitorViewer(target.dataset.lessonId, target.dataset.cardId);
                         break;
                     }
 
@@ -2444,20 +2730,6 @@
                         break;
                     }
 
-                    case 'open-card-url': {
-                        const found = findLessonAndCard(target.dataset.lessonId, target.dataset.cardId);
-                        if (found.card && found.card.url) {
-                            const u = cleanPathQuotes(found.card.url);
-                            if (u.toLowerCase().indexOf('http') === 0) {
-                                window.open(u, '_blank', 'noopener');
-                            } else {
-                                copyToClipboard(u);
-                                showToast('Локальний шлях скопійовано в буфер: ' + u, 'emerald');
-                            }
-                        }
-                        break;
-                    }
-
                     case 'delete-card': {
                         const found = findLessonAndCard(target.dataset.lessonId, target.dataset.cardId);
                         if (found.lesson) {
@@ -2466,6 +2738,41 @@
                             renderApp();
                             showToast('Картку видалено', 'info');
                         }
+                        break;
+                    }
+
+                    // Керування картинками 1, 2, 3 всередині модалки
+                    case 'gallery-img-left': {
+                        const idx = parseInt(target.dataset.idx, 10);
+                        if (idx > 0) {
+                            const tmp = editingContext.galleryImages[idx - 1];
+                            editingContext.galleryImages[idx - 1] = editingContext.galleryImages[idx];
+                            editingContext.galleryImages[idx] = tmp;
+                            renderModalGalleryStrip();
+                        }
+                        break;
+                    }
+                    case 'gallery-img-right': {
+                        const idx = parseInt(target.dataset.idx, 10);
+                        if (idx < editingContext.galleryImages.length - 1) {
+                            const tmp = editingContext.galleryImages[idx + 1];
+                            editingContext.galleryImages[idx + 1] = editingContext.galleryImages[idx];
+                            editingContext.galleryImages[idx] = tmp;
+                            renderModalGalleryStrip();
+                        }
+                        break;
+                    }
+                    case 'gallery-img-del': {
+                        const idx = parseInt(target.dataset.idx, 10);
+                        editingContext.galleryImages.splice(idx, 1);
+                        renderModalGalleryStrip();
+                        updateModalUrlTypeIndicator();
+                        break;
+                    }
+                    case 'clear-gallery-images': {
+                        editingContext.galleryImages = [];
+                        renderModalGalleryStrip();
+                        updateModalUrlTypeIndicator();
                         break;
                     }
 
@@ -2524,7 +2831,8 @@
                                 title: duplicatingContext.cardData.title,
                                 url: duplicatingContext.cardData.url,
                                 badge: duplicatingContext.cardData.badge,
-                                image: duplicatingContext.cardData.image
+                                image: duplicatingContext.cardData.image,
+                                gallery: duplicatingContext.cardData.gallery.slice()
                             });
                             document.getElementById('duplicateModal').classList.add('hidden');
                             saveState();
@@ -2552,7 +2860,8 @@
                                 title: duplicatingContext.cardData.title,
                                 url: duplicatingContext.cardData.url,
                                 badge: duplicatingContext.cardData.badge,
-                                image: duplicatingContext.cardData.image
+                                image: duplicatingContext.cardData.image,
+                                gallery: duplicatingContext.cardData.gallery.slice()
                             });
                             document.getElementById('duplicateModal').classList.add('hidden');
                             saveState();
@@ -2578,7 +2887,8 @@
                                 title: duplicatingContext.cardData.title,
                                 url: duplicatingContext.cardData.url,
                                 badge: duplicatingContext.cardData.badge,
-                                image: duplicatingContext.cardData.image
+                                image: duplicatingContext.cardData.image,
+                                gallery: duplicatingContext.cardData.gallery.slice()
                             }]
                         };
                         targetB.lessons.push(newestL);
@@ -2595,6 +2905,21 @@
                             break;
                         }
                         document.getElementById('lightboxModal').classList.add('hidden');
+                        break;
+                    }
+
+                    case 'lb-prev-img': {
+                        lightboxContext.slideIndex--;
+                        renderLightboxSlide();
+                        break;
+                    }
+                    case 'lb-next-img': {
+                        lightboxContext.slideIndex++;
+                        renderLightboxSlide();
+                        break;
+                    }
+                    case 'lb-open-second-monitor': {
+                        openSecondMonitorViewer(lightboxContext.lessonId, lightboxContext.cardId);
                         break;
                     }
 
@@ -2617,7 +2942,7 @@
                     }
 
                     case 'lb-copy-url': {
-                        triggerCardCopy(lightboxContext.lessonId, lightboxContext.cardId, null);
+                        handleCardPrimaryAction(lightboxContext.lessonId, lightboxContext.cardId, null);
                         break;
                     }
 
@@ -2715,7 +3040,8 @@
                     drawGeneratedCover();
                 } else if (id === 'modalExternalImgUrl') {
                     if (e.target.value.trim()) {
-                        editingContext.imageBase64 = e.target.value.trim();
+                        editingContext.galleryImages = [e.target.value.trim()];
+                        renderModalGalleryStrip();
                     }
                 } else if (id === 'replaceOldPathInput' || id === 'replaceNewPathInput') {
                     updatePathReplacePreview();
@@ -2727,12 +3053,13 @@
                 if (id === 'modalCardTypeSelect') {
                     updateModalUrlTypeIndicator();
                 } else if (id === 'cardImageFileInput') {
-                    const file = e.target.files && e.target.files[0];
-                    if (file) {
+                    const files = e.target.files ? Array.from(e.target.files) : [];
+                    files.forEach(function (file) {
                         compressImageFile(file, function (dataUrl) {
-                            setModalPreviewImage(dataUrl);
+                            addImageToModalGallery(dataUrl);
                         });
-                    }
+                    });
+                    e.target.value = '';
                 } else if (id === 'dupBoardSelect') {
                     populateDuplicateLessonDropdown(null);
                 } else if (id === 'replaceScopeSelect') {
@@ -2799,7 +3126,7 @@
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;')
                     .replace(/"/g, '&quot;')
-                    .replace(/'/g, '&#039;');
+                    .replace(/'/039/g, '&#039;');
             }
 
             renderApp();
