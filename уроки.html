@@ -93,7 +93,7 @@
             box-shadow: 0 6px 16px rgba(244, 63, 94, 0.62), inset 0 0 0 1.5px #090d16 !important;
         }
 
-        /* 4. НАБІР КАРТИНОК (ГАЛЕРЕЯ ДЛЯ 2-ГО МОНІТОРА) — Насичена фіолетово-золотиста рамка */
+        /* 4. НАБІР КАРТИНОК (ГАЛЕРЕЯ ДЛЯ 2-ГО МОНІТОРА) — Насичена фіолетова рамка */
         .frame-gallery {
             border: 3.5px solid #a855f7 !important;
             box-shadow: 0 4px 12px rgba(168, 85, 247, 0.42), inset 0 0 0 1.5px #090d16 !important;
@@ -227,7 +227,7 @@
                     + Новий урок
                 </button>
 
-                <!-- Статус автоматичної хмари Firebase + резервні кнопки -->
+                <!-- Статус автоматичної хмари Firebase + кнопки імпорту/експорту -->
                 <div class="flex items-center gap-1 border-l border-gray-800 pl-2">
                     <div id="cloudStatusBadge" title="Усі зміни автоматично зберігаються у вашій хмарі Firebase і доступні на будь-якому пристрої"
                         class="px-2.5 py-1.5 rounded-lg bg-gray-900 text-gray-200 border border-gray-800 text-xs font-medium flex items-center gap-1.5 select-none">
@@ -238,9 +238,10 @@
                         class="px-2 py-1.5 rounded-lg bg-gray-900 hover:bg-gray-800 text-emerald-400 border border-gray-800 text-xs font-bold transition cursor-pointer">
                         💾
                     </button>
-                    <button type="button" data-action="trigger-import-json" title="Завантажити базу з файлу (.json)"
-                        class="px-2 py-1.5 rounded-lg bg-gray-900 hover:bg-gray-800 text-amber-400 border border-gray-800 text-xs font-bold transition cursor-pointer">
-                        📂
+                    <button type="button" data-action="trigger-import-json" title="Відновити ваші уроки з файлу doshka-urokiv-avto.json"
+                        class="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 text-xs font-bold transition cursor-pointer flex items-center gap-1">
+                        <span>📂</span>
+                        <span class="hidden sm:inline">Імпорт JSON</span>
                     </button>
                     <input id="importJsonFileInput" type="file" accept=".json" class="hidden">
                 </div>
@@ -325,7 +326,6 @@
                                     Або натискайте <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-600 rounded text-indigo-300 font-mono text-xs">Ctrl + V</kbd> стільки разів, скільки картинок хочете зібрати в це завдання!
                                 </p>
                             </div>
-                            <!-- multiple дозволяє виділити одразу картинки 1, 2, 3 у вікні вибору файлів! -->
                             <input id="cardImageFileInput" type="file" accept="image/*" multiple class="hidden">
                         </div>
 
@@ -369,7 +369,7 @@
                     </div>
                 </div>
 
-                <!-- 2. Посилання або шлях до файлу (необов'язково, якщо це просто набір картинок!) -->
+                <!-- 2. Посилання або шлях до файлу -->
                 <div>
                     <div class="flex items-center justify-between mb-1">
                         <label class="text-xs font-semibold uppercase tracking-wider text-gray-400">
@@ -458,7 +458,7 @@
         </div>
     </div>
 
-    <!-- ================= МОДАЛКА 3: ЗБІЛЬШЕНИЙ ПЕРЕГЛЯД КАРТИНКИ (LIGHTBOX У ТІЙ САМІЙ ВКЛАДЦІ) ================= -->
+    <!-- ================= МОДАЛКА 3: ЗБІЛЬШЕНИЙ ПЕРЕГЛЯД КАРТИНКИ (LIGHTBOX) ================= -->
     <div id="lightboxModal" data-action="close-lightbox-backdrop" class="fixed inset-0 z-50 hidden modal-bg flex flex-col items-center justify-between p-3 sm:p-6 select-none">
         <div class="w-full max-w-5xl bg-gray-900/95 border border-gray-700 rounded-2xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-2xl">
             <div class="flex items-center gap-2.5 min-w-0 flex-1">
@@ -573,6 +573,14 @@
             const BS = String.fromCharCode(92);
             const MY_CLIENT_ID = 'client_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
 
+            // ID старих демо-карток, які автоматично видаляються при імпорті чи міграції
+            const DEMO_CARD_IDS = {
+                'c_101': true, 'c_102': true, 'c_103': true, 'c_104': true,
+                'c_201': true, 'c_202': true, 'c_203': true,
+                'c_301': true, 'c_302': true, 'c_303': true, 'c_304': true,
+                'c_401': true, 'c_402': true, 'c_901': true
+            };
+
             function createSvgThumb(bg1, bg2, emoji, line1, line2, shape) {
                 const w = shape === 'portrait' ? 180 : (shape === 'square' ? 200 : 280);
                 const h = 180;
@@ -590,9 +598,11 @@
                 return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
             }
 
+            // Повністю чистий початковий стан БЕЗ жодних демо-карток
             function buildInitialState() {
                 return {
-                    schemaVersion: 5,
+                    schemaVersion: 6,
+                    isInitialTemplate: true,
                     updatedAt: 0,
                     clientId: MY_CLIENT_ID,
                     activeBoardId: null,
@@ -622,57 +632,7 @@
                                     number: 'Урок 1',
                                     title: '29.10.2026',
                                     date: 'Вересень',
-                                    cards: [
-                                        {
-                                            id: 'c_1793261777650_vpkz',
-                                            title: 'Сортування прикладів на множення 2, 3, 4, 5, 10',
-                                            url: 'https://learning.ua/matematyka/tretii-klas/sortuvannia-prykladiv-na-mnozhennia-2-3-4-5-10',
-                                            badge: 'auto',
-                                            image: createSvgThumb('#0284c7', '#38bdf8', '✖️', 'МНОЖЕННЯ 2,3,4,5,10', 'learning.ua • 3 клас', 'landscape')
-                                        },
-                                        {
-                                            id: 'c_1793261838175_8rbk',
-                                            title: 'Google Drive PDF матеріал',
-                                            url: 'https://drive.google.com/file/d/1iqsvVvJUBHgSUPBPIyx4ICo1XbKFHqKd/view?usp=drive_link',
-                                            badge: 'pdf',
-                                            image: createSvgThumb('#be123c', '#f43f5e', '📄', 'ДОКУМЕНТ PDF', 'Google Диск', 'landscape')
-                                        },
-                                        {
-                                            id: 'c_1793261895286_cqzf',
-                                            title: 'Головоломки з сірниками 2',
-                                            url: '"H:' + BS + 'МАТЕМАТИКА' + BS + 'ГОЛОВОЛОМКИ З СІРНИКАМИ 2.html"',
-                                            badge: 'local',
-                                            image: createSvgThumb('#047857', '#10b981', '🔥', 'СІРНИКИ №2', 'H:' + BS + 'МАТЕМАТИКА', 'landscape')
-                                        },
-                                        {
-                                            id: 'c_1793261932480_lwth',
-                                            title: 'Е / И — Ніндзя і монстри',
-                                            url: 'https://olgazheltvai2.github.io/mova/%D0%B5_%D0%B8_%D0%BD%D1%96%D0%BD%D1%B4%D0%B7%D1%8F_%D1%96_%D0%BC%D0%BE%D0%BD%D1%81%D1%82%D1%80%D0%B8.html',
-                                            badge: 'web',
-                                            image: createSvgThumb('#4338ca', '#818cf8', '🥷', 'НІНДЗЯ І МОНСТРИ', 'Літери Е та И', 'landscape')
-                                        },
-                                        {
-                                            id: 'c_1793261984394_67yf',
-                                            title: 'Віднови дріб до цілого',
-                                            url: 'https://learning.ua/matematyka/tretii-klas/vidnovy-drib-do-tsiloho',
-                                            badge: 'web',
-                                            image: createSvgThumb('#0369a1', '#38bdf8', '🍕', 'ВІДНОВИ ДРІБ', 'До цілого • 3 клас', 'landscape')
-                                        },
-                                        {
-                                            id: 'c_1793262028158_djq6',
-                                            title: 'Gemini Інтерактив',
-                                            url: 'https://gemini.google.com/share/af39e1eba534?social_preview=false&skid=064ed9aa-fa44-40e3-92ea-f01ac37d9182',
-                                            badge: 'web',
-                                            image: createSvgThumb('#6d28d9', '#a855f7', '✨', 'GEMINI ГРА', 'Інтерактивне посилання', 'landscape')
-                                        },
-                                        {
-                                            id: 'c_1793262053649_kdm2',
-                                            title: 'Віднови дріб',
-                                            url: 'https://learning.ua/matematyka/tretii-klas/vidnovy-drib',
-                                            badge: 'auto',
-                                            image: createSvgThumb('#0284c7', '#60a5fa', '🔢', 'ВІДНОВИ ДРІБ', 'learning.ua • Тренажер', 'landscape')
-                                        }
-                                    ]
+                                    cards: []
                                 }
                             ]
                         },
@@ -682,40 +642,11 @@
                             parentId: 'b_root_students',
                             lessons: [
                                 {
-                                    id: 'l_1',
+                                    id: 'l_petro_1',
                                     number: 'Урок 1',
-                                    title: 'Січень — Читання, склади та лічба',
-                                    date: '15 січ.',
-                                    cards: [
-                                        {
-                                            id: 'c_101',
-                                            title: 'Стіл та Їжак — читаємо склади',
-                                            url: 'https://wordwall.net/uk/resource/101',
-                                            badge: 'auto',
-                                            image: createSvgThumb('#b45309', '#f59e0b', '🦔', 'СТІЛ • ЇЖАК', 'Читаємо по складах', 'landscape')
-                                        },
-                                        {
-                                            id: 'c_102',
-                                            title: 'Зимова школа — гра з флешки',
-                                            url: 'D:' + BS + 'Ігри' + BS + 'Зимова_школа' + BS + 'index.html',
-                                            badge: 'auto',
-                                            image: createSvgThumb('#047857', '#10b981', '🎄', 'ЗИМОВА ШКОЛА', 'Гра на флешці D:' + BS + 'Ігри', 'landscape')
-                                        },
-                                        {
-                                            id: 'c_103',
-                                            title: 'Меморі картки на увагу',
-                                            url: 'D:' + BS + 'Ігри' + BS + 'Меморі_картки' + BS + 'game.html',
-                                            badge: 'auto',
-                                            image: createSvgThumb('#065f46', '#34d399', '🎴', 'МЕМОРІ КАРТКИ', 'Локальна гра з ПК', 'portrait')
-                                        },
-                                        {
-                                            id: 'c_104',
-                                            title: 'Робочий аркуш PDF — Лічба',
-                                            url: 'D:' + BS + 'Матеріали' + BS + 'Аркуш_лічба_1клас.pdf',
-                                            badge: 'auto',
-                                            image: createSvgThumb('#9f1239', '#f43f5e', '📄', 'АРКУШ №1 (PDF)', 'Роздруківка / PDF', 'portrait')
-                                        }
-                                    ]
+                                    title: '',
+                                    date: '',
+                                    cards: []
                                 }
                             ]
                         }
@@ -723,22 +654,35 @@
                 };
             }
 
-            function countTotalCards(stateObj) {
-                if (!stateObj || !Array.isArray(stateObj.boards)) return 0;
-                let total = 0;
-                stateObj.boards.forEach(function (b) {
-                    (b.lessons || []).forEach(function (l) {
-                        total += (l.cards ? l.cards.length : 0);
-                    });
-                });
-                return total;
-            }
-
-            function normalizeAndMigrateState(parsed) {
+            // Автоматичне очищення старих демо-уроків (c_101..c_402) та міграція в структуру піддошок
+            function normalizeAndCleanState(parsed) {
                 if (!parsed || !Array.isArray(parsed.boards) || parsed.boards.length === 0) {
                     return buildInitialState();
                 }
 
+                // 1. Прибираємо старі демо-картки (c_101..c_402) та порожні демо-уроки Петра
+                parsed.boards.forEach(function (b) {
+                    if (!Array.isArray(b.lessons)) {
+                        b.lessons = [];
+                        return;
+                    }
+                    b.lessons.forEach(function (l) {
+                        if (!Array.isArray(l.cards)) {
+                            l.cards = [];
+                        } else {
+                            l.cards = l.cards.filter(function (c) {
+                                return c && !DEMO_CARD_IDS[c.id];
+                            });
+                        }
+                    });
+                    // Видаляємо старі демо-уроки l_1, l_2, l_3, l_4 якщо в них були тільки демо-картки
+                    b.lessons = b.lessons.filter(function (l) {
+                        const isOldDemoLesson = (l.id === 'l_1' || l.id === 'l_2' || l.id === 'l_3' || l.id === 'l_4') && l.cards.length === 0;
+                        return !isOldDemoLesson;
+                    });
+                });
+
+                // 2. Міграція в ієрархію "👥 УЧНІ" та "📚 ТЕМИ", якщо файл був плоским (як ваш doshka-urokiv-avto_2.json)
                 const hasHierarchy = parsed.boards.some(function (b) {
                     return typeof b.parentId !== 'undefined' || b.id === 'b_root_students' || b.id === 'b_root_topics';
                 });
@@ -748,7 +692,6 @@
                     const topicsRootId = 'b_root_topics';
 
                     parsed.boards.forEach(function (b) {
-                        if (!Array.isArray(b.lessons)) b.lessons = [];
                         b.parentId = studentsRootId;
                     });
 
@@ -759,17 +702,11 @@
                 } else {
                     parsed.boards.forEach(function (b) {
                         if (typeof b.parentId === 'undefined') b.parentId = null;
-                        if (!Array.isArray(b.lessons)) {
-                            b.lessons = [];
-                        } else {
-                            b.lessons.forEach(function (l) {
-                                if (!Array.isArray(l.cards)) l.cards = [];
-                            });
-                        }
                     });
                 }
 
-                parsed.schemaVersion = 5;
+                parsed.hasDemoData = false;
+                parsed.schemaVersion = 6;
                 return parsed;
             }
 
@@ -777,7 +714,6 @@
             let activeFilter = 'all';
             let searchQuery = '';
 
-            // Стан модалки картки (підтримує масив картинок galleryImages: [img1, img2, img3...])
             let editingContext = { lessonId: null, cardId: null, galleryImages: [] };
             let duplicatingContext = null;
             let lightboxContext = { lessonId: null, cardId: null, zoom: 1, slideIndex: 0 };
@@ -787,12 +723,13 @@
             let draggedBoardId = null;
             let singleClickTimer = null;
 
-            const LS_KEY = 'VisualLessonBoard_State_v3';
-            const IDB_NAME = 'VisualLessonBoardDB_v3';
+            const LS_KEY = 'VisualLessonBoard_State_v4';
+            const IDB_NAME = 'VisualLessonBoardDB_v4';
             const IDB_STORE = 'boardStore';
 
             /* ========================================================================
                АВТОМАТИЧНА ХМАРА FIREBASE (https://lesson-13c44-default-rtdb.firebaseio.com/)
+               Нова чиста гілка state_v2 — ніколи не перезаписує ваші дані демо-шаблоном!
                ======================================================================== */
             let fbBoardRef = null;
             let isApplyingRemoteUpdate = false;
@@ -823,28 +760,39 @@
                         });
                     }
                     const db = firebase.database();
-                    fbBoardRef = db.ref('visual_lesson_board_olga/state');
+                    fbBoardRef = db.ref('visual_lesson_board_olga/state_v2');
 
                     fbBoardRef.once('value').then(function (snap) {
                         const cloudVal = snap.val();
-                        const localCardsCount = countTotalCards(appState);
-                        const cloudCardsCount = countTotalCards(cloudVal);
 
-                        if (!cloudVal || localCardsCount > cloudCardsCount) {
-                            pushStateToFirebase();
-                        } else if (cloudVal && Array.isArray(cloudVal.boards)) {
-                            isApplyingRemoteUpdate = true;
-                            const keepActiveBoard = appState.activeBoardId;
-                            appState = normalizeAndMigrateState(cloudVal);
-                            if (keepActiveBoard && getBoardById(keepActiveBoard)) {
-                                appState.activeBoardId = keepActiveBoard;
+                        if (cloudVal && Array.isArray(cloudVal.boards)) {
+                            const cloudTime = cloudVal.updatedAt || 0;
+                            const localTime = appState.updatedAt || 0;
+                            if (appState.isInitialTemplate || cloudTime >= localTime) {
+                                isApplyingRemoteUpdate = true;
+                                const keepActiveBoard = appState.activeBoardId;
+                                appState = normalizeAndCleanState(cloudVal);
+                                appState.isInitialTemplate = false;
+                                if (keepActiveBoard && getBoardById(keepActiveBoard)) {
+                                    appState.activeBoardId = keepActiveBoard;
+                                }
+                                saveLocalOnly();
+                                renderApp();
+                                isApplyingRemoteUpdate = false;
+                            } else if (!appState.isInitialTemplate && localTime > cloudTime) {
+                                pushStateToFirebase();
                             }
-                            saveLocalOnly();
-                            renderApp();
-                            isApplyingRemoteUpdate = false;
-                            updateCloudBadge('online', 'Хмара синхронізована');
+                            updateCloudBadge('online', 'Хмара синхронізована ✓');
+                        } else {
+                            // У хмарі ще порожньо: якщо у нас вже є реальні дані (не стартовий шаблон) — вивантажуємо їх
+                            if (!appState.isInitialTemplate) {
+                                pushStateToFirebase();
+                            } else {
+                                updateCloudBadge('online', 'Хмара готова (натисніть 📂 Імпорт JSON)');
+                            }
                         }
 
+                        // Слухаємо зміни в реальному часі з інших пристроїв чи вкладок
                         fbBoardRef.on('value', function (liveSnap) {
                             const remote = liveSnap.val();
                             if (!remote || !Array.isArray(remote.boards)) return;
@@ -852,10 +800,11 @@
 
                             const remoteTime = remote.updatedAt || 0;
                             const localTime = appState.updatedAt || 0;
-                            if (remoteTime > localTime || countTotalCards(remote) > countTotalCards(appState)) {
+                            if (appState.isInitialTemplate || remoteTime > localTime) {
                                 isApplyingRemoteUpdate = true;
                                 const keepActiveBoard = appState.activeBoardId;
-                                appState = normalizeAndMigrateState(remote);
+                                appState = normalizeAndCleanState(remote);
+                                appState.isInitialTemplate = false;
                                 if (keepActiveBoard && getBoardById(keepActiveBoard)) {
                                     appState.activeBoardId = keepActiveBoard;
                                 }
@@ -876,6 +825,7 @@
             function pushStateToFirebase() {
                 if (!fbBoardRef || isApplyingRemoteUpdate) return;
                 updateCloudBadge('saving', 'Зберігаю...');
+                appState.isInitialTemplate = false;
                 appState.updatedAt = Date.now();
                 appState.clientId = MY_CLIENT_ID;
                 fbBoardRef.set(appState).then(function () {
@@ -912,7 +862,6 @@
                 const gal = getCardGalleryArray(card);
                 const u = cleanPathQuotes(card.url);
 
-                // Якщо завантажено декілька картинок (1, 2, 3...) або посилання порожнє — це Набір картинок для 2-го монітора
                 if (gal.length > 1 || !u) {
                     return 'gallery';
                 }
@@ -963,7 +912,6 @@
 
             /* ========================================================================
                2. ОКРЕМЕ ВІКНО ПОКАЗУ КАРТИНОК (1, 2, 3...) ДЛЯ ДРУГОГО МОНІТОРА
-               Відкривається окремо від програми, можна перетягнути на 2-й екран!
                ======================================================================== */
             function openSecondMonitorViewer(lessonId, cardId) {
                 const found = findLessonAndCard(lessonId, cardId);
@@ -1084,7 +1032,6 @@
                 });
             }
 
-            // Зміна порядку дощок/піддошок місцями (вліво/вправо або перетягуванням)
             function reorderSiblingBoard(boardId, directionOrTargetId) {
                 const board = getBoardById(boardId);
                 if (!board) return;
@@ -1205,7 +1152,8 @@
                     if (raw) {
                         const parsed = JSON.parse(raw);
                         if (parsed && Array.isArray(parsed.boards) && parsed.boards.length > 0) {
-                            appState = normalizeAndMigrateState(parsed);
+                            appState = normalizeAndCleanState(parsed);
+                            appState.isInitialTemplate = false;
                             renderApp();
                         }
                     }
@@ -1217,7 +1165,8 @@
                         const req = tx.objectStore(IDB_STORE).get('root');
                         req.onsuccess = function () {
                             if (req.result && Array.isArray(req.result.boards) && req.result.boards.length > 0) {
-                                appState = normalizeAndMigrateState(req.result);
+                                appState = normalizeAndCleanState(req.result);
+                                appState.isInitialTemplate = false;
                                 renderApp();
                             }
                             initFirebaseAutoCloud();
@@ -1249,11 +1198,49 @@
             function saveState() {
                 const now = new Date();
                 const timeStr = now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                appState.isInitialTemplate = false;
                 appState.updatedAt = Date.now();
                 appState.clientId = MY_CLIENT_ID;
                 updateFooterStatus(timeStr);
                 saveLocalOnly();
                 pushStateToFirebase();
+            }
+
+            // Глобальна підтримка перетягування файлу .json прямо на вікно програми
+            window.addEventListener('dragover', function (e) {
+                if (e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).indexOf('Files') !== -1) {
+                    e.preventDefault();
+                }
+            });
+            window.addEventListener('drop', function (e) {
+                if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    const file = e.dataTransfer.files[0];
+                    if (file.name && file.name.toLowerCase().endsWith('.json')) {
+                        e.preventDefault();
+                        importJsonFileObject(file);
+                    }
+                }
+            });
+
+            function importJsonFileObject(file) {
+                const reader = new FileReader();
+                reader.onload = function (ev) {
+                    try {
+                        const parsed = JSON.parse(ev.target.result);
+                        if (parsed && Array.isArray(parsed.boards)) {
+                            appState = normalizeAndCleanState(parsed);
+                            appState.isInitialTemplate = false;
+                            saveState();
+                            renderApp();
+                            showToast('Вашу базу відновлено без демо-карток та збережено у Firebase!', 'emerald');
+                        } else {
+                            showToast('Невірний формат файлу JSON', 'rose');
+                        }
+                    } catch (err) {
+                        showToast('Помилка читання файлу JSON', 'rose');
+                    }
+                };
+                reader.readAsText(file);
             }
 
             /* ========================================================================
@@ -1364,7 +1351,6 @@
                 }
             }
 
-            // Сітка карток дощок та піддошок із кнопками переміщення ◀ ▶ та Drag & Drop
             function renderSubboardsCardsArea() {
                 const box = document.getElementById('subboardsSection');
                 if (!box) return;
@@ -1400,7 +1386,6 @@
                         cardDiv.dataset.boardId = ch.id;
                         cardDiv.className = 'group relative bg-gradient-to-br from-[#131c31] to-[#0f1523] hover:from-indigo-950/80 hover:to-[#151f38] border-2 border-indigo-500/40 hover:border-indigo-400 rounded-2xl p-5 cursor-pointer transition-all shadow-lg hover:shadow-indigo-500/20 hover:-translate-y-0.5 flex items-center justify-between gap-4 select-none';
 
-                        // Drag & Drop для зміни порядку дощок/піддошок місцями
                         cardDiv.addEventListener('dragstart', function (e) {
                             draggedBoardId = ch.id;
                             e.dataTransfer.effectAllowed = 'move';
@@ -1440,7 +1425,6 @@
                                 '</div>' +
                             '</div>' +
                             '<div class="text-indigo-400 group-hover:translate-x-1 transition-transform text-lg font-bold">➔</div>' +
-                            /* Панель швидких дій на самій картці піддошки (переміщення ◀ ▶, перейменування, перенесення, видалення) */
                             '<div class="absolute top-2 right-2 flex items-center gap-1 bg-gray-950/95 border border-gray-700 rounded-xl p-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">' +
                                 '<button type="button" data-action="board-card-left" data-board-id="' + ch.id + '" title="Перемістити лівіше / вище" class="w-6 h-6 rounded hover:bg-gray-800 text-gray-300 hover:text-white text-xs font-bold cursor-pointer">◀</button>' +
                                 '<button type="button" data-action="board-card-right" data-board-id="' + ch.id + '" title="Перемістити правіше / нижче" class="w-6 h-6 rounded hover:bg-gray-800 text-gray-300 hover:text-white text-xs font-bold cursor-pointer">▶</button>' +
@@ -1728,7 +1712,6 @@
                 const gal = getCardGalleryArray(card);
                 const cleanUrl = cleanPathQuotes(card.url);
 
-                // Якщо це набір із декількох картинок (1, 2, 3...) АБО посилання не вказано — одразу відкриваємо окреме вікно для 2-го монітора!
                 if (gal.length > 1 || (!cleanUrl && gal.length > 0)) {
                     openSecondMonitorViewer(lessonId, cardId);
                     return;
@@ -2049,7 +2032,6 @@
                 reader.readAsDataURL(file);
             }
 
-            // Глобальна вставка скріншотів по Ctrl + V (можна натискати кілька разів поспіль для картинок 1, 2, 3!)
             window.addEventListener('paste', function (e) {
                 const items = (e.clipboardData || (e.originalEvent && e.originalEvent.clipboardData)) ? (e.clipboardData || e.originalEvent.clipboardData).items : null;
                 if (!items) return;
@@ -2432,6 +2414,10 @@
                 rowEl.classList.remove('drag-target-row');
                 if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                     const files = Array.from(e.dataTransfer.files);
+                    if (files[0].name && files[0].name.toLowerCase().endsWith('.json')) {
+                        importJsonFileObject(files[0]);
+                        return;
+                    }
                     openCardModal(lessonId, null);
                     files.forEach(function (f) {
                         compressImageFile(f, function (dataUrl) {
@@ -2478,7 +2464,6 @@
                 switch (action) {
                     case 'go-root': {
                         appState.activeBoardId = null;
-                        saveState();
                         renderApp();
                         break;
                     }
@@ -2487,7 +2472,6 @@
                         if (currentBoard) {
                             appState.activeBoardId = currentBoard.parentId || null;
                             ensureActiveLesson();
-                            saveState();
                             renderApp();
                         }
                         break;
@@ -2496,12 +2480,10 @@
                     case 'select-board': {
                         appState.activeBoardId = target.dataset.boardId || null;
                         ensureActiveLesson();
-                        saveState();
                         renderApp();
                         break;
                     }
 
-                    // Кнопки зміни порядку дощок і піддошок місцями (◀ ▶)
                     case 'move-board-left': {
                         if (currentBoard) reorderSiblingBoard(currentBoard.id, 'left');
                         break;
@@ -2619,7 +2601,6 @@
                         if (found.lesson && found.board) {
                             appState.activeBoardId = found.board.id;
                             appState.activeLessonId = lId;
-                            saveState();
                             renderApp();
                             showToast('«' + found.lesson.number + '» активний для вставки скріншотів Ctrl + V', 'info');
                         }
@@ -2741,7 +2722,6 @@
                         break;
                     }
 
-                    // Керування картинками 1, 2, 3 всередині модалки
                     case 'gallery-img-left': {
                         const idx = parseInt(target.dataset.idx, 10);
                         if (idx > 0) {
@@ -3066,24 +3046,9 @@
                     updatePathReplacePreview();
                 } else if (id === 'importJsonFileInput') {
                     const file = e.target.files && e.target.files[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = function (ev) {
-                        try {
-                            const parsed = JSON.parse(ev.target.result);
-                            if (parsed && Array.isArray(parsed.boards)) {
-                                appState = normalizeAndMigrateState(parsed);
-                                saveState();
-                                renderApp();
-                                showToast('Базу завантажено та синхронізовано з хмарою Firebase!', 'emerald');
-                            } else {
-                                showToast('Невірний формат файлу JSON', 'rose');
-                            }
-                        } catch (err) {
-                            showToast('Помилка читання файлу JSON', 'rose');
-                        }
-                    };
-                    reader.readAsText(file);
+                    if (file) {
+                        importJsonFileObject(file);
+                    }
                     e.target.value = '';
                 }
             });
@@ -3126,7 +3091,7 @@
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;')
                     .replace(/"/g, '&quot;')
-                    .replace(/'/039/g, '&#039;');
+                    .replace(/'/g, '&#039;');
             }
 
             renderApp();
