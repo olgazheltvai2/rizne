@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Майстри</title>
+<style>
+  * {
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+    margin: 0;
+    padding: 0;
+  }
+  html, body {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background: #3d352e;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+  #game-wrap {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  #scene-svg {
+    width: 100vw;
+    height: 100vh;
+    display: block;
+    overflow: visible;
+  }
+  .ui-controls {
+    position: absolute;
+    top: 14px;
+    right: 20px;
+    display: flex;
+    gap: 12px;
+    z-index: 30;
+  }
+  .ornate-btn {
+    cursor: pointer;
+    border: 2px solid #f4c668;
+    border-radius: 28px;
+    padding: 8px 20px;
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #fff6db;
+    background: linear-gradient(145deg, #6b3822 0%, #3d1d10 60%, #542816 100%);
+    box-shadow: 0 5px 12px rgba(0,0,0,0.45), inset 0 2px 3px rgba(255,230,160,0.4);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-shadow: 0 2px 3px rgba(0,0,0,0.7);
+  }
+  .ornate-btn:hover {
+    transform: translateY(-2px) scale(1.04);
+    filter: brightness(1.12);
+    box-shadow: 0 7px 16px rgba(0,0,0,0.55), inset 0 2px 5px rgba(255,235,175,0.6);
+  }
+  .ornate-btn:active {
+    transform: translateY(1px) scale(0.98);
+  }
+  .interactive-slot {
+    cursor: pointer;
+    transition: filter 0.2s;
+  }
+  .interactive-slot:hover {
+    filter: drop-shadow(0 0 12px rgba(255, 220, 110, 0.85)) brightness(1.06);
+  }
+  .char-hitbox {
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div id="game-wrap">
+  <div class="ui-controls">
+    <button id="lang-btn" class="ornate-btn" onclick="toggleLanguage()">УКР</button>
+    <button id="next-btn" class="ornate-btn" onclick="skipToNextRound()">
+      <span id="next-label">Далі</span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M5 12H19M19 12L13 6M19 12L13 18" stroke="#f4c668" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
+
+  <svg id="scene-svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet">
+    <defs>
+      <!-- Sky Gradients -->
+      <linearGradient id="sky-morning" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#3c8ce7"/>
+        <stop offset="55%" stop-color="#7ec8f8"/>
+        <stop offset="100%" stop-color="#f9e3b4"/>
+      </linearGradient>
+      <linearGradient id="sky-sunset" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#392968"/>
+        <stop offset="45%" stop-color="#9e4770"/>
+        <stop offset="80%" stop-color="#f08a5d"/>
+        <stop offset="100%" stop-color="#f9ed69"/>
+      </linearGradient>
+      <linearGradient id="sky-golden" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#286fb4"/>
+        <stop offset="60%" stop-color="#78b8d6"/>
+        <stop offset="100%" stop-color="#ffd584"/>
+      </linearGradient>
+
+      <!-- Architectural & Texture Patterns -->
+      <pattern id="cobble-pattern" width="60" height="30" patternUnits="userSpaceOnUse">
+        <rect width="60" height="30" fill="#5e544c"/>
+        <path d="M0 15 H60 M30 0 V15 M10 15 V30 M45 15 V30" stroke="#3e3630" stroke-width="2.5"/>
+        <rect x="3" y="2" width="24" height="10" rx="4" fill="#75695f" opacity="0.7"/>
+        <rect x="33" y="2" width="24" height="10" rx="4" fill="#685d54" opacity="0.7"/>
+        <rect x="13" y="17" width="28" height="10" rx="4" fill="#6f6359" opacity="0.7"/>
+      </pattern>
+
+      <pattern id="wood-pattern" width="80" height="40" patternUnits="userSpaceOnUse">
+        <rect width="80" height="40" fill="#593118"/>
+        <path d="M0 10 Q 20 6, 40 10 T 80 10 M0 25 Q 30 30, 50 25 T 80 25 M0 36 Q 25 33, 55 37 T 80 35" stroke="#3d1e0b" stroke-width="2" fill="none"/>
+        <path d="M0 18 Q 40 21, 80 17" stroke="#734222" stroke-width="1.5" fill="none"/>
+      </pattern>
+
+      <pattern id="awning-red" width="48" height="40" patternUnits="userSpaceOnUse">
+        <rect x="0" y="0" width="24" height="40" fill="#c93b2b"/>
+        <rect x="24" y="0" width="24" height="40" fill="#f3d9b1"/>
+      </pattern>
+
+      <pattern id="awning-green" width="48" height="40" patternUnits="userSpaceOnUse">
+        <rect x="0" y="0" width="24" height="40" fill="#2b7a58"/>
+        <rect x="24" y="0" width="24" height="40" fill="#f0dfb8"/>
+      </pattern>
+
+      <pattern id="awning-blue" width="48" height="40" patternUnits="userSpaceOnUse">
+        <rect x="0" y="0" width="24" height="40" fill="#2b5c8f"/>
+        <rect x="24" y="0" width="24" height="40" fill="#f5e3be"/>
+      </pattern>
+
+      <pattern id="velvet-cushion" width="24" height="24" patternUnits="userSpaceOnUse">
+        <rect width="24" height="24" fill="#5d1927"/>
+        <path d="M12 0 L24 12 L12 24 L0 12 Z" fill="#7a2234" opacity="0.65"/>
+        <circle cx="12" cy="12" r="2" fill="#d4a24e" opacity="0.6"/>
+      </pattern>
+
+      <pattern id="brick-wall" width="44" height="22" patternUnits="userSpaceOnUse">
+        <rect width="44" height="22" fill="#c97b53"/>
+        <path d="M0 11 H44 M22 0 V11 M0 11 V22 M44 11 V22" stroke="#a35b37" stroke-width="2"/>
+        <rect x="2" y="2" width="18" height="7" fill="#d68b63" opacity="0.5"/>
+        <rect x="24" y="13" width="18" height="7" fill="#b86b45" opacity="0.5"/>
+      </pattern>
+
+      <linearGradient id="brass-grad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#ffe28a"/>
+        <stop offset="45%" stop-color="#d49b35"/>
+        <stop offset="75%" stop-color="#9e6b18"/>
+        <stop offset="100%" stop-color="#f7cf68"/>
+      </linearGradient>
+
+      <linearGradient id="skin-tone-1" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#ffdfc4"/>
+        <stop offset="65%" stop-color="#f0bd96"/>
+        <stop offset="100%" stop-color="#dca076"/>
+      </linearGradient>
+
+      <linearGradient id="skin-tone-2" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#f7cfa8"/>
+        <stop offset="65%" stop-color="#e3ad7f"/>
+        <stop offset="100%" stop-color="#c98e5e"/>
+      </linearGradient>
+
+      <linearGradient id="steel-grad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#e6eef5"/>
+        <stop offset="50%" stop-color="#99abb8"/>
+        <stop offset="100%" stop-color="#61717d"/>
+      </linearGradient>
+
+      <filter id="soft-shadow" x="-15%" y="-15%" width="130%" height="130%">
+        <feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#000" flood-opacity="0.38"/>
+      </filter>
+
+      <filter id="gold-glow" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#ffcf40" flood-opacity="0.9"/>
+      </filter>
+    </defs>
+
+    <!-- 1. EXTENDED SKY & BACKGROUND (bleeds outside 1600x900 to fill ultrawide or tall screens) -->
+    <rect id="sky-rect" x="-600" y="-300" width="2800" height="860" fill="url(#sky-morning)"/>
+    <g id="sun-group" transform="translate(230, 100)">
+      <circle cx="0" cy="0" r="65" fill="#ffe985" opacity="0.35"/>
+      <circle cx="0" cy="0" r="44" fill="#fff2a6"/>
+    </g>
+
+    <!-- Clouds & Birds Layer -->
+    <g id="clouds-layer"></g>
+    <g id="birds-layer"></g>
+
+    <!-- Distant Hills & Town Silhouette -->
+    <path d="M-600 500 Q 100 410, 560 475 T 1250 445 T 2200 490 L 2200 570 L -600 570 Z" fill="#5e8769" opacity="0.65"/>
+    <path d="M-600 525 Q 350 455, 820 505 T 2200 500 L 2200 570 L -600 570 Z" fill="#446b50" opacity="0.85"/>
+
+    <!-- 2. EUROPEAN CRAFTSMEN STREET ARCHITECTURE (Shifted up by 35px for full vertical fit) -->
+    <g id="buildings-layer" transform="translate(0, -35)" filter="url(#soft-shadow)">
+      <!-- Left Guild House -->
+      <rect x="60" y="190" width="380" height="390" fill="#e6be8a" stroke="#8c5a32" stroke-width="4"/>
+      <rect x="75" y="205" width="350" height="360" fill="url(#brick-wall)" opacity="0.35"/>
+      <polygon points="40,195 250,85 460,195" fill="#9e3728" stroke="#5e1b12" stroke-width="5"/>
+      <circle cx="250" cy="150" r="24" fill="#3a4f66" stroke="url(#brass-grad)" stroke-width="5"/>
+      <!-- Upper Windows -->
+      <g transform="translate(115, 235)">
+        <rect x="0" y="0" width="85" height="110" rx="42" fill="#2c3e50" stroke="#7a4924" stroke-width="6"/>
+        <rect x="8" y="8" width="69" height="94" rx="35" fill="#527a99"/>
+        <line x1="42" y1="8" x2="42" y2="102" stroke="#7a4924" stroke-width="4"/>
+        <line x1="8" y1="55" x2="77" y2="55" stroke="#7a4924" stroke-width="4"/>
+        <rect x="-8" y="106" width="101" height="12" rx="4" fill="#8c5a32"/>
+      </g>
+      <g transform="translate(295, 235)">
+        <rect x="0" y="0" width="85" height="110" rx="42" fill="#2c3e50" stroke="#7a4924" stroke-width="6"/>
+        <rect x="8" y="8" width="69" height="94" rx="35" fill="#527a99"/>
+        <line x1="42" y1="8" x2="42" y2="102" stroke="#7a4924" stroke-width="4"/>
+        <line x1="8" y1="55" x2="77" y2="55" stroke="#7a4924" stroke-width="4"/>
+        <rect x="-8" y="106" width="101" height="12" rx="4" fill="#8c5a32"/>
+      </g>
+      <!-- Animated Ginger Cat on Left Windowsill -->
+      <g id="window-cat" transform="translate(155, 325)">
+        <ellipse cx="0" cy="10" rx="18" ry="12" fill="#d9722b"/>
+        <circle cx="-10" cy="-2" r="10" fill="#e6823a"/>
+        <polygon points="-18,-8 -15,-18 -9,-10" fill="#d9722b"/>
+        <polygon points="-8,-10 -3,-18 -1,-8" fill="#d9722b"/>
+        <circle cx="-13" cy="-3" r="1.8" fill="#1e2d18"/>
+        <circle cx="-6" cy="-3" r="1.8" fill="#1e2d18"/>
+        <path id="cat-tail" d="M 15 12 Q 30 2, 28 -10" stroke="#d9722b" stroke-width="5" stroke-linecap="round" fill="none"/>
+      </g>
+
+      <!-- Shop Signboard Left -->
+      <rect x="115" y="368" width="270" height="34" rx="8" fill="#422210" stroke="url(#brass-grad)" stroke-width="3"/>
+      <text id="sign-left" x="250" y="391" text-anchor="middle" fill="#ffe6a3" font-size="18" font-weight="bold" letter-spacing="3">МАЙСТЕРНЯ</text>
+      <!-- Awning Left -->
+      <path d="M55 410 L445 410 L460 455 L40 455 Z" fill="url(#awning-red)" stroke="#6e1d14" stroke-width="3"/>
+
+      <!-- Center Archway & Clock Tower -->
+      <rect x="615" y="140" width="370" height="440" fill="#d9b382" stroke="#7a5230" stroke-width="4"/>
+      <polygon points="595,145 800,45 1005,145" fill="#365c47" stroke="#1e382a" stroke-width="5"/>
+      <!-- Ornate Town Clock / Timer Housing -->
+      <circle cx="800" cy="145" r="46" fill="#2c221e" stroke="url(#brass-grad)" stroke-width="7"/>
+      <circle cx="800" cy="145" r="38" fill="#f5e3be"/>
+      <path id="timer-arc" d="" fill="#e06d38" opacity="0.85"/>
+      <circle cx="800" cy="145" r="6" fill="#422210"/>
+      <!-- Shop Signboard Center -->
+      <rect x="665" y="368" width="270" height="34" rx="8" fill="#1f3b2c" stroke="url(#brass-grad)" stroke-width="3"/>
+      <text id="sign-center" x="800" y="391" text-anchor="middle" fill="#ffe6a3" font-size="18" font-weight="bold" letter-spacing="3">ПЕКАРНЯ</text>
+      <path d="M605 410 L995 410 L1010 455 L590 455 Z" fill="url(#awning-green)" stroke="#1b4d36" stroke-width="3"/>
+
+      <!-- Right Guild House -->
+      <rect x="1160" y="190" width="380" height="390" fill="#cfa379" stroke="#754926" stroke-width="4"/>
+      <rect x="1175" y="205" width="350" height="360" fill="url(#brick-wall)" opacity="0.45"/>
+      <polygon points="1140,195 1350,85 1560,195" fill="#2c4d6e" stroke="#182c40" stroke-width="5"/>
+      <g transform="translate(1225, 235)">
+        <rect x="0" y="0" width="85" height="110" rx="42" fill="#2c3e50" stroke="#6e411f" stroke-width="6"/>
+        <rect x="8" y="8" width="69" height="94" rx="35" fill="#527a99"/>
+        <line x1="42" y1="8" x2="42" y2="102" stroke="#6e411f" stroke-width="4"/>
+        <line x1="8" y1="55" x2="77" y2="55" stroke="#6e411f" stroke-width="4"/>
+      </g>
+      <g transform="translate(1395, 235)">
+        <rect x="0" y="0" width="85" height="110" rx="42" fill="#2c3e50" stroke="#6e411f" stroke-width="6"/>
+        <rect x="8" y="8" width="69" height="94" rx="35" fill="#527a99"/>
+        <line x1="42" y1="8" x2="42" y2="102" stroke="#6e411f" stroke-width="4"/>
+        <line x1="8" y1="55" x2="77" y2="55" stroke="#6e411f" stroke-width="4"/>
+      </g>
+      <rect x="1215" y="368" width="270" height="34" rx="8" fill="#1e354d" stroke="url(#brass-grad)" stroke-width="3"/>
+      <text id="sign-right" x="1350" y="391" text-anchor="middle" fill="#ffe6a3" font-size="18" font-weight="bold" letter-spacing="3">АТЕЛЬЄ</text>
+      <path d="M1155 410 L1545 410 L1560 455 L1140 455 Z" fill="url(#awning-blue)" stroke="#1b3b5c" stroke-width="3"/>
+    </g>
+
+    <!-- Swaying Trees & Animated Fountain Between Buildings -->
+    <g id="tree-left" transform="translate(525, 455)">
+      <path d="M-12 90 L-8 -40 L8 -40 L12 90 Z" fill="#5c381e"/>
+      <g id="tree-crown-1">
+        <circle cx="0" cy="-95" r="68" fill="#3a7d44"/>
+        <circle cx="-42" cy="-70" r="52" fill="#2e6636"/>
+        <circle cx="42" cy="-70" r="52" fill="#479152"/>
+        <circle cx="0" cy="-135" r="48" fill="#55a360"/>
+      </g>
+    </g>
+
+    <g id="tree-right" transform="translate(1075, 455)">
+      <path d="M-12 90 L-8 -40 L8 -40 L12 90 Z" fill="#5c381e"/>
+      <g id="tree-crown-2">
+        <circle cx="0" cy="-95" r="68" fill="#3a7d44"/>
+        <circle cx="-42" cy="-70" r="52" fill="#2e6636"/>
+        <circle cx="42" cy="-70" r="52" fill="#479152"/>
+        <circle cx="0" cy="-135" r="48" fill="#55a360"/>
+      </g>
+    </g>
+
+    <!-- Animated Stone Fountain -->
+    <g id="fountain-group" transform="translate(525, 510)">
+      <ellipse cx="0" cy="22" rx="68" ry="18" fill="#6d6a66" stroke="#474440" stroke-width="3"/>
+      <ellipse cx="0" cy="18" rx="58" ry="13" fill="#4aa3c7"/>
+      <rect x="-12" y="-28" width="24" height="46" fill="#7d7974"/>
+      <ellipse cx="0" cy="-28" rx="34" ry="9" fill="#8c8883" stroke="#595652" stroke-width="2"/>
+      <g id="fountain-drops"></g>
+    </g>
+
+    <!-- 3. COBBLESTONE STREET & TRAM RAILS -->
+    <rect x="-600" y="540" width="2800" height="650" fill="url(#cobble-pattern)"/>
+    <rect x="-600" y="540" width="2800" height="14" fill="#827366"/>
+    <!-- Steel Tram Tracks -->
+    <line x1="-600" y1="628" x2="2200" y2="628" stroke="#3c352f" stroke-width="8"/>
+    <line x1="-600" y1="626" x2="2200" y2="626" stroke="#99a3ad" stroke-width="3"/>
+    <line x1="-600" y1="666" x2="2200" y2="666" stroke="#3c352f" stroke-width="8"/>
+    <line x1="-600" y1="664" x2="2200" y2="664" stroke="#99a3ad" stroke-width="3"/>
+
+    <!-- 4. CHARACTERS STAGE (3 Professionals) -->
+    <g id="characters-stage"></g>
+
+    <!-- Ready / Shutter Button (During Observation Phase) -->
+    <g id="ready-lever-btn" class="interactive-slot" transform="translate(1495, 480)" onclick="triggerTramNow()">
+      <circle cx="0" cy="0" r="46" fill="url(#brass-grad)" stroke="#4a2b0d" stroke-width="4" filter="url(#soft-shadow)"/>
+      <circle cx="0" cy="0" r="36" fill="#254d38"/>
+      <!-- Stylized Eye Icon -->
+      <path d="M-22 0 Q0 -20 22 0 Q0 20 -22 0 Z" fill="#f5e3be" stroke="#f4c668" stroke-width="2.5"/>
+      <circle cx="0" cy="0" r="9" fill="#2b5c8f"/>
+      <circle cx="0" cy="0" r="4.5" fill="#121e2b"/>
+      <circle cx="-3" cy="-3" r="2.2" fill="#fff"/>
+    </g>
+
+    <!-- 5. CRAFTSMAN DISPLAY CHEST (6 Tools Tray Safely Positioned Inside Bottom Area) -->
+    <g id="tools-chest-group" transform="translate(0, 320)">
+      <!-- Ornate Wooden & Brass Chest Dock (y=660..842, leaving generous margin before 900) -->
+      <rect x="130" y="660" width="1340" height="182" rx="26" fill="url(#wood-pattern)" stroke="url(#brass-grad)" stroke-width="7" filter="url(#soft-shadow)"/>
+      <rect x="146" y="674" width="1308" height="154" rx="18" fill="#2e170b" stroke="#8c5a2b" stroke-width="2"/>
+      <!-- Brass Corner Studs -->
+      <circle cx="156" cy="684" r="7" fill="url(#brass-grad)"/>
+      <circle cx="1444" cy="684" r="7" fill="url(#brass-grad)"/>
+      <circle cx="156" cy="818" r="7" fill="url(#brass-grad)"/>
+      <circle cx="1444" cy="818" r="7" fill="url(#brass-grad)"/>
+      <g id="tray-slots-layer"></g>
+    </g>
+
+    <!-- 6. ANIMATED VINTAGE STREETCAR / TRAM (Curtain Layer) -->
+    <g id="vintage-tram" transform="translate(-1950, 110)" filter="url(#soft-shadow)">
+      <!-- Pantograph -->
+      <path d="M700 40 L760 -20 L820 40 L760 85 Z" stroke="#454a52" stroke-width="7" fill="none"/>
+      <line x1="700" y1="-20" x2="820" y2="-20" stroke="url(#brass-grad)" stroke-width="9"/>
+      <!-- Roof -->
+      <rect x="80" y="40" width="1440" height="36" rx="18" fill="#5e2418" stroke="url(#brass-grad)" stroke-width="4"/>
+      <!-- Main Body -->
+      <rect x="40" y="72" width="1520" height="450" rx="34" fill="#b82921" stroke="url(#brass-grad)" stroke-width="8"/>
+      <rect x="60" y="295" width="1480" height="210" rx="14" fill="#d99b38" stroke="#6e1b14" stroke-width="5"/>
+      <rect x="80" y="315" width="1440" height="170" rx="10" fill="#8f1d16"/>
+      <!-- Ornate Brass Filigree Stripes -->
+      <line x1="65" y1="280" x2="1535" y2="280" stroke="url(#brass-grad)" stroke-width="6"/>
+      <line x1="85" y1="400" x2="1515" y2="400" stroke="url(#brass-grad)" stroke-width="5"/>
+      <!-- Tram Windows with Patterned Curtains -->
+      <g id="tram-windows">
+        <g transform="translate(110, 102)">
+          <rect width="210" height="155" rx="16" fill="#2c3e50" stroke="url(#brass-grad)" stroke-width="6"/>
+          <path d="M6 6 H204 V65 Q150 95 105 55 Q50 95 6 65 Z" fill="url(#awning-red)"/>
+        </g>
+        <g transform="translate(360, 102)">
+          <rect width="210" height="155" rx="16" fill="#2c3e50" stroke="url(#brass-grad)" stroke-width="6"/>
+          <path d="M6 6 H204 V65 Q150 95 105 55 Q50 95 6 65 Z" fill="url(#awning-green)"/>
+        </g>
+        <g transform="translate(610, 102)">
+          <rect width="380" height="155" rx="16" fill="#2c3e50" stroke="url(#brass-grad)" stroke-width="6"/>
+          <path d="M6 6 H374 V65 Q280 95 190 55 Q95 95 6 65 Z" fill="url(#awning-red)"/>
+        </g>
+        <g transform="translate(1030, 102)">
+          <rect width="210" height="155" rx="16" fill="#2c3e50" stroke="url(#brass-grad)" stroke-width="6"/>
+          <path d="M6 6 H204 V65 Q150 95 105 55 Q50 95 6 65 Z" fill="url(#awning-blue)"/>
+        </g>
+        <g transform="translate(1280, 102)">
+          <rect width="210" height="155" rx="16" fill="#2c3e50" stroke="url(#brass-grad)" stroke-width="6"/>
+          <path d="M6 6 H204 V65 Q150 95 105 55 Q50 95 6 65 Z" fill="url(#awning-red)"/>
+        </g>
+      </g>
+      <!-- Headlight -->
+      <circle cx="1558" cy="390" r="32" fill="url(#brass-grad)" stroke="#4a2b0d" stroke-width="4"/>
+      <circle cx="1564" cy="390" r="22" fill="#fff6a9"/>
+      <!-- Wheels -->
+      <g transform="translate(260, 535)" class="tram-wheel">
+        <circle r="44" fill="#292d33" stroke="url(#brass-grad)" stroke-width="7"/>
+        <line x1="-40" y1="0" x2="40" y2="0" stroke="#d49b35" stroke-width="6"/>
+        <line x1="0" y1="-40" x2="0" y2="40" stroke="#d49b35" stroke-width="6"/>
+        <circle r="14" fill="url(#brass-grad)"/>
+      </g>
+      <g transform="translate(520, 535)" class="tram-wheel">
+        <circle r="44" fill="#292d33" stroke="url(#brass-grad)" stroke-width="7"/>
+        <line x1="-40" y1="0" x2="40" y2="0" stroke="#d49b35" stroke-width="6"/>
+        <line x1="0" y1="-40" x2="0" y2="40" stroke="#d49b35" stroke-width="6"/>
+        <circle r="14" fill="url(#brass-grad)"/>
+      </g>
+      <g transform="translate(1080, 535)" class="tram-wheel">
+        <circle r="44" fill="#292d33" stroke="url(#brass-grad)" stroke-width="7"/>
+        <line x1="-40" y1="0" x2="40" y2="0" stroke="#d49b35" stroke-width="6"/>
+        <line x1="0" y1="-40" x2="0" y2="40" stroke="#d49b35" stroke-width="6"/>
+        <circle r="14" fill="url(#brass-grad)"/>
+      </g>
+      <g transform="translate(1340, 535)" class="tram-wheel">
+        <circle r="44" fill="#292d33" stroke="url(#brass-grad)" stroke-width="7"/>
+        <line x1="-40" y1="0" x2="40" y2="0" stroke="#d49b35" stroke-width="6"/>
+        <line x1="0" y1="-40" x2="0" y2="40" stroke="#d49b35" stroke-width="6"/>
+        <circle r="14" fill="url(#brass-grad)"/>
+      </g>
+    </g>
+
+    <!-- 7. DRAGGED ITEM & PARTICLES OVERLAY -->
+    <g id="flying-tool-layer"></g>
+    <g id="particles-layer"></g>
+  </svg>
+</div>
+
+<script>
+// ==================== LANGUAGE STATE ====================
+let currentLang = 'uk';
+const TEXT_DICT = {
+  uk: {
+    btnCode: 'УКР',
+    next: 'Далі',
+    signLeft: 'МАЙСТЕРНЯ',
+    signCenter: 'ПЕКАРНЯ',
+    signRight: 'АТЕЛЬЄ'
+  },
+  ru: {
+    btnCode: 'РУС',
+    next: 'Далее',
+    signLeft: 'МАСТЕРСКАЯ',
+    signCenter: 'ПЕКАРНЯ',
+    signRight: 'АТЕЛЬЕ'
+  }
+};
+
+function toggleLanguage() {
+  playClickTone(580, 0.08);
+  currentLang = currentLang === 'uk' ? 'ru' : 'uk';
+  const t = TEXT_DICT[currentLang];
+  document.getElementById('lang-btn').textContent = t.btnCode;
+  document.getElementById('next-label').textContent = t.next;
+  document.getElementById('sign-left').textContent = t.signLeft;
+  document.getElementById('sign-center').textContent = t.signCenter;
+  document.getElementById('sign-right').textContent = t.signRight;
+}
+
+// ==================== WEB AUDIO SYNTHESIZER ====================
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AudioContext();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+
+function playClickTone(freq = 520, dur = 0.09) {
+  ensureAudio();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(freq * 1.35, audioCtx.currentTime + dur);
+  gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + dur);
+}
+
+function playTramBell() {
+  ensureAudio();
+  const now = audioCtx.currentTime;
+  [0, 0.22].forEach(offset => {
+    [1180, 1770, 2420].forEach((f, idx) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(f, now + offset);
+      gain.gain.setValueAtTime(0.12 / (idx + 1), now + offset);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.45);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now + offset);
+      osc.stop(now + offset + 0.46);
+    });
+  });
+}
+
+function playSuccessFanfare(profId) {
+  ensureAudio();
+  const now = audioCtx.currentTime;
+  const notes = [523.25, 659.25, 783.99, 1046.5];
+  notes.forEach((n, i) => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = profId === 'musician' ? 'sawtooth' : 'triangle';
+    osc.frequency.setValueAtTime(n, now + i * 0.075);
+    gain.gain.setValueAtTime(0.16, now + i * 0.075);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.075 + 0.35);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(now + i * 0.075);
+    osc.stop(now + i * 0.075 + 0.36);
+  });
+}
+
+function playWrongBoing() {
+  ensureAudio();
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(290, now);
+  osc.frequency.linearRampToValueAtTime(140, now + 0.16);
+  osc.frequency.linearRampToValueAtTime(220, now + 0.28);
+  osc.frequency.linearRampToValueAtTime(115, now + 0.45);
+  gain.gain.setValueAtTime(0.18, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.46);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + 0.47);
+}
+
+function playGrandVictory() {
+  ensureAudio();
+  const now = audioCtx.currentTime;
+  const chord = [523.25, 659.25, 783.99, 987.77, 1046.5, 1318.5];
+  chord.forEach((freq, idx) => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+    gain.gain.setValueAtTime(0.15, now + idx * 0.06);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.75);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(now + idx * 0.06);
+    osc.stop(now + idx * 0.06 + 0.76);
+  });
+}
+
+// ==================== 24 CENTERED SVG TOOLS & 8 PROFESSIONS ====================
+const TOOLS_SVG = {
+  // Chef tools
+  chef_pan: `
+    <g transform="translate(4, 0)">
+      <rect x="-42" y="-4" width="28" height="8" rx="4" fill="#4a2511" stroke="#291206" stroke-width="2"/>
+      <ellipse cx="6" cy="0" rx="26" ry="20" fill="#b85d28" stroke="#6e3211" stroke-width="3"/>
+      <ellipse cx="6" cy="0" rx="20" ry="14" fill="#2e2b29"/>
+      <path d="M-3 -4 Q 6 -11, 15 -3 Q 18 7, 5 10 Q -7 7, -3 -4 Z" fill="#fff6d6"/>
+      <circle cx="6" cy="1" r="5.5" fill="#ff9d1c"/>
+    </g>`,
+  chef_whisk: `
+    <g transform="rotate(-30) translate(0, 6)">
+      <rect x="-5" y="6" width="10" height="26" rx="5" fill="#b85d28" stroke="#5e2a0c" stroke-width="2"/>
+      <path d="M0 6 C -20 -12, -15 -34, 0 -36 C 15 -34, 20 -12, 0 6 Z" fill="none" stroke="url(#steel-grad)" stroke-width="3"/>
+      <path d="M0 6 C -11 -12, -8 -32, 0 -34 C 8 -32, 11 -12, 0 6 Z" fill="none" stroke="url(#steel-grad)" stroke-width="2.5"/>
+      <line x1="0" y1="6" x2="0" y2="-35" stroke="url(#steel-grad)" stroke-width="2.5"/>
+    </g>`,
+  chef_pin: `
+    <g transform="rotate(-25)">
+      <rect x="-40" y="-5" width="14" height="10" rx="4" fill="#9e3b24"/>
+      <rect x="26" y="-5" width="14" height="10" rx="4" fill="#9e3b24"/>
+      <rect x="-27" y="-10" width="54" height="20" rx="6" fill="#deb078" stroke="#8c5e2a" stroke-width="2.5"/>
+      <path d="M-16 -9 V9 M5 -9 V9" stroke="#c49256" stroke-width="2" opacity="0.6"/>
+    </g>`,
+
+  // Doctor tools
+  doc_steth: `
+    <g transform="translate(0, -2)">
+      <path d="M-16 -22 C -20 4, 20 4, 16 -22" fill="none" stroke="url(#steel-grad)" stroke-width="4.5" stroke-linecap="round"/>
+      <path d="M0 -3 C 0 16, -14 22, 12 24" fill="none" stroke="#1e5c75" stroke-width="4.5" stroke-linecap="round"/>
+      <circle cx="16" cy="22" r="10" fill="url(#brass-grad)" stroke="#5c4216" stroke-width="2.5"/>
+      <circle cx="16" cy="22" r="4.5" fill="#d9e4ec"/>
+    </g>`,
+  doc_kit: `
+    <g transform="translate(0, 2)">
+      <path d="M-11 -16 V-23 H11 V-16" fill="none" stroke="#5e2a18" stroke-width="4"/>
+      <rect x="-27" y="-16" width="54" height="38" rx="9" fill="#a82b24" stroke="#59120e" stroke-width="3"/>
+      <circle cx="0" cy="3" r="12" fill="#f5e3be"/>
+      <path d="M-7 3 H7 M0 -4 V10" stroke="#c92a22" stroke-width="4.5" stroke-linecap="round"/>
+    </g>`,
+  doc_hammer: `
+    <g transform="rotate(-30) translate(0, -6)">
+      <rect x="-3" y="-8" width="6" height="42" rx="3" fill="url(#steel-grad)" stroke="#47545e" stroke-width="1.5"/>
+      <polygon points="-22,-20 22,-12 0,0" fill="#2b6e8f" stroke="#173e52" stroke-width="2.5"/>
+      <circle cx="0" cy="-10" r="4.5" fill="url(#brass-grad)"/>
+    </g>`,
+
+  // Firefighter tools
+  fire_ext: `
+    <g transform="translate(0, -3)">
+      <rect x="-14" y="-14" width="28" height="42" rx="9" fill="#d62828" stroke="#6e1111" stroke-width="3"/>
+      <rect x="-14" y="0" width="28" height="10" fill="#f7c844"/>
+      <path d="M-5 -14 V-23 H12 L19 -16" fill="none" stroke="url(#brass-grad)" stroke-width="3.8" stroke-linecap="round"/>
+      <path d="M-11 -19 Q -25 -8, -21 16" fill="none" stroke="#26292e" stroke-width="4" stroke-linecap="round"/>
+    </g>`,
+  fire_axe: `
+    <g transform="rotate(-35) translate(0, -5)">
+      <rect x="-4" y="-24" width="8" height="56" rx="4" fill="#c98349" stroke="#6e3e19" stroke-width="2"/>
+      <path d="M2 -22 C 22 -28, 29 -10, 24 2 C 15 -4, 8 -5, 2 -5 Z" fill="#d62828" stroke="#47525c" stroke-width="2.5"/>
+      <path d="M20 -24 C 27 -16, 27 -5, 22 2" fill="none" stroke="url(#steel-grad)" stroke-width="3.5"/>
+      <path d="M-4 -18 L-16 -12 L-4 -8 Z" fill="url(#steel-grad)"/>
+    </g>`,
+  fire_mega: `
+    <g transform="rotate(-15) translate(-2, 0)">
+      <polygon points="-24,-5 22,-21 22,16 -24,4" fill="#d62828" stroke="url(#brass-grad)" stroke-width="3"/>
+      <ellipse cx="22" cy="-2.5" rx="5.5" ry="18.5" fill="#f7d560" stroke="#8c6514" stroke-width="2"/>
+      <rect x="-16" y="4" width="7" height="16" rx="3" transform="rotate(20 -16 4)" fill="#3d2314"/>
+    </g>`,
+
+  // Artist tools
+  art_palette: `
+    <g>
+      <path d="M-27 -3 C -29 -23, 25 -25, 29 -2 C 32 18, 7 25, -5 16 C -11 12, -7 3, -16 5 C -23 7, -25 3, -27 -3 Z" fill="#d99f59" stroke="#784d1a" stroke-width="3"/>
+      <circle cx="-14" cy="-3" r="4.5" fill="#3a2818"/>
+      <circle cx="-10" cy="-12" r="5" fill="#e63946"/>
+      <circle cx="4" cy="-14" r="5" fill="#ffb703"/>
+      <circle cx="16" cy="-7" r="5" fill="#219ebc"/>
+      <circle cx="12" cy="7" r="5" fill="#52b788"/>
+    </g>`,
+  art_brush: `
+    <g transform="rotate(-35)">
+      <path d="M-4.5 -6 L4.5 -6 L2.8 36 L-2.8 36 Z" fill="#b84a27" stroke="#5e210e" stroke-width="2"/>
+      <rect x="-5.5" y="-14" width="11" height="8" fill="url(#brass-grad)"/>
+      <path d="M-6 -14 C -9 -28, 0 -33, 3.5 -37 C 9 -28, 7 -19, 6 -14 Z" fill="#3a2d28"/>
+      <path d="M-3.5 -26 C 0 -33, 3.5 -37, 3.5 -37 C 6 -30, 5 -24, 2 -23 Z" fill="#ffbe0b"/>
+    </g>`,
+  art_frame: `
+    <g>
+      <rect x="-26" y="-20" width="52" height="40" rx="4" fill="url(#brass-grad)" stroke="#6e480f" stroke-width="3"/>
+      <rect x="-18" y="-12" width="36" height="24" fill="#5aa9e6"/>
+      <circle cx="-7" cy="-3" r="4.5" fill="#ffca3a"/>
+      <path d="M-18 12 L-5 0 L7 9 L14 2 L18 12 Z" fill="#386641"/>
+    </g>`,
+
+  // Builder tools
+  bld_hammer: `
+    <g transform="rotate(-30) translate(0, -6)">
+      <rect x="-4" y="-10" width="8" height="44" rx="4" fill="#c98349" stroke="#6e3e19" stroke-width="2"/>
+      <path d="M-20 -18 H12 V-7 H-20 Z" fill="url(#steel-grad)" stroke="#3b444c" stroke-width="2"/>
+      <path d="M10 -18 Q 23 -18, 25 -7 Q 16 -10, 10 -7 Z" fill="url(#steel-grad)" stroke="#3b444c" stroke-width="2"/>
+    </g>`,
+  bld_saw: `
+    <g transform="rotate(-25) translate(3, 0)">
+      <polygon points="-28,-11 30,-5 28,7 -28,11" fill="url(#steel-grad)" stroke="#49545e" stroke-width="2"/>
+      <path d="M-23 11 L-19 14 L-15 11 L-11 14 L-7 11 L-3 14 L1 11 L5 14 L9 11 L13 14 L17 11 L21 14 L25 11" stroke="#3b444c" stroke-width="2" fill="none"/>
+      <rect x="-37" y="-13" width="14" height="25" rx="5" fill="#d97f30" stroke="#6e390c" stroke-width="2.5"/>
+    </g>`,
+  bld_trowel: `
+    <g transform="rotate(-30)">
+      <polygon points="0,-34 -18,2 18,2" fill="url(#steel-grad)" stroke="#47545e" stroke-width="2.5"/>
+      <path d="M0 2 V10 H-7 V24" fill="none" stroke="url(#brass-grad)" stroke-width="3.5"/>
+      <rect x="-11.5" y="14" width="9" height="20" rx="4" fill="#a83824" stroke="#52160c" stroke-width="2"/>
+    </g>`,
+
+  // Gardener tools
+  grd_can: `
+    <g transform="translate(-3, -2)">
+      <rect x="-16" y="-8" width="30" height="28" rx="6" fill="#3a8660" stroke="#1c4d34" stroke-width="2.5"/>
+      <path d="M-16 -3 C -30 -3, -30 18, -16 16" fill="none" stroke="#1c4d34" stroke-width="3.8"/>
+      <path d="M14 9 L32 -10" stroke="#3a8660" stroke-width="5.5" stroke-linecap="round"/>
+      <ellipse cx="34" cy="-12" rx="4.5" ry="8" transform="rotate(42 34 -12)" fill="url(#brass-grad)"/>
+    </g>`,
+  grd_shears: `
+    <g transform="rotate(-30) translate(0, 3)">
+      <path d="M-12 22 C -14 7, -5 2, 0 -3 C -7 -16, -3 -30, 3.5 -34 C 7 -21, 5 -9, 2 -3" fill="url(#steel-grad)" stroke="#3d4852" stroke-width="2"/>
+      <path d="M-10 24 C -14 12, -5 3, -2 0" fill="none" stroke="#d94e28" stroke-width="6.5" stroke-linecap="round"/>
+      <path d="M10 24 C 14 12, 5 3, 2 0" fill="none" stroke="#d94e28" stroke-width="6.5" stroke-linecap="round"/>
+      <circle cx="0" cy="-2.5" r="3.5" fill="url(#brass-grad)"/>
+    </g>`,
+  grd_pot: `
+    <g transform="translate(0, 2)">
+      <polygon points="-16,2 -11,25 11,25 16,2" fill="#c9643b" stroke="#753318" stroke-width="2.5"/>
+      <rect x="-19" y="-3" width="38" height="7" rx="3" fill="#db7348" stroke="#753318" stroke-width="2"/>
+      <line x1="0" y1="-3" x2="0" y2="-19" stroke="#2d6a4f" stroke-width="4"/>
+      <circle cx="0" cy="-21" r="12.5" fill="#ffb703" stroke="#d97706" stroke-width="2"/>
+      <circle cx="0" cy="-21" r="5.5" fill="#5c3818"/>
+    </g>`,
+
+  // Musician tools
+  mus_violin: `
+    <g transform="rotate(-30)">
+      <path d="M0 -32 V-14" stroke="#3d2010" stroke-width="4.5" stroke-linecap="round"/>
+      <path d="M-12 -12 C -18 -5, -9 0, -9 3.5 C -9 7, -19 12, -14 23 C -9 30, 9 30, 14 23 C 19 12, 9 7, 9 3.5 C 9 0, 18 -5, 12 -12 C 7 -18, -7 -18, -12 -12 Z" fill="#b85622" stroke="#592208" stroke-width="2.5"/>
+      <line x1="-20" y1="5" x2="23" y2="-10" stroke="#deb887" stroke-width="2.3"/>
+    </g>`,
+  mus_trumpet: `
+    <g transform="rotate(-20)">
+      <path d="M-30 0 H12 L28 -14 V14 L12 0" fill="url(#brass-grad)" stroke="#8c5a12" stroke-width="2.5"/>
+      <rect x="-16" y="0" width="23" height="9" rx="4.5" fill="none" stroke="url(#brass-grad)" stroke-width="2.8"/>
+      <line x1="-9" y1="-7" x2="-9" y2="0" stroke="url(#brass-grad)" stroke-width="2.8"/>
+      <line x1="-2" y1="-7" x2="-2" y2="0" stroke="url(#brass-grad)" stroke-width="2.8"/>
+      <line x1="5" y1="-7" x2="5" y2="0" stroke="url(#brass-grad)" stroke-width="2.8"/>
+    </g>`,
+  mus_lyre: `
+    <g>
+      <path d="M-16 -21 C -25 -5, -14 16, 0 21 C 14 16, 25 -5, 16 -21" fill="none" stroke="url(#brass-grad)" stroke-width="5.5" stroke-linecap="round"/>
+      <line x1="-18" y1="-16" x2="18" y2="-16" stroke="url(#brass-grad)" stroke-width="3.8"/>
+      <line x1="-5" y1="-16" x2="-5" y2="18" stroke="#fff3c4" stroke-width="1.8"/>
+      <line x1="0" y1="-16" x2="0" y2="19" stroke="#fff3c4" stroke-width="1.8"/>
+      <line x1="5" y1="-16" x2="5" y2="18" stroke="#fff3c4" stroke-width="1.8"/>
+    </g>`,
+
+  // Photographer tools
+  pho_camera: `
+    <g transform="translate(0, 2)">
+      <rect x="-24" y="-14" width="48" height="32" rx="6" fill="#362c28" stroke="url(#brass-grad)" stroke-width="3"/>
+      <rect x="-14" y="-21" width="18" height="7" rx="2" fill="url(#brass-grad)"/>
+      <circle cx="0" cy="2" r="11.5" fill="url(#brass-grad)" stroke="#4a3210" stroke-width="2"/>
+      <circle cx="0" cy="2" r="7" fill="#1d3557"/>
+      <circle cx="-2.5" cy="-1" r="2.2" fill="#a8dadc"/>
+    </g>`,
+  pho_lens: `
+    <g transform="rotate(-30)">
+      <polygon points="-7,23 -12,-19 12,-19 7,23" fill="url(#brass-grad)" stroke="#6e470f" stroke-width="2.5"/>
+      <rect x="-9.5" y="-5" width="19" height="12" fill="#3d2616"/>
+      <ellipse cx="0" cy="-19" rx="12" ry="4.5" fill="#4895ef" stroke="#4a3210" stroke-width="2"/>
+    </g>`,
+  pho_flash: `
+    <g transform="translate(0, -2)">
+      <rect x="-3.5" y="4" width="7" height="24" rx="3" fill="#362c28" stroke="url(#brass-grad)" stroke-width="2"/>
+      <circle cx="0" cy="-7" r="18" fill="url(#steel-grad)" stroke="#4a5763" stroke-width="2.5"/>
+      <circle cx="0" cy="-7" r="7" fill="#fff3b0" stroke="#f4a261" stroke-width="2"/>
+    </g>`
+};
+
+const PROFESSIONS = [
+  {
+    id: 'chef',
+    skin: 'url(#skin-tone-1)',
+    hairColor: '#4a2c18',
+    coatColor: '#e8dcc4',
+    accentColor: '#c93b2b',
+    tools: ['chef_pan', 'chef_whisk', 'chef_pin'],
+    hatSvg: `
+      <path d="M-26 -42 C -36 -74, -14 -88, 0 -84 C 14 -88, 36 -74, 26 -42 Z" fill="#f5ead4" stroke="#b89f72" stroke-width="2.5"/>
+      <rect x="-26" y="-46" width="52" height="12" rx="4" fill="#e6d5b8" stroke="#b89f72" stroke-width="2"/>`,
+    torsoExtra: `
+      <polygon points="-16,8 16,8 0,28" fill="#c93b2b"/>
+      <circle cx="-10" cy="34" r="3.5" fill="url(#brass-grad)"/>
+      <circle cx="10" cy="34" r="3.5" fill="url(#brass-grad)"/>
+      <circle cx="-10" cy="52" r="3.5" fill="url(#brass-grad)"/>
+      <circle cx="10" cy="52" r="3.5" fill="url(#brass-grad)"/>`
+  },
+  {
+    id: 'doctor',
+    skin: 'url(#skin-tone-2)',
+    hairColor: '#2b1d14',
+    coatColor: '#d8e6ed',
+    accentColor: '#2b7a78',
+    tools: ['doc_steth', 'doc_kit', 'doc_hammer'],
+    hatSvg: `
+      <path d="M-27 -40 Q 0 -55 27 -40" fill="none" stroke="#2c3e50" stroke-width="6"/>
+      <circle cx="0" cy="-46" r="11" fill="url(#steel-grad)" stroke="#3b4d5e" stroke-width="2.5"/>
+      <circle cx="0" cy="-46" r="4" fill="#fff"/>`,
+    torsoExtra: `
+      <polygon points="-14,6 14,6 0,36" fill="#2b7a78"/>
+      <rect x="8" y="32" width="16" height="16" rx="3" fill="#f5e3be" stroke="#859ba6" stroke-width="1.5"/>
+      <path d="M12 40 H20 M16 36 V44" stroke="#d62828" stroke-width="3"/>`
+  },
+  {
+    id: 'firefighter',
+    skin: 'url(#skin-tone-1)',
+    hairColor: '#6e3b1e',
+    coatColor: '#263245',
+    accentColor: '#f7b801',
+    tools: ['fire_ext', 'fire_axe', 'fire_mega'],
+    hatSvg: `
+      <path d="M-38 -36 Q 0 -44 38 -36 L 32 -30 H -32 Z" fill="#b82318"/>
+      <path d="M-26 -36 C -26 -68, 26 -68, 26 -36 Z" fill="#d62828" stroke="#7a110a" stroke-width="2.5"/>
+      <polygon points="0,-60 -8,-42 8,-42" fill="url(#brass-grad)"/>`,
+    torsoExtra: `
+      <rect x="-32" y="28" width="64" height="10" fill="#f7b801"/>
+      <rect x="-34" y="54" width="68" height="10" fill="#f7b801"/>
+      <rect x="-5" y="6" width="10" height="68" fill="#f7b801" opacity="0.85"/>`
+  },
+  {
+    id: 'artist',
+    skin: 'url(#skin-tone-2)',
+    hairColor: '#3b2416',
+    coatColor: '#3d5a80',
+    accentColor: '#9e2a2b',
+    tools: ['art_palette', 'art_brush', 'art_frame'],
+    hatSvg: `
+      <path d="M-28 -38 C -34 -58, 18 -66, 32 -44 C 24 -34, -14 -34, -28 -38 Z" fill="#8f1d2c" stroke="#4f0b14" stroke-width="2.5"/>
+      <path d="M2 -58 L 8 -65" stroke="#4f0b14" stroke-width="3" stroke-linecap="round"/>`,
+    torsoExtra: `
+      <path d="M-16 6 Q 0 24 16 6 L 22 22 L 0 18 L -22 22 Z" fill="#e07a5f"/>
+      <circle cx="-14" cy="42" r="5" fill="#ffb703"/>
+      <circle cx="12" cy="50" r="6" fill="#e63946"/>
+      <circle cx="-4" cy="58" r="4.5" fill="#4cc9f0"/>`
+  },
+  {
+    id: 'builder',
+    skin: 'url(#skin-tone-1)',
+    hairColor: '#543824',
+    coatColor: '#b5651d',
+    accentColor: '#f4a261',
+    tools: ['bld_hammer', 'bld_saw', 'bld_trowel'],
+    hatSvg: `
+      <path d="M-28 -36 C -28 -68, 28 -68, 28 -36 Z" fill="#f4a261" stroke="#b55d19" stroke-width="2.5"/>
+      <rect x="-34" y="-38" width="68" height="7" rx="3" fill="#e76f51"/>
+      <rect x="-18" y="-52" width="14" height="9" rx="3" fill="#4895ef" stroke="#283618" stroke-width="2"/>
+      <rect x="4" y="-52" width="14" height="9" rx="3" fill="#4895ef" stroke="#283618" stroke-width="2"/>`,
+    torsoExtra: `
+      <rect x="-24" y="6" width="10" height="68" fill="#5c3818"/>
+      <rect x="14" y="6" width="10" height="68" fill="#5c3818"/>
+      <rect x="-30" y="54" width="60" height="12" rx="3" fill="#4a2b10" stroke="url(#brass-grad)" stroke-width="2"/>`
+  },
+  {
+    id: 'gardener',
+    skin: 'url(#skin-tone-2)',
+    hairColor: '#7f4f24',
+    coatColor: '#406e48',
+    accentColor: '#dda15e',
+    tools: ['grd_can', 'grd_shears', 'grd_pot'],
+    hatSvg: `
+      <ellipse cx="0" cy="-36" rx="42" ry="9" fill="#e9c46a" stroke="#b08938" stroke-width="2.5"/>
+      <path d="M-24 -38 C -22 -64, 22 -64, 24 -38 Z" fill="#e9c46a" stroke="#b08938" stroke-width="2.5"/>
+      <rect x="-23" y="-44" width="46" height="7" rx="2" fill="#2a9d8f"/>`,
+    torsoExtra: `
+      <path d="M-22 14 H22 L26 74 H-26 Z" fill="#315737" stroke="#1e3822" stroke-width="2"/>
+      <circle cx="0" cy="40" r="8" fill="#ffb703"/>
+      <circle cx="0" cy="40" r="3.5" fill="#5c3818"/>`
+  },
+  {
+    id: 'musician',
+    skin: 'url(#skin-tone-1)',
+    hairColor: '#261c15',
+    coatColor: '#5e1929',
+    accentColor: '#f4c668',
+    tools: ['mus_violin', 'mus_trumpet', 'mus_lyre'],
+    hatSvg: `
+      <ellipse cx="0" cy="-38" rx="34" ry="7" fill="#2b192e"/>
+      <path d="M-22 -38 L-18 -64 H18 L22 -38 Z" fill="#3d2342" stroke="#f4c668" stroke-width="2"/>
+      <rect x="-20" y="-45" width="40" height="6" fill="url(#brass-grad)"/>`,
+    torsoExtra: `
+      <polygon points="-14,6 14,6 0,40" fill="#f5ead4"/>
+      <polygon points="-10,12 0,17 -10,22" fill="#c92a22"/>
+      <polygon points="10,12 0,17 10,22" fill="#c92a22"/>
+      <path d="M-16 8 L-6 72 M16 8 L6 72" stroke="url(#brass-grad)" stroke-width="3"/>`
+  },
+  {
+    id: 'photographer',
+    skin: 'url(#skin-tone-2)',
+    hairColor: '#4a3423',
+    coatColor: '#7f5539',
+    accentColor: '#b08968',
+    tools: ['pho_camera', 'pho_lens', 'pho_flash'],
+    hatSvg: `
+      <path d="M-28 -38 C -26 -58, 18 -58, 34 -36 Z" fill="#6b4423" stroke="#3d2511" stroke-width="2.5"/>
+      <path d="M10 -36 L38 -33 L24 -38 Z" fill="#3d2511"/>`,
+    torsoExtra: `
+      <polygon points="-18,6 18,6 12,72 -12,72" fill="#9c6644" stroke="#4a2c16" stroke-width="2"/>
+      <line x1="-20" y1="10" x2="18" y2="66" stroke="#3d2312" stroke-width="5"/>`
+  }
+];
+
+// ==================== GAME STATE ====================
+let gameState = 'OBSERVE'; // 'OBSERVE' | 'TRAM_COVER' | 'RECALL' | 'CELEBRATE'
+let roundCharacters = [];
+let trayItems = [];
+let selectedTrayIndex = null;
+let draggedItem = null;
+let dragMouse = { x: 0, y: 0 };
+
+let observeStartTime = 0;
+const OBSERVE_DURATION = 5800;
+let tramProgress = 0;
+let tramPhase = 0;
+let skyThemeIndex = 0;
+const SKY_THEMES = ['url(#sky-morning)', 'url(#sky-golden)', 'url(#sky-sunset)'];
+
+const clouds = [
+  { x: 180, y: 65, scale: 1.0, speed: 0.18 },
+  { x: 680, y: 48, scale: 0.8, speed: 0.13 },
+  { x: 1180, y: 75, scale: 1.15, speed: 0.22 }
+];
+const birds = [
+  { x: 300, y: 120, speed: 0.9, phase: 0 },
+  { x: 350, y: 140, speed: 0.95, phase: 2.1 },
+  { x: 1100, y: 95, speed: 0.75, phase: 1.2 }
+];
+const particles = [];
+
+// ==================== PROCEDURAL ROUND GENERATOR ====================
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function initRound() {
+  selectedTrayIndex = null;
+  draggedItem = null;
+
+  document.getElementById('sky-rect').setAttribute('fill', SKY_THEMES[skyThemeIndex % SKY_THEMES.length]);
+  skyThemeIndex++;
+
+  const chosenProfs = shuffle(PROFESSIONS).slice(0, 3);
+  const slotX = [310, 800, 1290];
+
+  roundCharacters = chosenProfs.map((prof, idx) => {
+    const shuffledTools = shuffle(prof.tools);
+    const heldTool = shuffledTools[0];
+    const distractorTool = shuffledTools[1];
+    return {
+      prof,
+      slotIndex: idx,
+      x: slotX[idx],
+      y: 492,
+      heldTool,
+      distractorTool,
+      hasToolVisible: true,
+      solved: false,
+      mood: 'happy',
+      moodTimer: 0,
+      actionJump: 0,
+      blinkTimer: Math.random() * 160,
+      phaseOffset: idx * 2.1
+    };
+  });
+
+  // Prepare 6 tray items centered inside the elevated chest (y = 751)
+  const rawTray = [];
+  roundCharacters.forEach((ch) => {
+    rawTray.push({ toolKey: ch.heldTool, profId: ch.prof.id, used: false });
+    rawTray.push({ toolKey: ch.distractorTool, profId: ch.prof.id, used: false });
+  });
+  trayItems = shuffle(rawTray).map((item, idx) => ({
+    ...item,
+    idx,
+    x: 245 + idx * 222,
+    y: 751,
+    bounce: 0
+  }));
+
+  gameState = 'OBSERVE';
+  observeStartTime = performance.now();
+  document.getElementById('ready-lever-btn').style.display = 'block';
+  setChestVisible(false);
+  renderCharactersStage();
+  renderTraySlots();
+}
+
+function setChestVisible(show) {
+  const chest = document.getElementById('tools-chest-group');
+  chest.style.transition = 'transform 0.45s cubic-bezier(0.22, 1, 0.36, 1)';
+  chest.setAttribute('transform', show ? 'translate(0, 0)' : 'translate(0, 320)');
+}
+
+// ==================== RENDER REALISTIC ARTICULATED CHARACTERS ====================
+function renderCharactersStage() {
+  const stage = document.getElementById('characters-stage');
+  stage.innerHTML = roundCharacters.map((ch, idx) => {
+    const p = ch.prof;
+    return `
+      <g id="char-group-${idx}" class="char-hitbox" transform="translate(${ch.x}, ${ch.y})"
+         onclick="onCharacterClick(${idx})"
+         onpointerup="onCharacterPointerUp(${idx})">
+        <!-- Ground Shadow -->
+        <ellipse cx="0" cy="112" rx="56" ry="14" fill="#1b1815" opacity="0.45"/>
+
+        <!-- Articulated Body Wrapper -->
+        <g id="char-body-${idx}">
+          <!-- Legs & Boots -->
+          <rect x="-22" y="64" width="16" height="42" rx="7" fill="#2b3340"/>
+          <rect x="6" y="64" width="16" height="42" rx="7" fill="#2b3340"/>
+          <path d="M-26 102 C -26 94, -4 94, -4 102 L -2 110 H -28 Z" fill="#3b2313"/>
+          <path d="M4 102 C 4 94, 26 94, 26 102 L 28 110 H 2 Z" fill="#3b2313"/>
+
+          <!-- Torso & Uniform Coat -->
+          <path d="M-34 8 C -36 -2, 36 -2, 34 8 L 38 72 C 38 76, -38 76, -38 72 Z" fill="${p.coatColor}" stroke="#241911" stroke-width="2.5"/>
+          ${p.torsoExtra}
+
+          <!-- Left Arm -->
+          <g id="char-larm-${idx}" transform="translate(-34, 14)">
+            <rect x="-12" y="0" width="14" height="44" rx="7" fill="${p.coatColor}" stroke="#241911" stroke-width="2"/>
+            <circle cx="-5" cy="46" r="8" fill="${p.skin}"/>
+          </g>
+
+          <!-- Neck & Realistic Shaded Head -->
+          <rect x="-9" y="-12" width="18" height="18" rx="6" fill="${p.skin}"/>
+          <g id="char-head-${idx}" transform="translate(0, -34)">
+            <ellipse cx="-27" cy="4" rx="6" ry="9" fill="${p.skin}"/>
+            <ellipse cx="27" cy="4" rx="6" ry="9" fill="${p.skin}"/>
+            <rect x="-26" y="-26" width="52" height="54" rx="24" fill="${p.skin}" stroke="#8c583a" stroke-width="1.8"/>
+            <ellipse cx="-15" cy="9" rx="6" ry="3.5" fill="#e87a64" opacity="0.45"/>
+            <ellipse cx="15" cy="9" rx="6" ry="3.5" fill="#e87a64" opacity="0.45"/>
+            <path d="M-27 -6 C -28 -30, 28 -30, 27 -6 C 22 -18, -22 -18, -27 -6 Z" fill="${p.hairColor}"/>
+            <!-- Eyes -->
+            <g id="char-eyes-${idx}">
+              <ellipse cx="-10" cy="-1" rx="5.5" ry="6" fill="#ffffff"/>
+              <circle cx="-10" cy="-1" r="3.2" fill="#2c4938"/>
+              <circle cx="-10" cy="-1" r="1.6" fill="#111"/>
+              <circle cx="-11.5" cy="-2.8" r="1.3" fill="#fff"/>
+
+              <ellipse cx="10" cy="-1" rx="5.5" ry="6" fill="#ffffff"/>
+              <circle cx="10" cy="-1" r="3.2" fill="#2c4938"/>
+              <circle cx="10" cy="-1" r="1.6" fill="#111"/>
+              <circle cx="8.5" cy="-2.8" r="1.3" fill="#fff"/>
+            </g>
+            <!-- Blinking Eyelids -->
+            <g id="char-lids-${idx}" opacity="0">
+              <ellipse cx="-10" cy="-1" rx="6" ry="6.2" fill="${p.skin}"/>
+              <path d="M-16 0 Q -10 4 -4 0" stroke="#4a2c18" stroke-width="2" fill="none"/>
+              <ellipse cx="10" cy="-1" rx="6" ry="6.2" fill="${p.skin}"/>
+              <path d="M4 0 Q 10 4 16 0" stroke="#4a2c18" stroke-width="2" fill="none"/>
+            </g>
+            <!-- Eyebrows -->
+            <path id="char-brows-${idx}" d="M-16 -9 Q -10 -13 -4 -9 M4 -9 Q 10 -13 16 -9" stroke="${p.hairColor}" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+            <!-- Nose -->
+            <path d="M0 -2 L -3 6 Q 0 8 3 6" stroke="#b57c58" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <!-- Expressive Mouth -->
+            <path id="char-mouth-${idx}" d="M-9 14 Q 0 22 9 14" stroke="#7a2e22" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+            <!-- Hat / Headgear -->
+            ${p.hatSvg}
+          </g>
+
+          <!-- Right Arm & Hand Holding Professional Tool -->
+          <g id="char-rarm-${idx}" transform="translate(34, 14)">
+            <path d="M-2 0 L 22 22 L 42 8" stroke="${p.coatColor}" stroke-width="15" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <circle cx="44" cy="6" r="8.5" fill="${p.skin}" stroke="#8c583a" stroke-width="1.5"/>
+
+            <!-- Target Aura when tool is missing -->
+            <circle id="char-aura-${idx}" cx="48" cy="-4" r="34" fill="rgba(255, 215, 90, 0.18)" stroke="#ffd25a" stroke-width="3" stroke-dasharray="7 5" style="display: ${ch.hasToolVisible ? 'none' : 'block'}"/>
+
+            <!-- Held Tool Container -->
+            <g id="char-tool-${idx}" transform="translate(48, -6) scale(1.08)" style="display: ${ch.hasToolVisible ? 'block' : 'none'}">
+              ${TOOLS_SVG[ch.heldTool]}
+            </g>
+          </g>
+        </g>
+      </g>
+    `;
+  }).join('');
+}
+
+// ==================== RENDER BOTTOM CRAFTSMAN CHEST ====================
+function renderTraySlots() {
+  const container = document.getElementById('tray-slots-layer');
+  container.innerHTML = trayItems.map((item, i) => {
+    if (item.used) return '';
+    const isSelected = selectedTrayIndex === i;
+    return `
+      <g id="tray-slot-${i}" class="interactive-slot"
+         transform="translate(${item.x}, ${item.y})"
+         onpointerdown="onTrayItemPointerDown(event, ${i})">
+        <!-- Velvet & Brass Cushion Pedestal (168x118, fully inside the chest) -->
+        <rect x="-84" y="-59" width="168" height="118" rx="20"
+              fill="url(#velvet-cushion)"
+              stroke="${isSelected ? '#fff078' : 'url(#brass-grad)'}"
+              stroke-width="${isSelected ? '6' : '4'}"
+              filter="${isSelected ? 'url(#gold-glow)' : 'url(#soft-shadow)'}"/>
+        <rect x="-74" y="-49" width="148" height="98" rx="14"
+              fill="none" stroke="rgba(255, 225, 145, 0.35)" stroke-width="1.5"/>
+        <g transform="scale(1.22)">
+          ${TOOLS_SVG[item.toolKey]}
+        </g>
+      </g>
+    `;
+  }).join('');
+}
+
+// ==================== INTERACTIONS & DRAG/CLICK LOGIC ====================
+function getSvgPoint(evt) {
+  const svg = document.getElementById('scene-svg');
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX;
+  pt.y = evt.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+function onTrayItemPointerDown(evt, index) {
+  if (gameState !== 'RECALL') return;
+  const item = trayItems[index];
+  if (!item || item.used) return;
+
+  playClickTone(620, 0.08);
+  selectedTrayIndex = index;
+  const pt = getSvgPoint(evt);
+  draggedItem = {
+    index,
+    startX: pt.x,
+    startY: pt.y,
+    moved: false
+  };
+  dragMouse.x = pt.x;
+  dragMouse.y = pt.y;
+  renderTraySlots();
+}
+
+window.addEventListener('pointermove', (evt) => {
+  if (!draggedItem || gameState !== 'RECALL') return;
+  const pt = getSvgPoint(evt);
+  const dist = Math.hypot(pt.x - draggedItem.startX, pt.y - draggedItem.startY);
+  if (dist > 10) draggedItem.moved = true;
+  dragMouse.x = pt.x;
+  dragMouse.y = pt.y;
+
+  const flyLayer = document.getElementById('flying-tool-layer');
+  if (draggedItem.moved) {
+    const item = trayItems[draggedItem.index];
+    flyLayer.innerHTML = `
+      <g transform="translate(${pt.x}, ${pt.y}) scale(1.45)" filter="url(#gold-glow)" style="pointer-events: none">
+        ${TOOLS_SVG[item.toolKey]}
+      </g>`;
+  }
+});
+
+window.addEventListener('pointerup', (evt) => {
+  if (!draggedItem || gameState !== 'RECALL') return;
+  const pt = getSvgPoint(evt);
+  const itemIdx = draggedItem.index;
+  const wasDragged = draggedItem.moved;
+  draggedItem = null;
+  document.getElementById('flying-tool-layer').innerHTML = '';
+
+  if (wasDragged) {
+    let closestCharIdx = -1;
+    let minDist = 175;
+    roundCharacters.forEach((ch, idx) => {
+      const d = Math.hypot(pt.x - ch.x, pt.y - ch.y);
+      if (d < minDist) {
+        minDist = d;
+        closestCharIdx = idx;
+      }
+    });
+    if (closestCharIdx !== -1) {
+      attemptGiveToolToCharacter(itemIdx, closestCharIdx);
+      return;
+    }
+  } else {
+    const item = trayItems[itemIdx];
+    const matchingCharIdx = roundCharacters.findIndex(ch => ch.prof.id === item.profId && !ch.solved);
+    if (matchingCharIdx !== -1) {
+      attemptGiveToolToCharacter(itemIdx, matchingCharIdx);
+    }
+  }
+});
+
+function onCharacterPointerUp(charIdx) {
+  if (gameState === 'RECALL' && draggedItem) {
+    const itemIdx = draggedItem.index;
+    draggedItem = null;
+    document.getElementById('flying-tool-layer').innerHTML = '';
+    attemptGiveToolToCharacter(itemIdx, charIdx);
+  }
+}
+
+function onCharacterClick(charIdx) {
+  const ch = roundCharacters[charIdx];
+  if (!ch) return;
+
+  if (gameState === 'OBSERVE') {
+    playClickTone(720, 0.1);
+    ch.actionJump = 18;
+    spawnSparkleBurst(ch.x + 75, ch.y - 5, '#ffe270', 14);
+    return;
+  }
+
+  if (gameState === 'RECALL' && selectedTrayIndex !== null) {
+    attemptGiveToolToCharacter(selectedTrayIndex, charIdx);
+  }
+}
+
+function attemptGiveToolToCharacter(trayIdx, charIdx) {
+  const item = trayItems[trayIdx];
+  const ch = roundCharacters[charIdx];
+  if (!item || item.used || !ch || ch.solved) return;
+
+  if (item.toolKey === ch.heldTool) {
+    item.used = true;
+    selectedTrayIndex = null;
+    ch.solved = true;
+    ch.hasToolVisible = true;
+    ch.mood = 'excited';
+    ch.actionJump = 28;
+    playSuccessFanfare(ch.prof.id);
+    spawnProfessionCelebration(ch);
+
+    renderCharactersStage();
+    renderTraySlots();
+
+    if (roundCharacters.every(c => c.solved)) {
+      gameState = 'CELEBRATE';
+      setChestVisible(false);
+      setTimeout(() => {
+        playGrandVictory();
+        launchGrandFireworks();
+      }, 250);
+      setTimeout(() => {
+        skipToNextRound();
+      }, 2400);
+    }
+  } else {
+    playWrongBoing();
+    ch.mood = 'no';
+    ch.moodTimer = 45;
+    selectedTrayIndex = null;
+    spawnDizzySpiral(ch.x, ch.y - 95);
+    renderTraySlots();
+  }
+}
+
+// ==================== TRAM TRANSITION & TIMERS ====================
+function triggerTramNow() {
+  if (gameState !== 'OBSERVE') return;
+  playTramBell();
+  document.getElementById('ready-lever-btn').style.display = 'none';
+  gameState = 'TRAM_COVER';
+  tramPhase = 1;
+  tramProgress = -1950;
+}
+
+function skipToNextRound() {
+  playTramBell();
+  document.getElementById('ready-lever-btn').style.display = 'none';
+  setChestVisible(false);
+  gameState = 'TRAM_COVER';
+  tramPhase = 3;
+  tramProgress = -1950;
+}
+
+function hideToolsAndShuffleSpots() {
+  const shuffledX = shuffle([310, 800, 1290]);
+  roundCharacters.forEach((ch, i) => {
+    ch.x = shuffledX[i];
+    ch.hasToolVisible = false;
+    ch.mood = 'puzzled';
+  });
+  renderCharactersStage();
+  renderTraySlots();
+}
+
+// ==================== PARTICLE & VISUAL FEEDBACK ENGINE ====================
+function spawnSparkleBurst(x, y, color, count = 22) {
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
+    const speed = 2.5 + Math.random() * 6.5;
+    particles.push({
+      type: 'spark',
+      x,
+      y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 2,
+      r: 4 + Math.random() * 6,
+      color,
+      life: 1.0,
+      decay: 0.022 + Math.random() * 0.015
+    });
+  }
+}
+
+function spawnProfessionCelebration(ch) {
+  const palette = {
+    chef: ['#ffd166', '#ff9f1c', '#fff'],
+    doctor: ['#4cc9f0', '#e63946', '#a8dadc'],
+    firefighter: ['#4895ef', '#4cc9f0', '#ffbe0b'],
+    artist: ['#ff006e', '#ffbe0b', '#3a86ff', '#8338ec'],
+    builder: ['#f4a261', '#e9c46a', '#ffe6a7'],
+    gardener: ['#52b788', '#ffb703', '#ff758f'],
+    musician: ['#ffd166', '#f72585', '#ffbe0b'],
+    photographer: ['#ffffff', '#ffe66d', '#4ecdc4']
+  }[ch.prof.id] || ['#ffd166', '#ff9f1c'];
+
+  for (let i = 0; i < 34; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 3 + Math.random() * 8;
+    particles.push({
+      type: 'star',
+      x: ch.x + 35,
+      y: ch.y - 10,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 3.5,
+      r: 6 + Math.random() * 7,
+      color: palette[i % palette.length],
+      life: 1.0,
+      decay: 0.018
+    });
+  }
+}
+
+function spawnDizzySpiral(x, y) {
+  for (let i = 0; i < 12; i++) {
+    const angle = (Math.PI * 2 * i) / 12;
+    particles.push({
+      type: 'ring',
+      x: x + Math.cos(angle) * 26,
+      y: y + Math.sin(angle) * 14,
+      vx: Math.cos(angle) * 2.2,
+      vy: -1.5,
+      r: 6,
+      color: '#ff6b6b',
+      life: 1.0,
+      decay: 0.03
+    });
+  }
+}
+
+function launchGrandFireworks() {
+  const spots = [
+    { x: 350, y: 190, c: '#ffbe0b' },
+    { x: 800, y: 145, c: '#ff006e' },
+    { x: 1250, y: 190, c: '#00f5d4' },
+    { x: 580, y: 175, c: '#fb5607' },
+    { x: 1040, y: 175, c: '#8338ec' }
+  ];
+  spots.forEach((s, idx) => {
+    setTimeout(() => {
+      spawnSparkleBurst(s.x, s.y, s.c, 36);
+    }, idx * 180);
+  });
+}
+
+// ==================== MAIN ANIMATION LOOP ====================
+function describeArc(x, y, radius, startAngle, endAngle) {
+  const start = {
+    x: x + radius * Math.cos(startAngle),
+    y: y + radius * Math.sin(startAngle)
+  };
+  const end = {
+    x: x + radius * Math.cos(endAngle),
+    y: y + radius * Math.sin(endAngle)
+  };
+  const largeArcFlag = endAngle - startAngle <= Math.PI ? '0' : '1';
+  return `M ${x} ${y} L ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${end.x} ${end.y} Z`;
+}
+
+function animate(now) {
+  const t = now * 0.001;
+
+  // 1. Update Observation Clock Arc
+  const timerArc = document.getElementById('timer-arc');
+  if (gameState === 'OBSERVE') {
+    const elapsed = now - observeStartTime;
+    const ratio = Math.min(1, elapsed / OBSERVE_DURATION);
+    const endAngle = -Math.PI / 2 + ratio * Math.PI * 2;
+    timerArc.setAttribute('d', describeArc(800, 145, 34, -Math.PI / 2, endAngle));
+    if (ratio >= 1) {
+      triggerTramNow();
+    }
+  } else {
+    timerArc.setAttribute('d', '');
+  }
+
+  // 2. Animate Clouds & Birds & Trees & Cat
+  const cloudsLayer = document.getElementById('clouds-layer');
+  cloudsLayer.innerHTML = clouds.map(c => {
+    c.x += c.speed;
+    if (c.x > 1800) c.x = -220;
+    return `
+      <g transform="translate(${c.x}, ${c.y}) scale(${c.scale})" opacity="0.82">
+        <ellipse cx="0" cy="0" rx="58" ry="22" fill="#fff8eb"/>
+        <circle cx="-24" cy="-12" r="24" fill="#fff8eb"/>
+        <circle cx="14" cy="-16" r="30" fill="#fff8eb"/>
+        <circle cx="42" cy="-6" r="20" fill="#fff8eb"/>
+      </g>`;
+  }).join('');
+
+  const birdsLayer = document.getElementById('birds-layer');
+  birdsLayer.innerHTML = birds.map(b => {
+    b.x += b.speed;
+    if (b.x > 1720) b.x = -120;
+    const wingY = Math.sin(t * 7 + b.phase) * 9;
+    return `
+      <path d="M ${b.x - 14} ${b.y + wingY} Q ${b.x - 5} ${b.y - 6} ${b.x} ${b.y} Q ${b.x + 5} ${b.y - 6} ${b.x + 14} ${b.y + wingY}"
+            stroke="#2c3e50" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+  }).join('');
+
+  const sway1 = Math.sin(t * 1.6) * 2.5;
+  const sway2 = Math.cos(t * 1.4) * 2.5;
+  document.getElementById('tree-crown-1').setAttribute('transform', `rotate(${sway1})`);
+  document.getElementById('tree-crown-2').setAttribute('transform', `rotate(${sway2})`);
+  const tailX = 28 + Math.sin(t * 3.2) * 8;
+  document.getElementById('cat-tail').setAttribute('d', `M 15 12 Q 30 2, ${tailX} -10`);
+
+  const fountainDrops = document.getElementById('fountain-drops');
+  let dropsHtml = '';
+  for (let i = 0; i < 8; i++) {
+    const p = (t * 1.8 + i * 0.125) % 1;
+    const side = i % 2 === 0 ? 1 : -1;
+    const dx = side * p * 38;
+    const dy = -28 - Math.sin(p * Math.PI) * 36 + p * 42;
+    dropsHtml += `<circle cx="${dx}" cy="${dy}" r="${3.5 - p * 1.5}" fill="#bce7fd" opacity="${1 - p * 0.5}"/>`;
+  }
+  fountainDrops.innerHTML = dropsHtml;
+
+  // 3. Animate Characters
+  roundCharacters.forEach((ch, idx) => {
+    const bodyEl = document.getElementById(`char-body-${idx}`);
+    const headEl = document.getElementById(`char-head-${idx}`);
+    const lidsEl = document.getElementById(`char-lids-${idx}`);
+    const mouthEl = document.getElementById(`char-mouth-${idx}`);
+    const rarmEl = document.getElementById(`char-rarm-${idx}`);
+    const larmEl = document.getElementById(`char-larm-${idx}`);
+    if (!bodyEl) return;
+
+    const breathY = Math.sin(t * 2.6 + ch.phaseOffset) * 2.5;
+    if (ch.actionJump > 0) ch.actionJump *= 0.88;
+    if (ch.actionJump < 0.3) ch.actionJump = 0;
+
+    let headShakeX = 0;
+    if (ch.mood === 'no' && ch.moodTimer > 0) {
+      ch.moodTimer--;
+      headShakeX = Math.sin(ch.moodTimer * 0.7) * 8;
+      if (ch.moodTimer === 0) ch.mood = 'puzzled';
+    }
+
+    bodyEl.setAttribute('transform', `translate(0, ${breathY - ch.actionJump})`);
+    headEl.setAttribute('transform', `translate(${headShakeX}, ${-34 + Math.sin(t * 2 + ch.phaseOffset) * 1.2})`);
+
+    ch.blinkTimer--;
+    if (ch.blinkTimer <= 0) {
+      lidsEl.setAttribute('opacity', '1');
+      if (ch.blinkTimer < -7) {
+        lidsEl.setAttribute('opacity', '0');
+        ch.blinkTimer = 110 + Math.random() * 140;
+      }
+    }
+
+    if (ch.mood === 'excited') {
+      mouthEl.setAttribute('d', 'M-11 12 Q 0 26 11 12 Z');
+      mouthEl.setAttribute('fill', '#a82b24');
+    } else if (ch.mood === 'puzzled') {
+      mouthEl.setAttribute('d', 'M-5 16 Q 0 12 5 16');
+      mouthEl.setAttribute('fill', 'none');
+    } else if (ch.mood === 'no') {
+      mouthEl.setAttribute('d', 'M-8 18 Q 0 11 8 18');
+      mouthEl.setAttribute('fill', 'none');
+    } else {
+      mouthEl.setAttribute('d', 'M-9 14 Q 0 22 9 14');
+      mouthEl.setAttribute('fill', 'none');
+    }
+
+    const armAngle = Math.sin(t * 2.4 + ch.phaseOffset) * 4.5 + (ch.actionJump * 0.8);
+    rarmEl.setAttribute('transform', `translate(34, 14) rotate(${-armAngle})`);
+    larmEl.setAttribute('transform', `translate(-34, 14) rotate(${armAngle * 0.6})`);
+  });
+
+  // 4. Animate Vintage Tram Transition
+  if (tramPhase > 0) {
+    const prevProgress = tramProgress;
+    tramProgress += 46;
+    const tramEl = document.getElementById('vintage-tram');
+    tramEl.setAttribute('transform', `translate(${tramProgress}, 110)`);
+
+    if (prevProgress < 0 && tramProgress >= 0) {
+      if (tramPhase === 1) {
+        hideToolsAndShuffleSpots();
+        setChestVisible(true);
+        gameState = 'RECALL';
+      } else if (tramPhase === 3) {
+        initRound();
+      }
+    }
+
+    if (tramProgress > 1950) {
+      tramPhase = 0;
+      tramEl.setAttribute('transform', 'translate(-1950, 110)');
+    }
+  }
+
+  // 5. Render Active Particles
+  const pLayer = document.getElementById('particles-layer');
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.18;
+    p.life -= p.decay;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+  pLayer.innerHTML = particles.map(p => {
+    if (p.type === 'ring') {
+      return `<circle cx="${p.x}" cy="${p.y}" r="${p.r}" fill="none" stroke="${p.color}" stroke-width="3" opacity="${p.life}"/>`;
+    }
+    return `<circle cx="${p.x}" cy="${p.y}" r="${p.r * p.life}" fill="${p.color}" opacity="${p.life}"/>`;
+  }).join('');
+
+  requestAnimationFrame(animate);
+}
+
+initRound();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
