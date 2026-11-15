@@ -1,0 +1,3129 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Cats Room Memory</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  * {
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background: radial-gradient(circle at center, #261710 0%, #120a06 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* Ornate carved wood frame feeling around the widescreen canvas */
+  #stage-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: repeating-linear-gradient(
+      45deg,
+      #1a0f0a,
+      #1a0f0a 14px,
+      #22140d 14px,
+      #22140d 28px
+    );
+  }
+  canvas {
+    display: block;
+    box-shadow:
+      0 20px 60px rgba(0, 0, 0, 0.85),
+      0 0 0 6px #3d2314,
+      0 0 0 10px #8c6239,
+      0 0 0 14px #24130b;
+    border-radius: 14px;
+    cursor: pointer;
+    touch-action: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="stage-container">
+  <canvas id="gameCanvas" width="1920" height="1080"></canvas>
+</div>
+
+<script>
+/**
+ * WORDLESS WIDESCREEN MEMORY GAME: 4 REALISTIC CATS IN A LIVING ROOM
+ * Pure procedural HTML5 Canvas + Web Audio API synthesizer.
+ * Zero text, zero white rectangles, infinite generator, rich animations.
+ */
+
+(function () {
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const W = 1920;
+  const H = 1080;
+
+  // Responsive 16:9 widescreen scaling
+  function resizeCanvas() {
+    const winW = window.innerWidth;
+    const winH = window.innerHeight;
+    const targetRatio = W / H;
+    const winRatio = winW / winH;
+
+    let drawW, drawH;
+    if (winRatio > targetRatio) {
+      drawH = winH * 0.97;
+      drawW = drawH * targetRatio;
+    } else {
+      drawW = winW * 0.98;
+      drawH = drawW / targetRatio;
+    }
+    canvas.style.width = `${Math.floor(drawW)}px`;
+    canvas.style.height = `${Math.floor(drawH)}px`;
+  }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  // ============================================================================
+  // WEB AUDIO API SOUND SYNTHESIZER (No external audio files)
+  // ============================================================================
+  class SoundEngine {
+    constructor() {
+      this.ctx = null;
+    }
+
+    init() {
+      if (!this.ctx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          this.ctx = new AudioCtx();
+        }
+      }
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume();
+      }
+    }
+
+    // Crisp mechanical light switch click
+    playSwitchClick(pitchOffset = 1) {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(950 * pitchOffset, now);
+      osc.frequency.exponentialRampToValueAtTime(180 * pitchOffset, now + 0.045);
+
+      gain.gain.setValueAtTime(0.35, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.048);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.05);
+    }
+
+    // Electric bulb flicker buzz
+    playBulbBuzz(duration = 0.09) {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(110, now);
+
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.005, now + duration);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + duration);
+    }
+
+    // Soft padded cat footsteps scurrying in the dark
+    playDarkScurry() {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      for (let i = 0; i < 6; i++) {
+        const t = now + i * 0.11 + Math.random() * 0.03;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(160 + (i % 2) * 45, t);
+        osc.frequency.exponentialRampToValueAtTime(55, t + 0.06);
+
+        gain.gain.setValueAtTime(0.14, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.065);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.07);
+      }
+    }
+
+    // Expressive synthesized cat meow + purr
+    playHappyMeow(catIndex = 0, celebrationStyle = 0) {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      // Pitch tailored to each cat
+      const basePitches = [520, 440, 390, 480];
+      const base = basePitches[catIndex % 4];
+
+      // 1) Melodic Meow formant contour
+      const meowOsc = this.ctx.createOscillator();
+      const meowGain = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+
+      meowOsc.type = 'sawtooth';
+      meowOsc.frequency.setValueAtTime(base * 0.85, now);
+      meowOsc.frequency.linearRampToValueAtTime(base * 1.45, now + 0.14);
+      meowOsc.frequency.exponentialRampToValueAtTime(base * 1.05, now + 0.42);
+
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1200, now);
+      filter.frequency.linearRampToValueAtTime(2100, now + 0.15);
+      filter.frequency.linearRampToValueAtTime(950, now + 0.42);
+      filter.Q.value = 3.2;
+
+      meowGain.gain.setValueAtTime(0.001, now);
+      meowGain.gain.linearRampToValueAtTime(0.22, now + 0.06);
+      meowGain.gain.exponentialRampToValueAtTime(0.001, now + 0.44);
+
+      meowOsc.connect(filter);
+      filter.connect(meowGain);
+      meowGain.connect(this.ctx.destination);
+      meowOsc.start(now);
+      meowOsc.stop(now + 0.46);
+
+      // 2) Celebratory musical fanfare (varies by celebrationStyle)
+      const chords = [
+        [523.25, 659.25, 783.99, 1046.50, 1318.51], // C major sparkle
+        [587.33, 739.99, 880.00, 1174.66, 1479.98], // D major bright
+        [440.00, 554.37, 659.25, 880.00, 1108.73],  // A major warm
+        [493.88, 622.25, 739.99, 987.77, 1244.51]   // B major royal
+      ];
+      const notes = chords[celebrationStyle % chords.length];
+      notes.forEach((freq, idx) => {
+        const t = now + 0.08 + idx * 0.075;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = celebrationStyle % 2 === 0 ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime(freq, t);
+
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.linearRampToValueAtTime(0.18, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.48);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.5);
+      });
+    }
+
+    // Questioning "Mrrp?" when clicking a cat that did NOT move
+    playWrongCatMrrp(catIndex = 0) {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const base = 310 + (catIndex % 4) * 35;
+
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(base, now);
+      osc.frequency.linearRampToValueAtTime(base * 0.78, now + 0.14);
+      osc.frequency.linearRampToValueAtTime(base * 0.92, now + 0.26);
+
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.22, now + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.3);
+    }
+
+    // Distractor: Puppy playful yip
+    playPuppyYip() {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      [0, 0.16].forEach((offset, i) => {
+        const t = now + offset;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(380 + i * 60, t);
+        osc.frequency.exponentialRampToValueAtTime(680 + i * 80, t + 0.06);
+        osc.frequency.exponentialRampToValueAtTime(260, t + 0.12);
+
+        gain.gain.setValueAtTime(0.16, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.13);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.14);
+      });
+    }
+
+    // Distractor: Parrot tropical chirp
+    playParrotChirp() {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1100, now);
+      osc.frequency.exponentialRampToValueAtTime(2200, now + 0.07);
+      osc.frequency.exponentialRampToValueAtTime(950, now + 0.14);
+      osc.frequency.exponentialRampToValueAtTime(1850, now + 0.22);
+
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.25);
+    }
+
+    // Distractor: Mouse high squeak
+    playMouseSqueak() {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(2400, now);
+      osc.frequency.linearRampToValueAtTime(3100, now + 0.05);
+      osc.frequency.linearRampToValueAtTime(2200, now + 0.11);
+
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.13);
+    }
+
+    // Distractor: Aquarium water bubble plop
+    playBubbleSplash() {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      [0, 0.07, 0.15].forEach((off, i) => {
+        const t = now + off;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(350 + i * 140, t);
+        osc.frequency.exponentialRampToValueAtTime(980 + i * 180, t + 0.065);
+
+        gain.gain.setValueAtTime(0.15, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.08);
+      });
+    }
+
+    // Distractor: Soft yarn roll / chime
+    playSoftThump() {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(280, now);
+      osc.frequency.exponentialRampToValueAtTime(110, now + 0.14);
+
+      gain.gain.setValueAtTime(0.22, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.16);
+    }
+
+    // Memory Peek toggle shimmer
+    playMemoryShimmer(entering = true) {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const freqs = entering ? [784, 659, 523, 392] : [392, 523, 659, 784];
+      freqs.forEach((f, idx) => {
+        const t = now + idx * 0.045;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(f, t);
+
+        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.24);
+      });
+    }
+  }
+
+  const sound = new SoundEngine();
+
+  // ============================================================================
+  // ROOM CAT SPOTS (11 distinct cozy places in the living room)
+  // ============================================================================
+  const SPOTS = [
+    { id: 'bookshelf_top',   x: 205,  y: 208, pose: 'lounge', scale: 0.88, flip: 1,  layer: 'mid' },
+    { id: 'window_sill',     x: 410,  y: 482, pose: 'sit',    scale: 0.92, flip: 1,  layer: 'mid' },
+    { id: 'curtain_peek',    x: 562,  y: 500, pose: 'peek',   scale: 0.92, flip: -1, layer: 'mid_front' },
+    { id: 'cardboard_box',   x: 215,  y: 855, pose: 'box',    scale: 0.98, flip: 1,  layer: 'front' },
+    { id: 'under_table',     x: 465,  y: 810, pose: 'loaf',   scale: 0.88, flip: 1,  layer: 'mid' },
+    { id: 'sofa_cushion',    x: 805,  y: 642, pose: 'curl',   scale: 0.96, flip: 1,  layer: 'mid_front' },
+    { id: 'ottoman_top',     x: 885,  y: 865, pose: 'loaf',   scale: 1.02, flip: -1, layer: 'front' },
+    { id: 'clock_top',       x: 1170, y: 184, pose: 'lounge', scale: 0.85, flip: -1, layer: 'mid' },
+    { id: 'fireplace_hearth',x: 1455, y: 815, pose: 'curl',   scale: 0.96, flip: -1, layer: 'front' },
+    { id: 'armchair_seat',   x: 1685, y: 668, pose: 'sit',    scale: 0.96, flip: -1, layer: 'mid_front' },
+    { id: 'woven_basket',    x: 1720, y: 895, pose: 'box',    scale: 0.98, flip: -1, layer: 'front' }
+  ];
+
+  // ============================================================================
+  // THE 4 CATS DEFINITIONS (White, Ginger, Grey, Black)
+  // ============================================================================
+  const CAT_DEFS = [
+    {
+      id: 'white',
+      index: 0,
+      baseColor: '#f7f4ef',
+      midColor: '#e6dfd5',
+      shadowColor: '#c7bdb0',
+      earInner: '#f2b6bc',
+      noseColor: '#f09ca6',
+      eyeColor: '#3aa6ff',
+      eyeRim: '#1a5c96',
+      stripes: false,
+      fluffy: true
+    },
+    {
+      id: 'ginger',
+      index: 1,
+      baseColor: '#e87a24',
+      midColor: '#cf5f10',
+      shadowColor: '#993d04',
+      bellyColor: '#fae3c6',
+      earInner: '#e89b8c',
+      noseColor: '#d96b59',
+      eyeColor: '#48c957',
+      eyeRim: '#1a6624',
+      stripes: true,
+      stripeColor: '#8c3200',
+      fluffy: false
+    },
+    {
+      id: 'grey',
+      index: 2,
+      baseColor: '#84919e',
+      midColor: '#667380',
+      shadowColor: '#47525e',
+      earInner: '#b8949c',
+      noseColor: '#524952',
+      eyeColor: '#f5a623',
+      eyeRim: '#8c5300',
+      stripes: false,
+      fluffy: true
+    },
+    {
+      id: 'black',
+      index: 3,
+      baseColor: '#23232b',
+      midColor: '#16161c',
+      shadowColor: '#0b0b0f',
+      shineColor: '#44465e',
+      earInner: '#4d3b44',
+      noseColor: '#36343d',
+      eyeColor: '#c8f526',
+      eyeRim: '#5c7800',
+      stripes: false,
+      fluffy: false
+    }
+  ];
+
+  // ============================================================================
+  // DISTRACTOR POSITIONS & STATES
+  // ============================================================================
+  const PUPPY_SPOTS = [
+    { x: 1155, y: 905, flip: -1 },
+    { x: 615,  y: 900, flip: 1  },
+    { x: 1320, y: 935, flip: -1 }
+  ];
+
+  const MOUSE_HOLES = [
+    { x: 335,  y: 742, flip: 1  },
+    { x: 1085, y: 742, flip: -1 },
+    { x: 1595, y: 742, flip: -1 }
+  ];
+
+  const YARN_SPOTS = [
+    { x: 540,  y: 965, color: '#d9383a' },
+    { x: 1035, y: 975, color: '#d9383a' },
+    { x: 1410, y: 970, color: '#d9383a' },
+    { x: 705,  y: 950, color: '#d9383a' }
+  ];
+
+  const PARROT_STATES = [
+    { offsetX: -18, offsetY: 0,   flip: 1,  wingOpen: 0 },
+    { offsetX: 18,  offsetY: 0,   flip: -1, wingOpen: 0 },
+    { offsetX: 0,   offsetY: -22, flip: -1, wingOpen: 0.4 }
+  ];
+
+  // ============================================================================
+  // GAME STATE
+  // ============================================================================
+  let currentCats = [];       // [{ catId, spotIndex, reactionTimer, reactionType, celebStyle }]
+  let previousCats = [];      // Cloned snapshot before the most recent blackout
+  let movedCatId = 'ginger';  // Which cat moved in the latest blackout
+  let movedFromSpot = 0;      // Spot index where that cat came from
+  let roundSolved = false;    // Whether the moved cat has been clicked yet this round
+  let celebrationCounter = 0; // Cycles through 4 distinct celebration styles
+
+  let distractors = {
+    puppySpot: 0,
+    puppyAnim: 0,
+    mouseHole: 1,
+    mouseAnim: 0,
+    yarnSpot: 0,
+    yarnAnim: 0,
+    parrotState: 0,
+    parrotAnim: 0,
+    aquariumAnim: 0,
+    pillowVariant: 0
+  };
+  let previousDistractors = null;
+
+  // Light & Blackout sequence state
+  let lightState = 'on'; // 'on' | 'flicker_out' | 'dark' | 'flicker_in'
+  let blackoutTimer = 0;
+  let roomBrightness = 1.0;
+  let switchToggleDown = false;
+  let cordPullOffset = 0;
+  let peekPreviousMode = false;
+
+  // Ambient particles & visual effects
+  const stars = Array.from({ length: 45 }, () => ({
+    x: 315 + Math.random() * 230,
+    y: 130 + Math.random() * 290,
+    r: 0.8 + Math.random() * 1.8,
+    phase: Math.random() * Math.PI * 2
+  }));
+
+  const dustMotes = Array.from({ length: 55 }, () => ({
+    x: Math.random() * W,
+    y: Math.random() * H,
+    vx: (Math.random() - 0.5) * 0.25,
+    vy: -0.1 - Math.random() * 0.25,
+    r: 1.2 + Math.random() * 2.4,
+    alpha: 0.15 + Math.random() * 0.35,
+    phase: Math.random() * Math.PI * 2
+  }));
+
+  const fireParticles = Array.from({ length: 28 }, () => ({
+    x: 1455 + (Math.random() - 0.5) * 110,
+    y: 690 - Math.random() * 80,
+    vx: (Math.random() - 0.5) * 0.6,
+    vy: -1.2 - Math.random() * 1.8,
+    size: 4 + Math.random() * 12,
+    life: Math.random()
+  }));
+
+  let celebrationParticles = [];
+  let trailParticles = [];
+  let fishBubbles = [
+    { x: 455, y: 580, r: 3 },
+    { x: 485, y: 560, r: 4 },
+    { x: 470, y: 545, r: 2.5 }
+  ];
+
+  // ============================================================================
+  // INITIALIZE CAT POSITIONS & PREVIOUS STATE
+  // ============================================================================
+  function initGame() {
+    // Pick 5 distinct random spots: first 4 for initial previous state, 5th for moved cat
+    const indices = SPOTS.map((_, idx) => idx);
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+
+    previousCats = CAT_DEFS.map((cat, idx) => ({
+      catId: cat.id,
+      spotIndex: indices[idx],
+      reactionTimer: 0,
+      reactionType: null,
+      celebStyle: 0
+    }));
+
+    previousDistractors = { ...distractors };
+
+    // Copy to currentCats and move one cat to indices[4] so game is immediately playable
+    currentCats = previousCats.map(c => ({ ...c }));
+    const initialMover = Math.floor(Math.random() * 4);
+    movedCatId = currentCats[initialMover].catId;
+    movedFromSpot = currentCats[initialMover].spotIndex;
+    currentCats[initialMover].spotIndex = indices[4];
+
+    // Also shift distractors slightly between previous and current
+    distractors.puppySpot = (previousDistractors.puppySpot + 1) % PUPPY_SPOTS.length;
+    distractors.mouseHole = (previousDistractors.mouseHole + 1) % MOUSE_HOLES.length;
+  }
+
+  initGame();
+
+  // Trigger an automatic first light-blink shortly after load so the player
+  // immediately sees the lights flicker and a cat move on screen!
+  let autoFirstBlinkScheduled = true;
+  setTimeout(() => {
+    if (autoFirstBlinkScheduled && lightState === 'on') {
+      triggerBlackout(false);
+    }
+  }, 1100);
+
+  // ============================================================================
+  // TRIGGER LIGHT BLINK & BLACKOUT TRANSITION
+  // ============================================================================
+  function triggerBlackout(fromCord = false) {
+    autoFirstBlinkScheduled = false;
+    if (lightState !== 'on') return;
+
+    peekPreviousMode = false;
+    lightState = 'flicker_out';
+    blackoutTimer = 0;
+    switchToggleDown = !switchToggleDown;
+    if (fromCord) cordPullOffset = 28;
+
+    sound.playSwitchClick(0.95);
+  }
+
+  // Perform the actual swap of 1 cat + distractors while the room is pitch dark
+  function performDarkRoomSwap() {
+    // Save current arrangement as previous arrangement
+    previousCats = currentCats.map(c => ({
+      catId: c.catId,
+      spotIndex: c.spotIndex,
+      reactionTimer: 0,
+      reactionType: null,
+      celebStyle: 0
+    }));
+    previousDistractors = { ...distractors };
+
+    // Find all currently occupied spot indices
+    const occupied = new Set(currentCats.map(c => c.spotIndex));
+    const availableSpots = [];
+    for (let i = 0; i < SPOTS.length; i++) {
+      if (!occupied.has(i)) availableSpots.push(i);
+    }
+
+    // Choose 1 random cat to move (prefer a different cat than last time for variety)
+    const candidateCatIndices = [0, 1, 2, 3];
+    const filtered = candidateCatIndices.filter(idx => currentCats[idx].catId !== movedCatId);
+    const chosenCatIdx = (Math.random() < 0.8 && filtered.length > 0)
+      ? filtered[Math.floor(Math.random() * filtered.length)]
+      : candidateCatIndices[Math.floor(Math.random() * 4)];
+
+    const newSpotIndex = availableSpots[Math.floor(Math.random() * availableSpots.length)];
+
+    movedCatId = currentCats[chosenCatIdx].catId;
+    movedFromSpot = currentCats[chosenCatIdx].spotIndex;
+    currentCats[chosenCatIdx].spotIndex = newSpotIndex;
+    currentCats.forEach(c => {
+      c.reactionTimer = 0;
+      c.reactionType = null;
+    });
+
+    roundSolved = false;
+    celebrationParticles = [];
+    trailParticles = [];
+
+    // Move distracting animals & objects to challenge observation!
+    distractors.puppySpot = (distractors.puppySpot + 1 + Math.floor(Math.random() * 2)) % PUPPY_SPOTS.length;
+    distractors.mouseHole = (distractors.mouseHole + 1 + Math.floor(Math.random() * 2)) % MOUSE_HOLES.length;
+    distractors.yarnSpot = (distractors.yarnSpot + 1 + Math.floor(Math.random() * 3)) % YARN_SPOTS.length;
+    distractors.parrotState = (distractors.parrotState + 1) % PARROT_STATES.length;
+    distractors.pillowVariant = (distractors.pillowVariant + 1) % 3;
+
+    sound.playDarkScurry();
+  }
+
+  // ============================================================================
+  // SPAWN CELEBRATION & TRAIL PARTICLES
+  // ============================================================================
+  function spawnCelebration(x, y, fromX, fromY, style) {
+    const palette = [
+      ['#ffd700', '#ffae00', '#fff3b0', '#ff6b6b'],
+      ['#ff7eb3', '#7afcff', '#feff9c', '#fff740'],
+      ['#59ffb9', '#ffd166', '#38b6ff', '#ff9f1c'],
+      ['#ffbe0b', '#fb5607', '#ff006e', '#8338ec']
+    ][style % 4];
+
+    // Burst particles around the discovered cat
+    for (let i = 0; i < 48; i++) {
+      const angle = (Math.PI * 2 * i) / 48 + (Math.random() - 0.5) * 0.2;
+      const speed = 3 + Math.random() * 9;
+      const shapes = ['star', 'note', 'paw', 'heart'];
+      celebrationParticles.push({
+        x,
+        y: y - 20,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 3.5,
+        size: 10 + Math.random() * 14,
+        color: palette[i % palette.length],
+        shape: shapes[(style + i) % shapes.length],
+        rot: Math.random() * Math.PI * 2,
+        vRot: (Math.random() - 0.5) * 0.14,
+        life: 1.0
+      });
+    }
+
+    // Golden paw-step trail showing how the cat moved from its old spot to its new spot
+    const steps = 11;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      // Curved arc between old spot and new spot
+      const midX = (fromX + x) * 0.5;
+      const midY = Math.min(fromY, y) - 130;
+      const px = (1 - t) * (1 - t) * fromX + 2 * (1 - t) * t * midX + t * t * x;
+      const py = (1 - t) * (1 - t) * fromY + 2 * (1 - t) * t * midY + t * t * y;
+
+      trailParticles.push({
+        x: px,
+        y: py,
+        delay: i * 0.04,
+        age: 0,
+        life: 1.35,
+        angle: Math.atan2(y - fromY, x - fromX)
+      });
+    }
+  }
+
+  // ============================================================================
+  // DRAWING HELPERS (SHAPES, FUR, TEXTURES)
+  // ============================================================================
+  function drawRoundedRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function drawStarShape(cx, cy, spikes, outerR, innerR) {
+    let rot = (Math.PI / 2) * 3;
+    const step = Math.PI / spikes;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - outerR);
+    for (let i = 0; i < spikes; i++) {
+      ctx.lineTo(cx + Math.cos(rot) * outerR, cy + Math.sin(rot) * outerR);
+      rot += step;
+      ctx.lineTo(cx + Math.cos(rot) * innerR, cy + Math.sin(rot) * innerR);
+      rot += step;
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawPawPrint(x, y, size, color, alpha = 1, angle = 0) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle + Math.PI / 2);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+
+    // Main pad
+    ctx.beginPath();
+    ctx.ellipse(0, 4, size * 0.55, size * 0.42, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 4 toes
+    const toes = [
+      { dx: -size * 0.55, dy: -size * 0.25 },
+      { dx: -size * 0.2,  dy: -size * 0.55 },
+      { dx: size * 0.2,   dy: -size * 0.55 },
+      { dx: size * 0.55,  dy: -size * 0.25 }
+    ];
+    toes.forEach(t => {
+      ctx.beginPath();
+      ctx.ellipse(t.dx, t.dy, size * 0.2, size * 0.26, 0, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.restore();
+  }
+
+  // ============================================================================
+  // STORY-DRIVEN LIVING ROOM BACKGROUND RENDERER
+  // ============================================================================
+  function drawLivingRoomBackground(time) {
+    // 1. Upper Antique Striped Wallpaper
+    const wallGrad = ctx.createLinearGradient(0, 0, 0, 740);
+    wallGrad.addColorStop(0, '#3a241b');
+    wallGrad.addColorStop(0.5, '#523426');
+    wallGrad.addColorStop(1, '#3d251b');
+    ctx.fillStyle = wallGrad;
+    ctx.fillRect(0, 0, W, 740);
+
+    // Subtle damask vertical stripes on wallpaper
+    ctx.fillStyle = 'rgba(255, 215, 160, 0.045)';
+    for (let x = 0; x < W; x += 64) {
+      ctx.fillRect(x, 0, 26, 740);
+      // Diamond motif
+      for (let y = 40; y < 720; y += 80) {
+        ctx.beginPath();
+        ctx.moveTo(x + 13, y);
+        ctx.lineTo(x + 21, y + 12);
+        ctx.lineTo(x + 13, y + 24);
+        ctx.lineTo(x + 5, y + 12);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+
+    // 2. Wooden Wainscoting (Lower Wall Panels)
+    const wainscotGrad = ctx.createLinearGradient(0, 520, 0, 745);
+    wainscotGrad.addColorStop(0, '#4f2d1d');
+    wainscotGrad.addColorStop(1, '#331b10');
+    ctx.fillStyle = wainscotGrad;
+    ctx.fillRect(0, 535, W, 210);
+
+    // Top chair-rail molding
+    ctx.fillStyle = '#6e412a';
+    ctx.fillRect(0, 525, W, 14);
+    ctx.fillStyle = '#2b160c';
+    ctx.fillRect(0, 539, W, 4);
+
+    // Recessed wooden panels
+    for (let x = 25; x < W; x += 160) {
+      ctx.strokeStyle = '#29150c';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(x, 558, 130, 145);
+      ctx.strokeStyle = '#633a26';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 4, 562, 122, 137);
+    }
+
+    // Baseboard trim
+    ctx.fillStyle = '#28140b';
+    ctx.fillRect(0, 718, W, 28);
+
+    // 3. Hardwood Floorboards with Perspective Planks
+    const floorGrad = ctx.createLinearGradient(0, 742, 0, H);
+    floorGrad.addColorStop(0, '#4a2918');
+    floorGrad.addColorStop(0.4, '#5e351f');
+    floorGrad.addColorStop(1, '#381e10');
+    ctx.fillStyle = floorGrad;
+    ctx.fillRect(0, 742, W, H - 742);
+
+    // Horizontal plank seams
+    ctx.strokeStyle = 'rgba(25, 11, 4, 0.55)';
+    ctx.lineWidth = 2;
+    const plankYs = [775, 815, 862, 916, 978, 1045];
+    plankYs.forEach((py, rowIdx) => {
+      ctx.beginPath();
+      ctx.moveTo(0, py);
+      ctx.lineTo(W, py);
+      ctx.stroke();
+
+      // Perspective joints
+      for (let gx = (rowIdx * 110) % 240; gx < W; gx += 240) {
+        const prevY = rowIdx === 0 ? 742 : plankYs[rowIdx - 1];
+        ctx.beginPath();
+        ctx.moveTo(gx, prevY);
+        ctx.lineTo(gx + (gx - W / 2) * 0.06, py);
+        ctx.stroke();
+      }
+    });
+
+    // 4. Ornate Persian Rug in Center of Floor
+    ctx.save();
+    ctx.translate(970, 915);
+    // Outer fringe
+    ctx.strokeStyle = '#d9c29c';
+    ctx.lineWidth = 3;
+    for (let a = -0.35; a <= 0.35; a += 0.03) {
+      ctx.beginPath();
+      ctx.moveTo(-585, Math.sin(a) * 190);
+      ctx.lineTo(-608, Math.sin(a) * 198);
+      ctx.moveTo(585, Math.sin(a) * 190);
+      ctx.lineTo(608, Math.sin(a) * 198);
+      ctx.stroke();
+    }
+    // Main crimson rug body
+    ctx.fillStyle = '#7d1e24';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 590, 128, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Gold & navy ornate border
+    ctx.strokeStyle = '#d4a24c';
+    ctx.lineWidth = 10;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 555, 112, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#1d2d44';
+    ctx.lineWidth = 14;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 520, 98, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Center medallion
+    ctx.fillStyle = '#c9933b';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 210, 48, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#203647';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 120, 28, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // 5. Three Baseboard Mouseholes (Distractor Mouse peeks out of one!)
+    MOUSE_HOLES.forEach((hole, idx) => {
+      ctx.save();
+      ctx.fillStyle = '#0e0704';
+      ctx.beginPath();
+      ctx.arc(hole.x, hole.y, 20, Math.PI, 0);
+      ctx.lineTo(hole.x + 20, hole.y + 4);
+      ctx.lineTo(hole.x - 20, hole.y + 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#3d2214';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.restore();
+    });
+
+    // 6. GRAND ARCHED WINDOW (Left-Center) with Living Night Sky
+    ctx.save();
+    const winX = 290, winY = 110, winW = 280, winH = 380;
+    ctx.beginPath();
+    ctx.arc(winX + winW / 2, winY + 130, winW / 2, Math.PI, 0);
+    ctx.lineTo(winX + winW, winY + winH);
+    ctx.lineTo(winX, winY + winH);
+    ctx.closePath();
+    ctx.clip();
+
+    // Night sky gradient
+    const skyGrad = ctx.createLinearGradient(winX, winY, winX, winY + winH);
+    skyGrad.addColorStop(0, '#0b1528');
+    skyGrad.addColorStop(0.6, '#182b49');
+    skyGrad.addColorStop(1, '#263f66');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(winX, winY, winW, winH);
+
+    // Twinkling stars
+    stars.forEach(s => {
+      const twinkle = 0.4 + 0.6 * Math.sin(time * 2.5 + s.phase);
+      ctx.fillStyle = `rgba(255, 248, 215, ${twinkle})`;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // Glowing Crescent Moon
+    ctx.save();
+    ctx.translate(485, 195);
+    const moonGlow = ctx.createRadialGradient(0, 0, 10, 0, 0, 75);
+    moonGlow.addColorStop(0, 'rgba(255, 245, 200, 0.5)');
+    moonGlow.addColorStop(1, 'rgba(255, 245, 200, 0)');
+    ctx.fillStyle = moonGlow;
+    ctx.beginPath();
+    ctx.arc(0, 0, 75, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#fff5c0';
+    ctx.beginPath();
+    ctx.arc(0, 0, 32, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#11203a';
+    ctx.beginPath();
+    ctx.arc(-12, -6, 28, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Drifting night clouds
+    const cloudShift = Math.sin(time * 0.35) * 28;
+    ctx.fillStyle = 'rgba(42, 68, 105, 0.55)';
+    ctx.beginPath();
+    ctx.arc(360 + cloudShift, 260, 38, 0, Math.PI * 2);
+    ctx.arc(400 + cloudShift, 252, 46, 0, Math.PI * 2);
+    ctx.arc(445 + cloudShift, 262, 35, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Swaying tree branch silhouette outside window
+    const branchSway = Math.sin(time * 1.4) * 0.04;
+    ctx.save();
+    ctx.translate(290, 400);
+    ctx.rotate(branchSway);
+    ctx.strokeStyle = '#09101d';
+    ctx.lineWidth = 9;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(60, -25, 130, -15);
+    ctx.moveTo(55, -20);
+    ctx.quadraticCurveTo(85, -55, 115, -60);
+    ctx.stroke();
+    ctx.restore();
+
+    // Window muntins (wooden panes)
+    ctx.strokeStyle = '#3d2212';
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(winX + winW / 2, winY);
+    ctx.lineTo(winX + winW / 2, winY + winH);
+    ctx.moveTo(winX, winY + 160);
+    ctx.lineTo(winX + winW, winY + 160);
+    ctx.moveTo(winX, winY + 280);
+    ctx.lineTo(winX + winW, winY + 280);
+    ctx.stroke();
+    ctx.restore();
+
+    // Window outer wooden arch frame & deep sill
+    ctx.strokeStyle = '#4e2b18';
+    ctx.lineWidth = 14;
+    ctx.beginPath();
+    ctx.arc(winX + winW / 2, winY + 130, winW / 2, Math.PI, 0);
+    ctx.lineTo(winX + winW, winY + winH);
+    ctx.lineTo(winX, winY + winH);
+    ctx.closePath();
+    ctx.stroke();
+
+    // Velvet Left Curtain (Right curtain is drawn in mid_front so a cat can peek from behind it!)
+    drawCurtain(winX - 22, winY + 15, 76, 425, 1);
+
+    // Deep Wooden Windowsill
+    ctx.fillStyle = '#5c341e';
+    drawRoundedRect(winX - 24, winY + winH - 6, winW + 48, 24, 6);
+    ctx.fill();
+    ctx.strokeStyle = '#2d160b';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // 7. TALL MAHOGANY BOOKSHELF (Left Wall)
+    drawBookshelf(time);
+
+    // 8. FRAMED LANDSCAPE PAINTING (Above Sofa)
+    drawFramedPainting(745, 180, 250, 175);
+
+    // 9. WALL LIGHT SWITCH (Interactive! Between Window and Sofa)
+    drawWallLightSwitch(635, 470, time);
+
+    // 10. GRANDFATHER CLOCK (Right-Center)
+    drawGrandfatherClock(1170, 184, time);
+
+    // 11. COZY BRICK FIREPLACE WITH ANIMATED FLAMES
+    drawFireplace(1455, 455, time);
+
+    // 12. PLUSH EMERALD VELVET SOFA (Center-Left)
+    drawSofa(820, 625);
+
+    // 13. SIDE TABLE WITH ANIMATED AQUARIUM (Left-Center)
+    drawTableAndAquarium(465, 620, time);
+
+    // 14. BURGUNDY TUFTED ARMCHAIR (Right)
+    drawArmchair(1690, 650);
+
+    // 15. BRASS PARROT PERCH STAND (Between Clock and Fireplace)
+    drawParrotStand(1305, 515);
+  }
+
+  function drawCurtain(x, y, w, h, side) {
+    ctx.save();
+    const grad = ctx.createLinearGradient(x, y, x + w, y);
+    grad.addColorStop(0, '#5e1119');
+    grad.addColorStop(0.5, '#8f1d28');
+    grad.addColorStop(1, '#4a0b11');
+    ctx.fillStyle = grad;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + w, y);
+    ctx.quadraticCurveTo(x + w - side * 18, y + h * 0.55, x + w - side * 8, y + h);
+    ctx.lineTo(x + side * 6, y + h);
+    ctx.quadraticCurveTo(x + side * 12, y + h * 0.5, x, y);
+    ctx.closePath();
+    ctx.fill();
+
+    // Gold tassel tie-back
+    ctx.fillStyle = '#d9a74a';
+    ctx.fillRect(x + 8, y + h * 0.56, w - 16, 10);
+    ctx.restore();
+  }
+
+  function drawBookshelf(time) {
+    const bx = 68, by = 205, bw = 210, bh = 550;
+    ctx.save();
+    // Main mahogany body
+    ctx.fillStyle = '#2b160c';
+    ctx.fillRect(bx, by, bw, bh);
+    ctx.strokeStyle = '#59311c';
+    ctx.lineWidth = 10;
+    ctx.strokeRect(bx, by, bw, bh);
+
+    // Top crown molding (where cat can lounge!)
+    ctx.fillStyle = '#663922';
+    drawRoundedRect(bx - 12, by - 14, bw + 24, 18, 5);
+    ctx.fill();
+
+    // Shelves & colorful books
+    const shelfYs = [310, 420, 530, 640];
+    const bookColors = ['#b8332a', '#2c6e49', '#2b59c3', '#d49b35', '#7b2cbf', '#c95d39'];
+    shelfYs.forEach((sy, sIdx) => {
+      // Books on shelf
+      let curX = bx + 12;
+      for (let b = 0; b < 7; b++) {
+        const bookW = 18 + ((b * 7 + sIdx * 3) % 10);
+        const bookH = 68 + ((b * 11 + sIdx * 5) % 24);
+        if (curX + bookW < bx + bw - 22) {
+          ctx.fillStyle = bookColors[(b + sIdx * 2) % bookColors.length];
+          ctx.fillRect(curX, sy - bookH, bookW - 2, bookH);
+          // Gold spine stripe
+          ctx.fillStyle = '#e6c27a';
+          ctx.fillRect(curX + 2, sy - bookH + 10, bookW - 6, 4);
+          curX += bookW;
+        }
+      }
+      // Wooden shelf plank
+      ctx.fillStyle = '#59311c';
+      ctx.fillRect(bx + 4, sy, bw - 8, 12);
+    });
+
+    // Trailing green ivy plant on the 2nd shelf
+    ctx.fillStyle = '#a85632';
+    ctx.beginPath();
+    ctx.arc(bx + bw - 32, 310 - 18, 18, 0, Math.PI);
+    ctx.fill();
+    ctx.strokeStyle = '#2d6a4f';
+    ctx.lineWidth = 3;
+    for (let v = 0; v < 3; v++) {
+      ctx.beginPath();
+      ctx.moveTo(bx + bw - 30 + v * 6, 305);
+      const sway = Math.sin(time * 1.8 + v) * 6;
+      ctx.quadraticCurveTo(bx + bw - 15 + sway, 355, bx + bw - 25 + v * 8 + sway, 405 + v * 15);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawFramedPainting(x, y, w, h) {
+    ctx.save();
+    // Ornate gold frame
+    const frameGrad = ctx.createLinearGradient(x, y, x + w, y + h);
+    frameGrad.addColorStop(0, '#e0b354');
+    frameGrad.addColorStop(0.5, '#9e6f1e');
+    frameGrad.addColorStop(1, '#d4a243');
+    ctx.fillStyle = frameGrad;
+    drawRoundedRect(x - 14, y - 14, w + 28, h + 28, 8);
+    ctx.fill();
+
+    ctx.fillStyle = '#2b1b12';
+    ctx.fillRect(x - 4, y - 4, w + 8, h + 8);
+
+    // Warm sunset hills landscape inside
+    const paintSky = ctx.createLinearGradient(x, y, x, y + h);
+    paintSky.addColorStop(0, '#f2a65a');
+    paintSky.addColorStop(0.6, '#f5cb5c');
+    paintSky.addColorStop(1, '#386641');
+    ctx.fillStyle = paintSky;
+    ctx.fillRect(x, y, w, h);
+
+    // Rolling hills
+    ctx.fillStyle = '#2d5a27';
+    ctx.beginPath();
+    ctx.moveTo(x, y + h);
+    ctx.quadraticCurveTo(x + w * 0.35, y + h * 0.55, x + w * 0.7, y + h * 0.8);
+    ctx.quadraticCurveTo(x + w * 0.85, y + h * 0.65, x + w, y + h * 0.75);
+    ctx.lineTo(x + w, y + h);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawWallLightSwitch(x, y, time) {
+    ctx.save();
+    // Subtle inviting golden aura around switch so player knows it toggles room lights
+    const pulse = 0.35 + 0.35 * Math.sin(time * 3.5);
+    const glow = ctx.createRadialGradient(x, y, 8, x, y, 48);
+    glow.addColorStop(0, `rgba(255, 215, 90, ${pulse})`);
+    glow.addColorStop(1, 'rgba(255, 215, 90, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(x, y, 48, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Brass plate
+    const plateGrad = ctx.createLinearGradient(x - 20, y - 30, x + 20, y + 30);
+    plateGrad.addColorStop(0, '#f0c76e');
+    plateGrad.addColorStop(0.5, '#b8862d');
+    plateGrad.addColorStop(1, '#7a5414');
+    ctx.fillStyle = plateGrad;
+    drawRoundedRect(x - 20, y - 30, 40, 60, 7);
+    ctx.fill();
+    ctx.strokeStyle = '#3d2506';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // Toggle lever
+    ctx.fillStyle = '#3b230c';
+    ctx.fillRect(x - 6, y - 12, 12, 24);
+
+    ctx.fillStyle = switchToggleDown ? '#c9933b' : '#ffe399';
+    const knobY = switchToggleDown ? y + 4 : y - 14;
+    drawRoundedRect(x - 8, knobY, 16, 12, 4);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawGrandfatherClock(cx, topY, time) {
+    ctx.save();
+    // Tall wooden case
+    ctx.fillStyle = '#3b1f10';
+    ctx.fillRect(cx - 48, topY + 95, 96, 465);
+    ctx.strokeStyle = '#211007';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(cx - 48, topY + 95, 96, 465);
+
+    // Recessed pendulum window
+    ctx.fillStyle = '#170b05';
+    drawRoundedRect(cx - 28, topY + 120, 56, 290, 28);
+    ctx.fill();
+
+    // Swinging brass pendulum
+    const swingAngle = Math.sin(time * 2.8) * 0.16;
+    ctx.save();
+    ctx.translate(cx, topY + 130);
+    ctx.rotate(swingAngle);
+    ctx.strokeStyle = '#d4a243';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, 195);
+    ctx.stroke();
+
+    const bobGrad = ctx.createRadialGradient(-5, 200, 3, 0, 205, 24);
+    bobGrad.addColorStop(0, '#fff2b2');
+    bobGrad.addColorStop(0.5, '#d4a243');
+    bobGrad.addColorStop(1, '#85580f');
+    ctx.fillStyle = bobGrad;
+    ctx.beginPath();
+    ctx.arc(0, 205, 22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Clock head hood (flat crown at topY where cat can lounge!)
+    ctx.fillStyle = '#4f2a17';
+    drawRoundedRect(cx - 58, topY, 116, 102, 8);
+    ctx.fill();
+    ctx.strokeStyle = '#241108';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    // Flat top molding
+    ctx.fillStyle = '#693920';
+    drawRoundedRect(cx - 64, topY - 8, 128, 12, 4);
+    ctx.fill();
+
+    // Warm antique brass & cream dial (no white rectangle!)
+    const dialGrad = ctx.createRadialGradient(cx, topY + 52, 5, cx, topY + 52, 40);
+    dialGrad.addColorStop(0, '#f5deb3');
+    dialGrad.addColorStop(0.8, '#d4af6a');
+    dialGrad.addColorStop(1, '#8a6220');
+    ctx.fillStyle = dialGrad;
+    ctx.beginPath();
+    ctx.arc(cx, topY + 52, 38, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#472d07';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Tick marks & hands
+    ctx.strokeStyle = '#2b1903';
+    for (let i = 0; i < 12; i++) {
+      const a = (i * Math.PI) / 6;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * 29, topY + 52 + Math.sin(a) * 29);
+      ctx.lineTo(cx + Math.cos(a) * 34, topY + 52 + Math.sin(a) * 34);
+      ctx.stroke();
+    }
+    // Hands
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx, topY + 52);
+    ctx.lineTo(cx + Math.cos(time * 0.05) * 18, topY + 52 + Math.sin(time * 0.05) * 18);
+    ctx.moveTo(cx, topY + 52);
+    ctx.lineTo(cx + Math.cos(time * 0.4) * 27, topY + 52 + Math.sin(time * 0.4) * 27);
+    ctx.stroke();
+
+    // Base pedestal
+    ctx.fillStyle = '#4a2614';
+    drawRoundedRect(cx - 58, topY + 530, 116, 40, 5);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawFireplace(cx, topY, time) {
+    ctx.save();
+    const fw = 310, fh = 320;
+    // Warm ambient firelight glow on floor & wall
+    const fireGlow = ctx.createRadialGradient(cx, topY + 230, 20, cx, topY + 240, 340);
+    const flicker = 0.88 + 0.12 * Math.sin(time * 11) * Math.cos(time * 7);
+    fireGlow.addColorStop(0, `rgba(255, 130, 30, ${0.42 * flicker})`);
+    fireGlow.addColorStop(0.5, `rgba(255, 80, 10, ${0.16 * flicker})`);
+    fireGlow.addColorStop(1, 'rgba(255, 60, 0, 0)');
+    ctx.fillStyle = fireGlow;
+    ctx.beginPath();
+    ctx.arc(cx, topY + 240, 340, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Brick surround
+    ctx.fillStyle = '#6e2b1c';
+    ctx.fillRect(cx - fw / 2, topY, fw, fh);
+
+    // Individual brick pattern
+    ctx.strokeStyle = '#3d160d';
+    ctx.lineWidth = 2;
+    for (let by = topY + 16; by < topY + fh; by += 24) {
+      ctx.beginPath();
+      ctx.moveTo(cx - fw / 2, by);
+      ctx.lineTo(cx + fw / 2, by);
+      ctx.stroke();
+      const offset = ((by / 24) % 2) * 26;
+      for (let bx = cx - fw / 2 + offset; bx < cx + fw / 2; bx += 52) {
+        ctx.beginPath();
+        ctx.moveTo(bx, by - 24);
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+      }
+    }
+
+    // Carved wooden mantelpiece shelf
+    ctx.fillStyle = '#4a2715';
+    drawRoundedRect(cx - fw / 2 - 22, topY - 18, fw + 44, 28, 6);
+    ctx.fill();
+    ctx.strokeStyle = '#241107';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Decorative brass candle & clock/vase on mantelpiece
+    ctx.fillStyle = '#d4a243';
+    ctx.beginPath();
+    ctx.ellipse(cx - 110, topY - 26, 16, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f5deb3';
+    ctx.fillRect(cx - 115, topY - 58, 10, 32);
+    ctx.fillStyle = '#ffae00';
+    ctx.beginPath();
+    ctx.ellipse(cx - 110, topY - 65, 5, 9, Math.sin(time * 8) * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Dark firebox opening
+    ctx.fillStyle = '#170a06';
+    ctx.beginPath();
+    ctx.arc(cx, topY + 145, 98, Math.PI, 0);
+    ctx.lineTo(cx + 98, topY + fh);
+    ctx.lineTo(cx - 98, topY + fh);
+    ctx.closePath();
+    ctx.fill();
+
+    // Glowing logs
+    ctx.fillStyle = '#3d1c0a';
+    drawRoundedRect(cx - 65, topY + 265, 130, 22, 8);
+    ctx.fill();
+    drawRoundedRect(cx - 50, topY + 250, 100, 20, 8);
+    ctx.fill();
+
+    // Animated multi-layered flames
+    fireParticles.forEach(fp => {
+      fp.y += fp.vy;
+      fp.x += fp.vx + Math.sin(time * 5 + fp.life * 6) * 0.4;
+      fp.life -= 0.022;
+      if (fp.life <= 0) {
+        fp.x = cx + (Math.random() - 0.5) * 95;
+        fp.y = topY + 265;
+        fp.life = 1.0;
+      }
+      const r = fp.size * fp.life;
+      ctx.fillStyle = fp.life > 0.6 ? '#fff07c' : fp.life > 0.3 ? '#ff7b00' : '#d62828';
+      ctx.beginPath();
+      ctx.arc(fp.x, fp.y, Math.max(1, r), 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // Stone Hearth Slab (where a cat can curl up!)
+    const hearthGrad = ctx.createLinearGradient(cx - 180, topY + fh, cx + 180, topY + fh + 65);
+    hearthGrad.addColorStop(0, '#594e47');
+    hearthGrad.addColorStop(0.5, '#73655c');
+    hearthGrad.addColorStop(1, '#403732');
+    ctx.fillStyle = hearthGrad;
+    drawRoundedRect(cx - 175, topY + fh - 6, 350, 68, 12);
+    ctx.fill();
+    ctx.strokeStyle = '#29221e';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawSofa(cx, cy) {
+    ctx.save();
+    // Wooden sofa legs
+    ctx.fillStyle = '#2e160b';
+    ctx.fillRect(cx - 210, cy + 125, 18, 35);
+    ctx.fillRect(cx + 192, cy + 125, 18, 35);
+
+    // Plush Emerald Velvet Backrest
+    const backGrad = ctx.createLinearGradient(cx, cy - 115, cx, cy + 50);
+    backGrad.addColorStop(0, '#1b5e49');
+    backGrad.addColorStop(0.6, '#134535');
+    backGrad.addColorStop(1, '#0b2b21');
+    ctx.fillStyle = backGrad;
+    drawRoundedRect(cx - 220, cy - 110, 440, 165, 42);
+    ctx.fill();
+    ctx.strokeStyle = '#09241b';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    // Tufted diamond buttons on backrest
+    ctx.fillStyle = '#d4a243';
+    for (let bx = cx - 150; bx <= cx + 150; bx += 75) {
+      for (let by = cy - 65; by <= cy - 20; by += 42) {
+        ctx.beginPath();
+        ctx.arc(bx, by, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Decorative Throw Pillows (shift subtly on blackout!)
+    const pShift = (distractors.pillowVariant - 1) * 14;
+    ctx.save();
+    ctx.translate(cx - 155 + pShift, cy + 5);
+    ctx.rotate(-0.18 + distractors.pillowVariant * 0.06);
+    ctx.fillStyle = '#c94a38';
+    drawRoundedRect(-36, -36, 72, 72, 16);
+    ctx.fill();
+    ctx.strokeStyle = '#e8b858';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(-24, -24, 48, 48);
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(cx + 145 - pShift, cy + 8);
+    ctx.rotate(0.22 - distractors.pillowVariant * 0.08);
+    ctx.fillStyle = '#d49b35';
+    drawRoundedRect(-34, -34, 68, 68, 16);
+    ctx.fill();
+    ctx.restore();
+
+    // Seat cushions
+    ctx.fillStyle = '#185441';
+    drawRoundedRect(cx - 210, cy + 28, 208, 62, 18);
+    ctx.fill();
+    ctx.stroke();
+    drawRoundedRect(cx + 2, cy + 28, 208, 62, 18);
+    ctx.fill();
+    ctx.stroke();
+
+    // Rolled velvet armrests
+    ctx.fillStyle = '#144737';
+    drawRoundedRect(cx - 250, cy - 35, 56, 155, 26);
+    ctx.fill();
+    ctx.stroke();
+    drawRoundedRect(cx + 194, cy - 35, 56, 155, 26);
+    ctx.fill();
+    ctx.stroke();
+
+    // Gold fringe trim along bottom
+    ctx.fillStyle = '#c9933b';
+    ctx.fillRect(cx - 220, cy + 115, 440, 10);
+    ctx.restore();
+  }
+
+  function drawTableAndAquarium(cx, cy, time) {
+    ctx.save();
+    // Wooden side table legs (space underneath for a cat to loaf!)
+    ctx.fillStyle = '#3b1f10';
+    ctx.fillRect(cx - 88, cy, 16, 215);
+    ctx.fillRect(cx + 72, cy, 16, 215);
+    ctx.fillStyle = '#291409';
+    ctx.fillRect(cx - 65, cy + 15, 14, 175);
+    ctx.fillRect(cx + 51, cy + 15, 14, 175);
+
+    // Table apron & tabletop
+    ctx.fillStyle = '#59301a';
+    drawRoundedRect(cx - 108, cy - 16, 216, 26, 8);
+    ctx.fill();
+    ctx.strokeStyle = '#291409';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Lace/embroidered golden table runner
+    ctx.fillStyle = '#d4a243';
+    ctx.beginPath();
+    ctx.moveTo(cx - 45, cy + 10);
+    ctx.lineTo(cx + 45, cy + 10);
+    ctx.lineTo(cx, cy + 42);
+    ctx.closePath();
+    ctx.fill();
+
+    // GLASS AQUARIUM ON TABLE (Interactive Distractor!)
+    const aqY = cy - 68;
+    const splashOffset = distractors.aquariumAnim > 0 ? Math.sin(distractors.aquariumAnim * 25) * 4 : 0;
+    ctx.save();
+    ctx.translate(cx + splashOffset, aqY);
+
+    // Water body
+    const waterGrad = ctx.createLinearGradient(0, -45, 0, 48);
+    waterGrad.addColorStop(0, 'rgba(64, 196, 255, 0.55)');
+    waterGrad.addColorStop(1, 'rgba(15, 92, 140, 0.78)');
+    ctx.fillStyle = waterGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, 54, -0.25 * Math.PI, 1.25 * Math.PI);
+    ctx.closePath();
+    ctx.fill();
+
+    // Sandy bottom & swaying green seaweeds
+    ctx.fillStyle = '#d9b26f';
+    ctx.beginPath();
+    ctx.arc(0, 2, 50, 0.22 * Math.PI, 0.78 * Math.PI);
+    ctx.fill();
+
+    ctx.strokeStyle = '#2b9348';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    for (let s = -18; s <= 18; s += 18) {
+      ctx.beginPath();
+      ctx.moveTo(s, 40);
+      ctx.quadraticCurveTo(s + Math.sin(time * 3 + s) * 8, 12, s + Math.cos(time * 2 + s) * 6, -10);
+      ctx.stroke();
+    }
+
+    // Animated swimming goldfish
+    const fishX = Math.sin(time * 1.7 + (distractors.aquariumAnim * 4)) * 24;
+    const fishY = Math.cos(time * 2.3) * 8;
+    const fishDir = Math.cos(time * 1.7 + (distractors.aquariumAnim * 4)) >= 0 ? 1 : -1;
+    ctx.save();
+    ctx.translate(fishX, fishY);
+    ctx.scale(fishDir, 1);
+    ctx.fillStyle = '#ff7b00';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 13, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Fantail
+    ctx.fillStyle = '#ffaa00';
+    ctx.beginPath();
+    ctx.moveTo(-10, 0);
+    ctx.lineTo(-22, -8 + Math.sin(time * 12) * 3);
+    ctx.lineTo(-19, 0);
+    ctx.lineTo(-22, 8 + Math.sin(time * 12) * 3);
+    ctx.closePath();
+    ctx.fill();
+    // Eye
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(7, -2, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Rising bubbles
+    ctx.fillStyle = 'rgba(220, 250, 255, 0.75)';
+    fishBubbles.forEach(b => {
+      b.y -= 0.6 + (distractors.aquariumAnim > 0 ? 2.2 : 0);
+      if (b.y < aqY - 35) b.y = aqY + 25;
+      ctx.beginPath();
+      ctx.arc(b.x - cx, b.y - aqY, b.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // Glass bowl outline & rim
+    ctx.strokeStyle = 'rgba(210, 245, 255, 0.7)';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, 55, -0.78 * Math.PI, 1.78 * Math.PI);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(0, -35, 36, 7, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.restore();
+  }
+
+  function drawArmchair(cx, cy) {
+    ctx.save();
+    // Wooden legs
+    ctx.fillStyle = '#2b1409';
+    ctx.fillRect(cx - 105, cy + 125, 16, 36);
+    ctx.fillRect(cx + 89, cy + 125, 16, 36);
+
+    // High Wingback Burgundy Backrest
+    const chairGrad = ctx.createLinearGradient(cx, cy - 150, cx, cy + 110);
+    chairGrad.addColorStop(0, '#7a1c24');
+    chairGrad.addColorStop(0.6, '#591118');
+    chairGrad.addColorStop(1, '#3b090e');
+    ctx.fillStyle = chairGrad;
+    drawRoundedRect(cx - 115, cy - 145, 230, 230, 48);
+    ctx.fill();
+    ctx.strokeStyle = '#290509';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    // Knitted mustard throw blanket draped over corner
+    ctx.fillStyle = '#d99b26';
+    ctx.beginPath();
+    ctx.moveTo(cx + 35, cy - 142);
+    ctx.quadraticCurveTo(cx + 110, cy - 120, cx + 95, cy - 25);
+    ctx.quadraticCurveTo(cx + 55, cy - 15, cx + 25, cy - 85);
+    ctx.closePath();
+    ctx.fill();
+
+    // Plush seat cushion
+    ctx.fillStyle = '#6e171f';
+    drawRoundedRect(cx - 98, cy + 20, 196, 65, 22);
+    ctx.fill();
+    ctx.stroke();
+
+    // Rolled armrests
+    ctx.fillStyle = '#520f15';
+    drawRoundedRect(cx - 135, cy - 25, 48, 150, 24);
+    ctx.fill();
+    ctx.stroke();
+    drawRoundedRect(cx + 87, cy - 25, 48, 150, 24);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawParrotStand(cx, topY) {
+    ctx.save();
+    // Tall brass pole & base
+    ctx.strokeStyle = '#c9933b';
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.moveTo(cx, topY);
+    ctx.lineTo(cx, topY + 255);
+    ctx.stroke();
+
+    // Brass ring & wooden crossbar perch
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(cx, topY - 28, 38, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = '#5c3317';
+    drawRoundedRect(cx - 52, topY - 4, 104, 10, 5);
+    ctx.fill();
+
+    // Base on floor
+    ctx.fillStyle = '#9e6f1e';
+    ctx.beginPath();
+    ctx.ellipse(cx, topY + 255, 42, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // ============================================================================
+  // FOREGROUND CONTAINERS (Cardboard Box, Ottoman, Woven Basket, Right Curtain)
+  // ============================================================================
+  function drawContainerBack(spotId) {
+    if (spotId === 'cardboard_box') {
+      const x = 215, y = 855;
+      ctx.save();
+      // Back interior of cardboard box
+      ctx.fillStyle = '#6e4726';
+      ctx.fillRect(x - 75, y - 42, 150, 75);
+      // Left & right open flaps
+      ctx.fillStyle = '#9c693e';
+      ctx.beginPath();
+      ctx.moveTo(x - 75, y - 42);
+      ctx.lineTo(x - 105, y - 68);
+      ctx.lineTo(x - 85, y - 10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(x + 75, y - 42);
+      ctx.lineTo(x + 105, y - 68);
+      ctx.lineTo(x + 85, y - 10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    } else if (spotId === 'woven_basket') {
+      const x = 1720, y = 895;
+      ctx.save();
+      ctx.fillStyle = '#4f2f17';
+      ctx.beginPath();
+      ctx.ellipse(x, y - 18, 78, 32, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Soft burgundy cushion inside basket
+      ctx.fillStyle = '#8c232c';
+      ctx.beginPath();
+      ctx.ellipse(x, y - 12, 66, 22, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    } else if (spotId === 'ottoman_top') {
+      const x = 885, y = 865;
+      ctx.save();
+      // Wooden bun feet
+      ctx.fillStyle = '#291308';
+      ctx.beginPath();
+      ctx.arc(x - 75, y + 62, 14, 0, Math.PI * 2);
+      ctx.arc(x + 75, y + 62, 14, 0, Math.PI * 2);
+      ctx.fill();
+      // Velvet tufted ottoman body
+      const ottGrad = ctx.createLinearGradient(x - 105, y - 15, x + 105, y + 60);
+      ottGrad.addColorStop(0, '#8f242e');
+      ottGrad.addColorStop(0.5, '#6b151d');
+      ottGrad.addColorStop(1, '#420a10');
+      ctx.fillStyle = ottGrad;
+      drawRoundedRect(x - 105, y - 8, 210, 68, 28);
+      ctx.fill();
+      ctx.strokeStyle = '#d4a243';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function drawContainerFront(spotId) {
+    if (spotId === 'cardboard_box') {
+      const x = 215, y = 855;
+      ctx.save();
+      const boxGrad = ctx.createLinearGradient(x - 78, y - 15, x + 78, y + 68);
+      boxGrad.addColorStop(0, '#b57c4a');
+      boxGrad.addColorStop(1, '#87562d');
+      ctx.fillStyle = boxGrad;
+      drawRoundedRect(x - 78, y - 12, 156, 82, 6);
+      ctx.fill();
+      ctx.strokeStyle = '#4d2e14';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // Front folded flap
+      ctx.fillStyle = '#c98e5b';
+      ctx.beginPath();
+      ctx.moveTo(x - 78, y - 12);
+      ctx.lineTo(x + 78, y - 12);
+      ctx.lineTo(x + 68, y + 18);
+      ctx.lineTo(x - 68, y + 18);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    } else if (spotId === 'woven_basket') {
+      const x = 1720, y = 895;
+      ctx.save();
+      const baskGrad = ctx.createLinearGradient(x - 82, y - 15, x + 82, y + 65);
+      baskGrad.addColorStop(0, '#c48b4d');
+      baskGrad.addColorStop(0.5, '#9e6830');
+      baskGrad.addColorStop(1, '#6e441b');
+      ctx.fillStyle = baskGrad;
+      ctx.beginPath();
+      ctx.moveTo(x - 82, y - 14);
+      ctx.quadraticCurveTo(x - 72, y + 66, x, y + 66);
+      ctx.quadraticCurveTo(x + 72, y + 66, x + 82, y - 14);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#472a0e';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // Woven wicker texture lines
+      ctx.strokeStyle = 'rgba(65, 35, 10, 0.45)';
+      ctx.lineWidth = 3;
+      for (let wy = y + 2; wy < y + 58; wy += 14) {
+        ctx.beginPath();
+        ctx.moveTo(x - 72, wy);
+        ctx.quadraticCurveTo(x, wy + 10, x + 72, wy);
+        ctx.stroke();
+      }
+      // Braided rim
+      ctx.strokeStyle = '#d69f63';
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.moveTo(x - 82, y - 14);
+      ctx.quadraticCurveTo(x, y - 4, x + 82, y - 14);
+      ctx.stroke();
+      ctx.restore();
+    } else if (spotId === 'curtain_peek') {
+      // Right Velvet Curtain drawn IN FRONT of the peeking cat's body!
+      drawCurtain(516, 125, 78, 425, -1);
+    }
+  }
+
+  // ============================================================================
+  // DISTRACTING ANIMALS & ITEMS RENDERER (Puppy, Parrot, Mouse, Yarn)
+  // ============================================================================
+  function drawDistractors(stateObj, time) {
+    // 1. LITTLE MOUSE PEEKING FROM BASEBOARD MOUSEHOLE
+    const hole = MOUSE_HOLES[stateObj.mouseHole];
+    ctx.save();
+    const mouseHop = stateObj.mouseAnim > 0 ? Math.abs(Math.sin(stateObj.mouseAnim * 18)) * 18 : 0;
+    ctx.translate(hole.x + hole.flip * 10, hole.y + 2 - mouseHop);
+    ctx.scale(hole.flip, 1);
+
+    // Mouse body
+    ctx.fillStyle = '#7d746d';
+    ctx.beginPath();
+    ctx.ellipse(0, -6, 16, 11, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Pointed snout
+    ctx.beginPath();
+    ctx.moveTo(10, -12);
+    ctx.lineTo(24, -4);
+    ctx.lineTo(10, 2);
+    ctx.closePath();
+    ctx.fill();
+    // Big round ears
+    ctx.fillStyle = '#635b55';
+    ctx.beginPath();
+    ctx.arc(4, -16, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#e89da2';
+    ctx.beginPath();
+    ctx.arc(5, -16, 5, 0, Math.PI * 2);
+    ctx.fill();
+    // Shiny eye & pink nose
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(13, -7, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ff758f';
+    ctx.beginPath();
+    ctx.arc(24, -4, 2.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // 2. COLORFUL PARROT ON BRASS STAND
+    const pState = PARROT_STATES[stateObj.parrotState];
+    const flap = stateObj.parrotAnim > 0 ? Math.sin(stateObj.parrotAnim * 28) * 0.7 : pState.wingOpen;
+    const hopY = stateObj.parrotAnim > 0 ? -Math.abs(Math.sin(stateObj.parrotAnim * 14)) * 16 : 0;
+    ctx.save();
+    ctx.translate(1305 + pState.offsetX, 505 + pState.offsetY + hopY);
+    ctx.scale(pState.flip, 1);
+
+    // Long tail feathers
+    ctx.fillStyle = '#1d4ed8';
+    ctx.beginPath();
+    ctx.moveTo(-6, 12);
+    ctx.lineTo(-18, 58);
+    ctx.lineTo(-4, 52);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#dc2626';
+    ctx.beginPath();
+    ctx.moveTo(-2, 12);
+    ctx.lineTo(-8, 64);
+    ctx.lineTo(4, 48);
+    ctx.closePath();
+    ctx.fill();
+
+    // Scarlet body
+    ctx.fillStyle = '#e11d48';
+    ctx.beginPath();
+    ctx.ellipse(0, -6, 16, 24, -0.15, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Gold & Blue Wing
+    ctx.save();
+    ctx.translate(-4, -12);
+    ctx.rotate(-flap);
+    ctx.fillStyle = '#f59e0b';
+    ctx.beginPath();
+    ctx.ellipse(0, 8, 10, 18, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#2563eb';
+    ctx.beginPath();
+    ctx.ellipse(-2, 16, 7, 12, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Head & Curved Beak
+    ctx.fillStyle = '#e11d48';
+    ctx.beginPath();
+    ctx.arc(4, -28, 13, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Cream cheek patch
+    ctx.fillStyle = '#fef3c7';
+    ctx.beginPath();
+    ctx.arc(8, -27, 6.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(9, -28, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Hooked beak
+    ctx.fillStyle = '#fcd34d';
+    ctx.beginPath();
+    ctx.moveTo(14, -33);
+    ctx.quadraticCurveTo(26, -30, 20, -19);
+    ctx.lineTo(13, -24);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // 3. CUTE DACHSHUND PUPPY ON FLOOR
+    const pup = PUPPY_SPOTS[stateObj.puppySpot];
+    const pupJump = stateObj.puppyAnim > 0 ? Math.abs(Math.sin(stateObj.puppyAnim * 16)) * 22 : 0;
+    const wagSpeed = stateObj.puppyAnim > 0 ? 28 : 6;
+    ctx.save();
+    ctx.translate(pup.x, pup.y - pupJump);
+    ctx.scale(pup.flip, 1);
+
+    // Shadow on floor
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+    ctx.beginPath();
+    ctx.ellipse(0, 26 + pupJump, 58, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Wagging tail
+    ctx.save();
+    ctx.translate(-44, -8);
+    ctx.rotate(Math.sin(time * wagSpeed) * 0.38);
+    ctx.strokeStyle = '#6b3818';
+    ctx.lineWidth = 8;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(-18, -14, -24, -26);
+    ctx.stroke();
+    ctx.restore();
+
+    // Back & Front short legs
+    ctx.fillStyle = '#8c4a20';
+    drawRoundedRect(-42, 4, 14, 22, 6);
+    ctx.fill();
+    drawRoundedRect(24, 4, 14, 22, 6);
+    ctx.fill();
+
+    // Long sausage body
+    const pupGrad = ctx.createLinearGradient(0, -24, 0, 16);
+    pupGrad.addColorStop(0, '#783c16');
+    pupGrad.addColorStop(0.7, '#9e5424');
+    pupGrad.addColorStop(1, '#c47a44');
+    ctx.fillStyle = pupGrad;
+    drawRoundedRect(-48, -18, 92, 32, 16);
+    ctx.fill();
+
+    // Red collar with gold tag
+    ctx.strokeStyle = '#d62828';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(32, -16);
+    ctx.lineTo(42, 8);
+    ctx.stroke();
+    ctx.fillStyle = '#ffd166';
+    ctx.beginPath();
+    ctx.arc(43, 13, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Puppy Head & Snout
+    ctx.fillStyle = '#8c4a20';
+    ctx.beginPath();
+    ctx.arc(44, -22, 20, 0, Math.PI * 2);
+    ctx.fill();
+    // Long snout
+    drawRoundedRect(48, -24, 28, 16, 8);
+    ctx.fill();
+    // Shiny black nose
+    ctx.fillStyle = '#1a1412';
+    ctx.beginPath();
+    ctx.arc(75, -19, 5.5, 0, Math.PI * 2);
+    ctx.fill();
+    // Expressive eye + tan eyebrow dot
+    ctx.fillStyle = '#d99b66';
+    ctx.beginPath();
+    ctx.arc(54, -31, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#140c06';
+    ctx.beginPath();
+    ctx.arc(53, -24, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(54.5, -25.5, 1.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Big floppy ear
+    ctx.fillStyle = '#4d240b';
+    ctx.beginPath();
+    ctx.ellipse(34, -12, 11, 21, 0.25, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // 4. RED YARN BALL WITH KNITTING NEEDLES
+    const yarn = YARN_SPOTS[stateObj.yarnSpot];
+    const rollX = stateObj.yarnAnim > 0 ? Math.sin(stateObj.yarnAnim * 15) * 26 : 0;
+    const rollRot = stateObj.yarnAnim > 0 ? stateObj.yarnAnim * 8 : 0;
+    ctx.save();
+    ctx.translate(yarn.x + rollX, yarn.y);
+
+    // Trailing crimson yarn thread on floor
+    ctx.strokeStyle = '#c92a2a';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(0, 12);
+    ctx.quadraticCurveTo(35, 22, 62, 10);
+    ctx.quadraticCurveTo(82, 0, 95, 16);
+    ctx.stroke();
+
+    ctx.rotate(rollRot);
+    // Crossed wooden knitting needles
+    ctx.strokeStyle = '#deb887';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(-36, -24);
+    ctx.lineTo(36, 20);
+    ctx.moveTo(-32, 24);
+    ctx.lineTo(34, -26);
+    ctx.stroke();
+
+    // Yarn sphere
+    const yGrad = ctx.createRadialGradient(-8, -8, 4, 0, 0, 26);
+    yGrad.addColorStop(0, '#ff6b6b');
+    yGrad.addColorStop(0.6, '#c92a2a');
+    yGrad.addColorStop(1, '#780f0f');
+    ctx.fillStyle = yGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, 25, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Wrapped yarn texture arcs
+    ctx.strokeStyle = 'rgba(255, 190, 190, 0.35)';
+    ctx.lineWidth = 2.5;
+    for (let a = 0; a < Math.PI; a += 0.5) {
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 23, 10, a, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // ============================================================================
+  // REALISTIC PROCEDURAL CAT RENDERER (All 4 Cats + 5 Natural Poses + Reactions)
+  // ============================================================================
+  function drawRealisticCat(catPlacement, time, isMemoryGhost = false) {
+    const def = CAT_DEFS.find(d => d.id === catPlacement.catId);
+    const spot = SPOTS[catPlacement.spotIndex];
+    if (!def || !spot) return;
+
+    ctx.save();
+    let x = spot.x;
+    let y = spot.y;
+    let scale = spot.scale;
+    let rot = 0;
+
+    // Active reaction animations (Wrong cat head-shake OR Moved cat 4 celebration styles!)
+    if (catPlacement.reactionTimer > 0) {
+      const p = catPlacement.reactionTimer; // 1.0 -> 0.0
+      if (catPlacement.reactionType === 'wrong') {
+        // Comical "not me!" side-to-side head & shoulder shake
+        x += Math.sin(p * Math.PI * 10) * 10;
+      } else if (catPlacement.reactionType === 'correct') {
+        const style = catPlacement.celebStyle % 4;
+        if (style === 0) {
+          // Style 0: Joyful high jump + full backflip!
+          y -= Math.sin(p * Math.PI) * 125;
+          rot = (1 - p) * Math.PI * 2 * spot.flip;
+        } else if (style === 1) {
+          // Style 1: Playful stretch & bouncy dance
+          y -= Math.abs(Math.sin(p * Math.PI * 3)) * 65;
+          scale *= 1 + 0.16 * Math.sin(p * Math.PI * 6);
+          rot = Math.sin(p * Math.PI * 4) * 0.22;
+        } else if (style === 2) {
+          // Style 2: Energetic figure-eight pounce with golden aura
+          x += Math.sin(p * Math.PI * 4) * 42;
+          y -= Math.abs(Math.sin(p * Math.PI * 2)) * 85;
+        } else {
+          // Style 3: Royal levitating spin & starlight pulse
+          y -= Math.sin(p * Math.PI) * 90;
+          scale *= 1 + 0.2 * Math.sin(p * Math.PI);
+        }
+      }
+    }
+
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.scale(scale * spot.flip, scale);
+
+    // If in Memory Peek mode and this is the cat that was about to move, draw a warm golden halo!
+    if (isMemoryGhost && catPlacement.catId === movedCatId) {
+      const halo = ctx.createRadialGradient(0, -25, 10, 0, -25, 95);
+      halo.addColorStop(0, 'rgba(255, 215, 80, 0.55)');
+      halo.addColorStop(1, 'rgba(255, 215, 80, 0)');
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(0, -25, 95, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Breathing rhythm
+    const breath = Math.sin(time * 2.6 + def.index * 1.7) * 2.2;
+    const tailPhase = time * (catPlacement.reactionTimer > 0 ? 12 : 2.8) + def.index * 2.1;
+
+    // Ground contact shadow (except inside box/basket or behind curtain)
+    if (spot.pose !== 'box' && spot.pose !== 'peek') {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
+      ctx.beginPath();
+      ctx.ellipse(0, 14, 58, 13, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Pose-specific body & tail drawing
+    const pose = spot.pose; // 'sit' | 'loaf' | 'curl' | 'lounge' | 'box' | 'peek'
+
+    if (pose === 'sit') {
+      // Swaying tail behind sitting body
+      drawCatTail(def, -34, 4, tailPhase, 0.4);
+      // Haunches & chest
+      drawCatTorso(def, 0, -24, 40, 48 + breath, -0.08);
+      // Front paws neatly together
+      drawCatPaw(def, 18, 10, 13, 9);
+      drawCatPaw(def, 30, 8, 13, 9);
+      // Head
+      drawCatHead(def, 18, -72 + breath * 0.5, time, catPlacement);
+    } else if (pose === 'loaf') {
+      // Tail curled behind loaf
+      drawCatTail(def, -52, 2, tailPhase, 0.15);
+      // Rounded loaf body
+      drawCatTorso(def, -6, -12, 56, 36 + breath, 0);
+      // Tucked front paws
+      drawCatPaw(def, 36, 8, 14, 8);
+      // Head
+      drawCatHead(def, 38, -36 + breath * 0.5, time, catPlacement);
+    } else if (pose === 'curl') {
+      // Cozy curled-up posture
+      drawCatTorso(def, 0, -10, 54, 34 + breath, 0.05);
+      // Head resting low on front paws
+      drawCatPaw(def, 28, 10, 14, 8);
+      drawCatHead(def, 26, -20 + breath * 0.4, time, catPlacement);
+      // Fluffy tail wrapped around the front!
+      drawCatTail(def, -42, 8, tailPhase * 0.5, -1.2);
+    } else if (pose === 'lounge') {
+      // High shelf / clock lounge with dangling tail and dangling front paw!
+      drawCatTail(def, -46, 6, tailPhase, 1.35); // Hanging down
+      drawCatTorso(def, -4, -14, 55, 34 + breath, 0);
+      // Dangling front leg over the ledge
+      ctx.save();
+      ctx.fillStyle = def.baseColor;
+      drawRoundedRect(24, -4, 15, 38, 7);
+      ctx.fill();
+      drawCatPaw(def, 31, 34, 11, 9);
+      ctx.restore();
+      drawCatHead(def, 38, -36 + breath * 0.5, time, catPlacement);
+    } else if (pose === 'box') {
+      // Sitting inside cardboard box or woven basket: chest & paws over rim
+      drawCatTail(def, -38, -18, tailPhase, 0.6);
+      drawCatTorso(def, 0, -18, 42, 34 + breath, 0);
+      drawCatHead(def, 8, -52 + breath * 0.5, time, catPlacement);
+      // Paws resting on front edge of box/basket
+      drawCatPaw(def, -12, -8, 13, 10);
+      drawCatPaw(def, 24, -8, 13, 10);
+    } else if (pose === 'peek') {
+      // Peeking out from behind right velvet curtain
+      drawCatTorso(def, -18, -12, 38, 36, 0);
+      drawCatPaw(def, 18, 10, 13, 9);
+      drawCatHead(def, 22, -42 + breath * 0.4, time, catPlacement);
+    }
+
+    ctx.restore();
+  }
+
+  function drawCatTail(def, startX, startY, phase, baseAngle) {
+    ctx.save();
+    ctx.translate(startX, startY);
+    ctx.rotate(baseAngle);
+    const wag = Math.sin(phase) * 18;
+
+    ctx.strokeStyle = def.midColor;
+    ctx.lineWidth = def.fluffy ? 18 : 13;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(-28, -12 + wag * 0.4, -52, -28 + wag, -64, -8 + wag * 1.2);
+    ctx.stroke();
+
+    ctx.strokeStyle = def.baseColor;
+    ctx.lineWidth = def.fluffy ? 14 : 10;
+    ctx.stroke();
+
+    // Ginger tabby tail rings
+    if (def.stripes) {
+      ctx.strokeStyle = def.stripeColor;
+      ctx.lineWidth = def.fluffy ? 14 : 10;
+      ctx.setLineDash([6, 9]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.restore();
+  }
+
+  function drawCatTorso(def, cx, cy, rx, ry, angle) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+
+    const grad = ctx.createRadialGradient(rx * 0.2, -ry * 0.25, rx * 0.15, 0, 0, Math.max(rx, ry));
+    grad.addColorStop(0, def.baseColor);
+    grad.addColorStop(0.7, def.midColor);
+    grad.addColorStop(1, def.shadowColor);
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Fluffy chest ruff for White & Grey cats, or cream chest for Ginger tabby
+    if (def.fluffy || def.bellyColor) {
+      ctx.fillStyle = def.bellyColor || def.baseColor;
+      ctx.beginPath();
+      ctx.ellipse(rx * 0.42, -ry * 0.08, rx * 0.42, ry * 0.65, 0.15, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Tabby stripes on torso
+    if (def.stripes) {
+      ctx.strokeStyle = def.stripeColor;
+      ctx.lineWidth = 4.5;
+      ctx.lineCap = 'round';
+      for (let i = -2; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.arc(i * 13, -4, ry * 0.72, -Math.PI * 0.72, -Math.PI * 0.25);
+        ctx.stroke();
+      }
+    }
+
+    // Glossy specular sheen for sleek Black cat
+    if (def.shineColor) {
+      ctx.strokeStyle = def.shineColor;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(-4, -ry * 0.25, rx * 0.6, -Math.PI * 0.75, -Math.PI * 0.3);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawCatPaw(def, x, y, rx, ry) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = def.bellyColor || def.baseColor;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = def.shadowColor;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Subtle toe lines
+    ctx.beginPath();
+    ctx.moveTo(rx * 0.3, -ry * 0.3);
+    ctx.lineTo(rx * 0.75, -ry * 0.2);
+    ctx.moveTo(rx * 0.35, ry * 0.25);
+    ctx.lineTo(rx * 0.8, ry * 0.3);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawCatHead(def, hx, hy, time, catPlacement) {
+    ctx.save();
+    ctx.translate(hx, hy);
+
+    // Subtle head tilt or wrong-click shake
+    let headTilt = Math.sin(time * 1.4 + def.index * 2) * 0.05;
+    let earFlatten = 0;
+    if (catPlacement.reactionTimer > 0 && catPlacement.reactionType === 'wrong') {
+      headTilt = Math.sin(catPlacement.reactionTimer * Math.PI * 12) * 0.26;
+      earFlatten = 0.38;
+    }
+    ctx.rotate(headTilt);
+
+    // 1. Ears (with occasional twitch)
+    const twitch = Math.sin(time * 6 + def.index * 3) > 0.94 ? 0.14 : 0;
+    // Left/Back Ear
+    ctx.save();
+    ctx.translate(-14, -22);
+    ctx.rotate(-0.28 - earFlatten + twitch);
+    ctx.fillStyle = def.midColor;
+    ctx.beginPath();
+    ctx.moveTo(-12, 6);
+    ctx.quadraticCurveTo(-8, -24, 2, -26);
+    ctx.quadraticCurveTo(14, -14, 12, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = def.earInner;
+    ctx.beginPath();
+    ctx.moveTo(-6, 4);
+    ctx.quadraticCurveTo(-4, -16, 2, -18);
+    ctx.quadraticCurveTo(8, -10, 7, 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // Right/Front Ear
+    ctx.save();
+    ctx.translate(14, -22);
+    ctx.rotate(0.25 + earFlatten);
+    ctx.fillStyle = def.baseColor;
+    ctx.beginPath();
+    ctx.moveTo(-12, 6);
+    ctx.quadraticCurveTo(-8, -24, 2, -26);
+    ctx.quadraticCurveTo(14, -14, 12, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = def.earInner;
+    ctx.beginPath();
+    ctx.moveTo(-6, 4);
+    ctx.quadraticCurveTo(-4, -16, 2, -18);
+    ctx.quadraticCurveTo(8, -10, 7, 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // 2. Main Cranium & Fluffy Cheek Ruffs
+    const headGrad = ctx.createRadialGradient(4, -6, 5, 0, 0, 32);
+    headGrad.addColorStop(0, def.baseColor);
+    headGrad.addColorStop(0.75, def.midColor);
+    headGrad.addColorStop(1, def.shadowColor);
+    ctx.fillStyle = headGrad;
+
+    ctx.beginPath();
+    ctx.ellipse(0, 0, def.fluffy ? 31 : 27, 25, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Fluffy cheek tufts for white and grey cats
+    if (def.fluffy) {
+      ctx.fillStyle = def.baseColor;
+      ctx.beginPath();
+      ctx.moveTo(-25, 2);
+      ctx.lineTo(-36, 6);
+      ctx.lineTo(-28, 12);
+      ctx.lineTo(-33, 17);
+      ctx.lineTo(-18, 18);
+      ctx.moveTo(25, 2);
+      ctx.lineTo(36, 6);
+      ctx.lineTo(28, 12);
+      ctx.lineTo(33, 17);
+      ctx.lineTo(18, 18);
+      ctx.fill();
+    }
+
+    // Tabby forehead "M" markings
+    if (def.stripes) {
+      ctx.strokeStyle = def.stripeColor;
+      ctx.lineWidth = 2.8;
+      ctx.beginPath();
+      ctx.moveTo(-10, -12);
+      ctx.lineTo(-5, -19);
+      ctx.lineTo(0, -13);
+      ctx.lineTo(5, -19);
+      ctx.lineTo(10, -12);
+      ctx.stroke();
+    }
+
+    // 3. Expressive Cat Eyes (with natural blinking)
+    const blinkCycle = (time * 0.7 + def.index * 1.3) % 4.5;
+    const eyeOpen = (blinkCycle > 4.32) ? 0.08 : 1.0;
+
+    [-10, 11].forEach((ex, idx) => {
+      ctx.save();
+      ctx.translate(ex, -2);
+      ctx.scale(1, eyeOpen);
+
+      // Luminous iris
+      ctx.fillStyle = def.eyeColor;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 7.2, 6.6, idx === 0 ? 0.1 : -0.1, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = def.eyeRim;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Vertical slit pupil (dilates wider when excited/celebrating!)
+      const pupilW = (catPlacement.reactionTimer > 0 && catPlacement.reactionType === 'correct') ? 4.8 : 2.5;
+      ctx.fillStyle = '#0d0d12';
+      ctx.beginPath();
+      ctx.ellipse(0.5, 0, pupilW, 5.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Dual specular catchlights
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(-2.2, -2.2, 2.1, 0, Math.PI * 2);
+      ctx.arc(2.2, 2.0, 1.0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // 4. Plump Whisker Pads, Cute Triangle Nose & Mouth
+    ctx.fillStyle = def.bellyColor || def.baseColor;
+    ctx.beginPath();
+    ctx.arc(-5, 10, 7.5, 0, Math.PI * 2);
+    ctx.arc(6, 10, 7.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Nose
+    ctx.fillStyle = def.noseColor;
+    ctx.beginPath();
+    ctx.moveTo(-4.5, 5.5);
+    ctx.lineTo(5.5, 5.5);
+    ctx.lineTo(0.5, 10.5);
+    ctx.closePath();
+    ctx.fill();
+
+    // Happy open meow mouth when celebrating!
+    if (catPlacement.reactionTimer > 0.35 && catPlacement.reactionType === 'correct') {
+      ctx.fillStyle = '#d95d6e';
+      ctx.beginPath();
+      ctx.arc(0.5, 13, 5, 0, Math.PI);
+      ctx.fill();
+    }
+
+    // 5. Long Delicate Whiskers
+    ctx.strokeStyle = 'rgba(255, 250, 240, 0.72)';
+    ctx.lineWidth = 1.3;
+    [-1, 1].forEach(dir => {
+      for (let w = -1; w <= 1; w++) {
+        ctx.beginPath();
+        ctx.moveTo(dir * 10, 10 + w * 2.5);
+        ctx.quadraticCurveTo(dir * 26, 9 + w * 4, dir * 40, 12 + w * 6);
+        ctx.stroke();
+      }
+    });
+
+    ctx.restore();
+  }
+
+  // ============================================================================
+  // CEILING CHANDELIER WITH PULL-CORD & WARM ROOM LIGHTING
+  // ============================================================================
+  function drawChandelierAndLighting(time) {
+    const cx = 960;
+
+    // 1. Warm light cone when room lights are on
+    if (roomBrightness > 0.05) {
+      ctx.save();
+      ctx.globalAlpha = roomBrightness * 0.22;
+      const cone = ctx.createRadialGradient(cx, 135, 30, cx, 540, 880);
+      cone.addColorStop(0, 'rgba(255, 230, 150, 0.9)');
+      cone.addColorStop(0.5, 'rgba(255, 200, 110, 0.35)');
+      cone.addColorStop(1, 'rgba(255, 180, 90, 0)');
+      ctx.fillStyle = cone;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+
+    // 2. Pull-cord hanging down from chandelier center (Interactive!)
+    if (cordPullOffset > 0) {
+      cordPullOffset *= 0.84;
+      if (cordPullOffset < 0.5) cordPullOffset = 0;
+    }
+    const cordEndY = 235 + cordPullOffset;
+
+    ctx.save();
+    // Subtle golden pulse around pull-cord acorn so player sees it's interactive
+    const pulse = 0.3 + 0.3 * Math.sin(time * 3.5 + 1);
+    const cordGlow = ctx.createRadialGradient(cx, cordEndY, 4, cx, cordEndY, 34);
+    cordGlow.addColorStop(0, `rgba(255, 220, 100, ${pulse})`);
+    cordGlow.addColorStop(1, 'rgba(255, 220, 100, 0)');
+    ctx.fillStyle = cordGlow;
+    ctx.beginPath();
+    ctx.arc(cx, cordEndY, 34, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Beaded brass chain
+    ctx.strokeStyle = '#d4a243';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(cx, 125);
+    ctx.lineTo(cx, cordEndY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Brass acorn pull handle
+    ctx.fillStyle = '#f0c76e';
+    ctx.beginPath();
+    ctx.ellipse(cx, cordEndY + 6, 9, 13, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#5c3b09';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // 3. Ornate Brass 3-Bulb Chandelier
+    ctx.strokeStyle = '#b8862d';
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(cx, 0);
+    ctx.lineTo(cx, 95);
+    ctx.stroke();
+
+    // Curved brass arms
+    ctx.lineWidth = 6;
+    [-115, 0, 115].forEach(offsetX => {
+      if (offsetX !== 0) {
+        ctx.beginPath();
+        ctx.moveTo(cx, 85);
+        ctx.quadraticCurveTo(cx + offsetX * 0.5, 135, cx + offsetX, 105);
+        ctx.stroke();
+      }
+      // Glowing glass shade & bulb
+      const bx = cx + offsetX;
+      const by = offsetX === 0 ? 115 : 105;
+
+      if (roomBrightness > 0.2) {
+        const bGlow = ctx.createRadialGradient(bx, by + 12, 4, bx, by + 12, 56);
+        bGlow.addColorStop(0, `rgba(255, 245, 190, ${0.85 * roomBrightness})`);
+        bGlow.addColorStop(1, 'rgba(255, 210, 100, 0)');
+        ctx.fillStyle = bGlow;
+        ctx.beginPath();
+        ctx.arc(bx, by + 12, 56, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Frosted amber glass bell shade
+      ctx.fillStyle = roomBrightness > 0.3 ? '#ffe89e' : '#6e5c3e';
+      ctx.beginPath();
+      ctx.moveTo(bx - 16, by - 6);
+      ctx.lineTo(bx + 16, by - 6);
+      ctx.lineTo(bx + 28, by + 18);
+      ctx.lineTo(bx - 28, by + 18);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#7a5414';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    });
+
+    // Center brass finial
+    ctx.fillStyle = '#d4a243';
+    ctx.beginPath();
+    ctx.arc(cx, 92, 18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // ============================================================================
+  // BLACKOUT OVERLAY (Darkness + Moonlight Beam + Glowing Cat Eyes in the Dark)
+  // ============================================================================
+  function drawDarknessOverlay(activeCats, time) {
+    if (roomBrightness >= 0.99) return;
+
+    const darknessAlpha = (1 - roomBrightness) * 0.92;
+    ctx.save();
+
+    // Deep midnight blue-black darkness blanket
+    ctx.fillStyle = `rgba(6, 9, 20, ${darknessAlpha})`;
+    ctx.fillRect(0, 0, W, H);
+
+    // Moonlight shaft streaming from the arched window across the dark room
+    ctx.globalCompositeOperation = 'screen';
+    const moonBeam = ctx.createLinearGradient(350, 180, 920, 980);
+    moonBeam.addColorStop(0, `rgba(120, 175, 255, ${0.26 * (1 - roomBrightness)})`);
+    moonBeam.addColorStop(1, 'rgba(120, 175, 255, 0)');
+    ctx.fillStyle = moonBeam;
+    ctx.beginPath();
+    ctx.moveTo(290, 210);
+    ctx.lineTo(570, 210);
+    ctx.lineTo(1060, 1080);
+    ctx.lineTo(430, 1080);
+    ctx.closePath();
+    ctx.fill();
+
+    // Warm ember glow around the fireplace in the dark
+    const emberGlow = ctx.createRadialGradient(1455, 720, 20, 1455, 720, 320);
+    emberGlow.addColorStop(0, `rgba(255, 100, 20, ${0.45 * (1 - roomBrightness)})`);
+    emberGlow.addColorStop(1, 'rgba(255, 60, 0, 0)');
+    ctx.fillStyle = emberGlow;
+    ctx.beginPath();
+    ctx.arc(1455, 720, 320, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Glowing cat eyes blinking in the dark!
+    ctx.globalCompositeOperation = 'source-over';
+    if (roomBrightness < 0.35) {
+      activeCats.forEach(c => {
+        const def = CAT_DEFS.find(d => d.id === c.catId);
+        const spot = SPOTS[c.spotIndex];
+        if (!def || !spot) return;
+
+        // Slight darting motion of eyes while in the dark
+        const dartX = (c.catId === movedCatId) ? Math.sin(time * 14) * 18 : 0;
+        const ex = spot.x + spot.flip * 22 + dartX;
+        const ey = spot.y - (spot.pose === 'sit' ? 70 : 38) * spot.scale;
+
+        ctx.save();
+        ctx.translate(ex, ey);
+        ctx.fillStyle = def.eyeColor;
+        ctx.shadowColor = def.eyeColor;
+        ctx.shadowBlur = 14;
+        [-9, 9].forEach(dx => {
+          ctx.beginPath();
+          ctx.ellipse(dx, 0, 5.5, 4.5, 0, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.restore();
+      });
+    }
+
+    ctx.restore();
+  }
+
+  // ============================================================================
+  // TOP-RIGHT ICONIC HUD BUTTONS (100% Wordless, Ornate Brass & Mahogany)
+  // 1) "Peek Previous Arrangement" Button (Eye + Rewind Arrow)
+  // 2) Minimalist "Next" Button (Sleek Double Forward Arrow + Spark)
+  // ============================================================================
+  const BTN_PEEK = { x: 1710, y: 74, r: 44 };
+  const BTN_NEXT = { x: 1825, y: 74, r: 44 };
+
+  function drawOrnateHudButtons(time) {
+    // 1. PEEK PREVIOUS ARRANGEMENT BUTTON
+    ctx.save();
+    ctx.translate(BTN_PEEK.x, BTN_PEEK.y);
+    if (peekPreviousMode) {
+      const aura = ctx.createRadialGradient(0, 0, 18, 0, 0, 68);
+      aura.addColorStop(0, 'rgba(255, 215, 70, 0.85)');
+      aura.addColorStop(1, 'rgba(255, 215, 70, 0)');
+      ctx.fillStyle = aura;
+      ctx.beginPath();
+      ctx.arc(0, 0, 68, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Outer carved brass ring
+    const brass1 = ctx.createLinearGradient(-44, -44, 44, 44);
+    brass1.addColorStop(0, '#ffe38f');
+    brass1.addColorStop(0.5, '#b88328');
+    brass1.addColorStop(1, '#5e3c08');
+    ctx.fillStyle = brass1;
+    ctx.beginPath();
+    ctx.arc(0, 0, BTN_PEEK.r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Inner jewel medallion (warm amber when active, deep royal teal when idle)
+    const inner1 = ctx.createRadialGradient(-10, -10, 4, 0, 0, 36);
+    if (peekPreviousMode) {
+      inner1.addColorStop(0, '#ffb703');
+      inner1.addColorStop(1, '#9c5200');
+    } else {
+      inner1.addColorStop(0, '#2a6f62');
+      inner1.addColorStop(1, '#12362f');
+    }
+    ctx.fillStyle = inner1;
+    ctx.beginPath();
+    ctx.arc(0, 0, 36, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Icon: Circular Rewind Arrow + Watchful Eye inside
+    ctx.strokeStyle = '#fff3c4';
+    ctx.lineWidth = 3.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(0, 0, 24, -Math.PI * 0.75, Math.PI * 0.85);
+    ctx.stroke();
+
+    // Rewind arrowhead
+    ctx.fillStyle = '#fff3c4';
+    ctx.beginPath();
+    ctx.moveTo(-22, -16);
+    ctx.lineTo(-10, -24);
+    ctx.lineTo(-13, -10);
+    ctx.closePath();
+    ctx.fill();
+
+    // Eye symbol in center
+    ctx.beginPath();
+    ctx.moveTo(-14, 2);
+    ctx.quadraticCurveTo(0, -10, 14, 2);
+    ctx.quadraticCurveTo(0, 14, -14, 2);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, 2, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // 2. MINIMALIST "NEXT" BUTTON (Immediate Skip / Trigger Next Round)
+    ctx.save();
+    ctx.translate(BTN_NEXT.x, BTN_NEXT.y);
+
+    // Gentle pulse when round is solved to invite clicking Next
+    if (roundSolved) {
+      const s = 1 + 0.06 * Math.sin(time * 6);
+      ctx.scale(s, s);
+      const nextAura = ctx.createRadialGradient(0, 0, 20, 0, 0, 66);
+      nextAura.addColorStop(0, 'rgba(255, 210, 80, 0.65)');
+      nextAura.addColorStop(1, 'rgba(255, 210, 80, 0)');
+      ctx.fillStyle = nextAura;
+      ctx.beginPath();
+      ctx.arc(0, 0, 66, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = brass1;
+    ctx.beginPath();
+    ctx.arc(0, 0, BTN_NEXT.r, 0, Math.PI * 2);
+    ctx.fill();
+
+    const inner2 = ctx.createRadialGradient(-10, -10, 4, 0, 0, 36);
+    inner2.addColorStop(0, '#8f242e');
+    inner2.addColorStop(1, '#450c12');
+    ctx.fillStyle = inner2;
+    ctx.beginPath();
+    ctx.arc(0, 0, 36, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Icon: Sleek Forward Double-Chevron Arrow
+    ctx.fillStyle = '#fff3c4';
+    [-11, 5].forEach(ox => {
+      ctx.beginPath();
+      ctx.moveTo(ox - 4, -14);
+      ctx.lineTo(ox + 12, 0);
+      ctx.lineTo(ox - 4, 14);
+      ctx.lineTo(ox - 4, -14);
+      ctx.closePath();
+      ctx.fill();
+    });
+    ctx.restore();
+  }
+
+  // ============================================================================
+  // MEMORY PEEK SEPIA-GOLD VIGNETTE EFFECT
+  // ============================================================================
+  function drawMemoryPeekOverlay(time) {
+    if (!peekPreviousMode) return;
+    ctx.save();
+
+    // Warm golden memory vignette frame around the widescreen view
+    const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, W * 0.62);
+    vig.addColorStop(0, 'rgba(255, 215, 120, 0.06)');
+    vig.addColorStop(0.7, 'rgba(218, 155, 45, 0.22)');
+    vig.addColorStop(1, 'rgba(110, 65, 10, 0.65)');
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, W, H);
+
+    // Ornate dashed golden memory border
+    ctx.strokeStyle = 'rgba(255, 225, 130, 0.75)';
+    ctx.lineWidth = 6;
+    ctx.setLineDash([18, 12]);
+    ctx.lineDashOffset = -time * 40;
+    drawRoundedRect(24, 24, W - 48, H - 48, 22);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.restore();
+  }
+
+  // ============================================================================
+  // CELEBRATION & PAW-TRAIL PARTICLES RENDERER
+  // ============================================================================
+  function updateAndDrawParticles(dt) {
+    // 1. Golden Paw-Print Trail from previous spot to new spot
+    for (let i = trailParticles.length - 1; i >= 0; i--) {
+      const tp = trailParticles[i];
+      tp.age += dt;
+      if (tp.age >= tp.delay) {
+        const progress = (tp.age - tp.delay) / tp.life;
+        if (progress >= 1) {
+          trailParticles.splice(i, 1);
+          continue;
+        }
+        const alpha = Math.sin(progress * Math.PI) * 0.85;
+        drawPawPrint(tp.x, tp.y, 16, '#ffd700', alpha, tp.angle);
+      }
+    }
+
+    // 2. Burst Celebration Particles (Stars, Musical Notes, Hearts, Paws)
+    for (let i = celebrationParticles.length - 1; i >= 0; i--) {
+      const p = celebrationParticles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.22; // gentle gravity
+      p.rot += p.vRot;
+      p.life -= dt * 0.75;
+
+      if (p.life <= 0) {
+        celebrationParticles.splice(i, 1);
+        continue;
+      }
+
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.strokeStyle = p.color;
+
+      if (p.shape === 'star') {
+        drawStarShape(0, 0, 5, p.size, p.size * 0.45);
+      } else if (p.shape === 'note') {
+        // Musical eighth note
+        ctx.beginPath();
+        ctx.ellipse(-4, 4, p.size * 0.45, p.size * 0.32, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(p.size * 0.3, 4);
+        ctx.lineTo(p.size * 0.3, -p.size * 0.9);
+        ctx.quadraticCurveTo(p.size * 0.8, -p.size * 0.6, p.size * 0.7, -p.size * 0.2);
+        ctx.stroke();
+      } else if (p.shape === 'heart') {
+        const s = p.size * 0.6;
+        ctx.beginPath();
+        ctx.moveTo(0, s * 0.4);
+        ctx.bezierCurveTo(-s, -s * 0.4, -s * 0.5, -s * 1.2, 0, -s * 0.4);
+        ctx.bezierCurveTo(s * 0.5, -s * 1.2, s, -s * 0.4, 0, s * 0.4);
+        ctx.fill();
+      } else {
+        drawPawPrint(0, 0, p.size * 0.8, p.color, p.life, 0);
+      }
+      ctx.restore();
+    }
+  }
+
+  // ============================================================================
+  // AMBIENT FLOATING DUST MOTES
+  // ============================================================================
+  function drawDustMotes(time) {
+    ctx.save();
+    dustMotes.forEach(m => {
+      m.x += m.vx + Math.sin(time + m.phase) * 0.15;
+      m.y += m.vy;
+      if (m.y < 0) m.y = H;
+      if (m.x < 0) m.x = W;
+      if (m.x > W) m.x = 0;
+
+      ctx.fillStyle = `rgba(255, 232, 175, ${m.alpha * roomBrightness})`;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.restore();
+  }
+
+  // ============================================================================
+  // UNIFIED SCENE RENDERER WITH PROPER DEPTH LAYERING
+  // ============================================================================
+  function renderScene(time, dt) {
+    ctx.clearRect(0, 0, W, H);
+
+    // Choose whether we are rendering the live state or the Peek Previous state
+    const activeCats = (peekPreviousMode && previousCats.length) ? previousCats : currentCats;
+    const activeDistractors = (peekPreviousMode && previousDistractors) ? previousDistractors : distractors;
+
+    // 1. Living Room Background & Furniture
+    drawLivingRoomBackground(time);
+
+    // 2. Back halves of containers (Box, Basket, Ottoman)
+    drawContainerBack('cardboard_box');
+    drawContainerBack('ottoman_top');
+    drawContainerBack('woven_basket');
+
+    // 3. Mid-layer cats (Bookshelf top, Windowsill, Clock top, Under table)
+    activeCats.forEach(c => {
+      const sp = SPOTS[c.spotIndex];
+      if (sp && sp.layer === 'mid') {
+        drawRealisticCat(c, time, peekPreviousMode);
+      }
+    });
+
+    // 4. Mid-front cats (Sofa cushion, Armchair seat, Curtain peek)
+    activeCats.forEach(c => {
+      const sp = SPOTS[c.spotIndex];
+      if (sp && sp.layer === 'mid_front') {
+        drawRealisticCat(c, time, peekPreviousMode);
+      }
+    });
+
+    // Right window curtain overlaps in front of the curtain-peeking cat!
+    drawContainerFront('curtain_peek');
+
+    // 5. Distracting Animals & Objects (Mouse, Parrot, Puppy, Yarn Ball)
+    drawDistractors(activeDistractors, time);
+
+    // 6. Front-layer cats (Cardboard box, Woven basket, Fireplace hearth, Ottoman)
+    activeCats.forEach(c => {
+      const sp = SPOTS[c.spotIndex];
+      if (sp && sp.layer === 'front') {
+        drawRealisticCat(c, time, peekPreviousMode);
+      }
+    });
+
+    // 7. Front rims of Cardboard Box & Woven Basket (so cats sit INSIDE them!)
+    drawContainerFront('cardboard_box');
+    drawContainerFront('woven_basket');
+
+    // 8. Chandelier, Pull-Cord & Ambient Dust Motes
+    drawChandelierAndLighting(time);
+    drawDustMotes(time);
+
+    // 9. Celebration sparkles & Paw-print movement trail
+    updateAndDrawParticles(dt);
+
+    // 10. Blackout Darkness & Glowing Cat Eyes
+    drawDarknessOverlay(activeCats, time);
+
+    // 11. Memory Peek Golden Vignette (when viewing Previous Arrangement)
+    drawMemoryPeekOverlay(time);
+
+    // 12. Top-Right HUD Iconic Buttons (Peek Previous + Next)
+    drawOrnateHudButtons(time);
+  }
+
+  // ============================================================================
+  // UPDATE LOOP (Light Flicker State Machine & Animation Timers)
+  // ============================================================================
+  let lastTime = performance.now();
+
+  function update(now) {
+    const dt = Math.min(0.05, (now - lastTime) / 1000);
+    lastTime = now;
+    const time = now / 1000;
+
+    // Update cat reaction timers
+    currentCats.forEach(c => {
+      if (c.reactionTimer > 0) {
+        c.reactionTimer = Math.max(0, c.reactionTimer - dt * 0.72);
+      }
+    });
+
+    // Update distractor click animations
+    ['puppyAnim', 'mouseAnim', 'yarnAnim', 'parrotAnim', 'aquariumAnim'].forEach(key => {
+      if (distractors[key] > 0) {
+        distractors[key] = Math.max(0, distractors[key] - dt * 1.4);
+      }
+    });
+
+    // Light Blink & Blackout state machine
+    if (lightState === 'flicker_out') {
+      blackoutTimer += dt;
+      // Realistic 3-blink fluorescent/incandescent flicker pattern
+      if (blackoutTimer < 0.08) {
+        roomBrightness = 0.25;
+      } else if (blackoutTimer < 0.16) {
+        if (roomBrightness < 0.5) sound.playBulbBuzz(0.06);
+        roomBrightness = 0.92;
+      } else if (blackoutTimer < 0.25) {
+        roomBrightness = 0.12;
+      } else if (blackoutTimer < 0.33) {
+        roomBrightness = 0.75;
+      } else {
+        roomBrightness = 0.0;
+        lightState = 'dark';
+        blackoutTimer = 0;
+        performDarkRoomSwap();
+      }
+    } else if (lightState === 'dark') {
+      blackoutTimer += dt;
+      roomBrightness = 0.0;
+      if (blackoutTimer >= 1.05) {
+        lightState = 'flicker_in';
+        blackoutTimer = 0;
+        sound.playSwitchClick(1.12);
+      }
+    } else if (lightState === 'flicker_in') {
+      blackoutTimer += dt;
+      if (blackoutTimer < 0.07) {
+        roomBrightness = 0.85;
+      } else if (blackoutTimer < 0.13) {
+        roomBrightness = 0.35;
+      } else {
+        roomBrightness = 1.0;
+        lightState = 'on';
+        blackoutTimer = 0;
+      }
+    }
+
+    renderScene(time, dt);
+    requestAnimationFrame(update);
+  }
+
+  // ============================================================================
+  // INTERACTION & HIT-TESTING (Mouse & Touch)
+  // ============================================================================
+  function getCanvasCoords(evt) {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+    const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+    return {
+      x: ((clientX - rect.left) / rect.width) * W,
+      y: ((clientY - rect.top) / rect.height) * H
+    };
+  }
+
+  function handlePointerDown(evt) {
+    evt.preventDefault();
+    sound.init();
+    autoFirstBlinkScheduled = false;
+
+    const pt = getCanvasCoords(evt);
+
+    // 1. Check Top-Right "Peek Previous Arrangement" Button
+    if (Math.hypot(pt.x - BTN_PEEK.x, pt.y - BTN_PEEK.y) <= BTN_PEEK.r + 8) {
+      if (lightState === 'on') {
+        peekPreviousMode = !peekPreviousMode;
+        sound.playMemoryShimmer(peekPreviousMode);
+      }
+      return;
+    }
+
+    // 2. Check Top-Right Minimalist "Next" Button (Immediate next task!)
+    if (Math.hypot(pt.x - BTN_NEXT.x, pt.y - BTN_NEXT.y) <= BTN_NEXT.r + 8) {
+      triggerBlackout(false);
+      return;
+    }
+
+    // If user is currently in Peek Previous Mode, clicking anywhere in the room
+    // smoothly returns them to the current room state so they can answer
+    if (peekPreviousMode) {
+      peekPreviousMode = false;
+      sound.playMemoryShimmer(false);
+      return;
+    }
+
+    // Ignore room clicks while lights are actively flickering/dark
+    if (lightState !== 'on') return;
+
+    // 3. Check Wall Light Switch (x: 635, y: 470)
+    if (Math.abs(pt.x - 635) <= 44 && Math.abs(pt.y - 470) <= 52) {
+      triggerBlackout(false);
+      return;
+    }
+
+    // 4. Check Hanging Chandelier & Pull-Cord (x: 960, y: 0..265)
+    if (
+      (Math.abs(pt.x - 960) <= 145 && pt.y <= 145) ||
+      (Math.abs(pt.x - 960) <= 42 && pt.y >= 110 && pt.y <= 275)
+    ) {
+      triggerBlackout(true);
+      return;
+    }
+
+    // 5. Check Clicking on any of the 4 Cats!
+    // Check front-to-back so overlapping elements feel accurate
+    for (let i = currentCats.length - 1; i >= 0; i--) {
+      const catPlacement = currentCats[i];
+      const spot = SPOTS[catPlacement.spotIndex];
+      const hitX = spot.x;
+      const hitY = spot.y - 28 * spot.scale;
+      const dist = Math.hypot(pt.x - hitX, pt.y - hitY);
+
+      if (dist <= 78 * spot.scale) {
+        if (catPlacement.catId === movedCatId) {
+          // If already solved and celebration finished, clicking the winner cat again can even trigger next round!
+          if (roundSolved && catPlacement.reactionTimer <= 0.05) {
+            triggerBlackout(false);
+            return;
+          }
+          // CORRECT! This is the cat that moved!
+          roundSolved = true;
+          catPlacement.reactionType = 'correct';
+          catPlacement.reactionTimer = 1.0;
+          catPlacement.celebStyle = celebrationCounter++;
+
+          const oldSpot = SPOTS[movedFromSpot] || spot;
+          spawnCelebration(spot.x, spot.y - 30, oldSpot.x, oldSpot.y - 20, catPlacement.celebStyle);
+          sound.playHappyMeow(CAT_DEFS.findIndex(d => d.id === catPlacement.catId), catPlacement.celebStyle);
+        } else {
+          // WRONG CAT! Play comical "Not me!" head-shake & questioning mrrp
+          catPlacement.reactionType = 'wrong';
+          catPlacement.reactionTimer = 0.65;
+          sound.playWrongCatMrrp(CAT_DEFS.findIndex(d => d.id === catPlacement.catId));
+        }
+        return;
+      }
+    }
+
+    // 6. Check Interactive Distractors (Puppy, Parrot, Mouse, Yarn, Aquarium)
+    const pup = PUPPY_SPOTS[distractors.puppySpot];
+    if (Math.hypot(pt.x - pup.x, pt.y - pup.y) <= 72) {
+      distractors.puppyAnim = 1.0;
+      sound.playPuppyYip();
+      return;
+    }
+
+    if (Math.hypot(pt.x - 1305, pt.y - 490) <= 68) {
+      distractors.parrotAnim = 1.0;
+      sound.playParrotChirp();
+      return;
+    }
+
+    const hole = MOUSE_HOLES[distractors.mouseHole];
+    if (Math.hypot(pt.x - hole.x, pt.y - hole.y) <= 48) {
+      distractors.mouseAnim = 1.0;
+      sound.playMouseSqueak();
+      return;
+    }
+
+    const yarn = YARN_SPOTS[distractors.yarnSpot];
+    if (Math.hypot(pt.x - yarn.x, pt.y - yarn.y) <= 46) {
+      distractors.yarnAnim = 1.0;
+      sound.playSoftThump();
+      return;
+    }
+
+    // Aquarium bowl on side table
+    if (Math.hypot(pt.x - 465, pt.y - 552) <= 65) {
+      distractors.aquariumAnim = 1.0;
+      sound.playBubbleSplash();
+      return;
+    }
+  }
+
+  canvas.addEventListener('pointerdown', handlePointerDown, { passive: false });
+
+  // Start main animation loop on load
+  window.onload = function () {
+    lastTime = performance.now();
+    requestAnimationFrame(update);
+  };
+})();
+</script>
+</body>
+</html>
