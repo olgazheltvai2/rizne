@@ -20,7 +20,7 @@
     let topicMapModeActive = false;
     let isRenderingMap = false;
 
-    const LS_COMPACT_HEADER_KEY = 'vlb_compact_eye_v2';
+    const LS_COMPACT_HEADER_KEY = 'vlb_compact_eye_v3';
     const LS_CAL_AUTOSAVE_KEY = 'vlb_calendar_autosave_v1';
 
     // За замовчуванням панель інструментів схована під око (true)
@@ -52,56 +52,46 @@
         if (document.getElementById('vlbAddonsStyles')) return;
         const st = document.createElement('style');
         st.id = 'vlbAddonsStyles';
-        st.textContent = `
-            /* Ховаємо дубльований рядок вкладок піддошок/учнів у верхній панелі */
-            #boardTabsBar {
-                display: none !important;
-            }
-            #breadcrumbBar + div.w-px {
-                display: none !important;
-            }
-
-            /* Назавжди ховаємо текстове нагадування "1 клік — копіює шлях..." у стрічці фільтрів */
-            #infoBanner span.hidden.xl\\:inline {
-                display: none !important;
-            }
-
-            /* Коли око закрите (режим за замовчуванням) — ховаємо праву панель інструментів, кнопки дошки та фільтр рамок */
-            header.vlb-header-compact #vlbRightToolbar,
-            header.vlb-header-compact #infoBanner,
-            header.vlb-header-compact #vlbBoardManageGroup {
-                display: none !important;
-            }
-
-            /* Рамка для текстових завдань (Насичена бурштиново-золота) */
-            .frame-text {
-                border: 3.5px solid #f59e0b !important;
-                box-shadow: 0 4px 12px rgba(245, 158, 11, 0.38), inset 0 0 0 1.5px #090d16 !important;
-            }
-            .frame-text:hover {
-                border-color: #fbbf24 !important;
-                box-shadow: 0 6px 16px rgba(245, 158, 11, 0.62), inset 0 0 0 1.5px #090d16 !important;
-            }
-
-            /* Курсори для вільного перетягування картинки в зумі */
-            #lbViewport {
-                overflow: hidden !important;
-                position: relative !important;
-                user-select: none !important;
-                touch-action: none !important;
-            }
-            #lbMainImage {
-                transition: none !important;
-                transform-origin: center center !important;
-                will-change: transform;
-            }
-            #lbMainImage.lb-can-pan {
-                cursor: grab !important;
-            }
-            #lbMainImage.lb-is-panning {
-                cursor: grabbing !important;
-            }
-        `;
+        st.textContent = [
+            '/* Ховаємо дубльований рядок вкладок піддошок/учнів у верхній панелі */',
+            '#boardTabsBar { display: none !important; }',
+            '#breadcrumbBar + div.w-px { display: none !important; }',
+            '',
+            '/* Назавжди ховаємо текстове нагадування "1 клік — копіює шлях..." у стрічці фільтрів */',
+            '#infoBanner span.hidden { display: none !important; }',
+            '',
+            '/* Коли око закрите — ховаємо праву панель інструментів, кнопки дошки та фільтр рамок */',
+            'header.vlb-header-compact #vlbRightToolbar,',
+            'header.vlb-header-compact #infoBanner,',
+            'header.vlb-header-compact #vlbBoardManageGroup {',
+            '    display: none !important;',
+            '}',
+            '',
+            '/* Рамка для текстових завдань (Насичена бурштиново-золота) */',
+            '.frame-text {',
+            '    border: 3.5px solid #f59e0b !important;',
+            '    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.38), inset 0 0 0 1.5px #090d16 !important;',
+            '}',
+            '.frame-text:hover {',
+            '    border-color: #fbbf24 !important;',
+            '    box-shadow: 0 6px 16px rgba(245, 158, 11, 0.62), inset 0 0 0 1.5px #090d16 !important;',
+            '}',
+            '',
+            '/* Курсори для вільного перетягування картинки в зумі */',
+            '#lbViewport {',
+            '    overflow: hidden !important;',
+            '    position: relative !important;',
+            '    user-select: none !important;',
+            '    touch-action: none !important;',
+            '}',
+            '#lbMainImage {',
+            '    transition: none !important;',
+            '    transform-origin: center center !important;',
+            '    will-change: transform;',
+            '}',
+            '#lbMainImage.lb-can-pan { cursor: grab !important; }',
+            '#lbMainImage.lb-is-panning { cursor: grabbing !important; }'
+        ].join('\n');
         document.head.appendChild(st);
     }
 
@@ -115,7 +105,6 @@
         const topFlexRow = header.firstElementChild;
         if (!topFlexRow) return;
 
-        // Позначаємо праву частину шапки (де пошук, кнопки, хмара, імпорт)
         const searchInput = document.getElementById('searchInput');
         if (searchInput) {
             const rightBlock = searchInput.closest('div.ml-auto');
@@ -124,7 +113,6 @@
             }
         }
 
-        // Позначаємо групу керування дошкою (+ Піддошка, стрілочки, редагування)
         const addBoardBtn = document.getElementById('addBoardBtn');
         if (addBoardBtn && addBoardBtn.parentElement && !addBoardBtn.parentElement.id) {
             addBoardBtn.parentElement.id = 'vlbBoardManageGroup';
@@ -155,12 +143,12 @@
 
         if (isHeaderCompact) {
             header.classList.add('vlb-header-compact');
-            toggleBtn.className = 'ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-900 hover:bg-indigo-600 text-gray-300 hover:text-white border border-gray-700 hover:border-indigo-400 text-xs font-bold transition cursor-pointer shadow-sm';
+            toggleBtn.className = 'ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-900 hover:bg-indigo-600 text-gray-200 hover:text-white border border-gray-700 hover:border-indigo-400 text-xs font-bold transition cursor-pointer shadow-sm';
             toggleBtn.innerHTML = '<span>👁️</span>';
             toggleBtn.title = 'Показати приховані інструменти, пошук, хмару та фільтр рамок';
         } else {
             header.classList.remove('vlb-header-compact');
-            toggleBtn.className = ' flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-rose-600/80 text-indigo-200 hover:text-white border border-indigo-500/60 text-xs font-bold transition cursor-pointer shadow-sm';
+            toggleBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-rose-600/80 text-indigo-200 hover:text-white border border-indigo-500/60 text-xs font-bold transition cursor-pointer shadow-sm';
             toggleBtn.innerHTML = '<span>👁️</span><span>Сховати</span>';
             toggleBtn.title = 'Сховати панель інструментів та фільтр рамок під око';
         }
@@ -511,7 +499,7 @@
                 '<div class="p-6 overflow-y-auto flex-1 bg-[#0b101d]">' +
                     '<div id="vlbTrContent" style="font-size:22px;line-height:1.65;" class="text-gray-100 whitespace-pre-wrap font-medium selection:bg-amber-500 selection:text-gray-950"></div>' +
                     '<textarea id="vlbTrQuickEditArea" rows="10" class="hidden w-full bg-gray-950 border border-amber-500/60 rounded-xl p-4 text-base text-white focus:outline-none leading-relaxed"></textarea>' +
-                </div>' +
+                '</div>' +
                 '<div class="px-5 py-3 bg-gray-900 border-t border-gray-800 flex items-center justify-between gap-2">' +
                     '<span class="text-[11px] text-gray-400">Можна збільшити шрифт кнопками A+ / A− або вивести у чисте вікно на 2-й монітор</span>' +
                     '<div class="flex items-center gap-2">' +
@@ -867,7 +855,7 @@
         const cardModal = document.getElementById('cardModal');
         if (!cardModal || document.getElementById('vlbModalModeBar')) return;
 
-        const modalDialogBox = cardModal.querySelector('div.bg-\\[\\#111827\\]');
+        const modalDialogBox = cardModal.firstElementChild;
         const scrollContainer = cardModal.querySelector('div.p-5.space-y-4');
         const lessonSelectBox = scrollContainer ? scrollContainer.firstElementChild : null;
         if (!scrollContainer || !lessonSelectBox) return;
@@ -1242,7 +1230,7 @@
                     const labelText = card.title || (card.url ? card.url.split(BS).pop().split('/').pop() : (isTxt ? 'Текстове завдання' : 'Завдання'));
 
                     cardsGridHtml +=
-                        '<div class="group/catcard bg-gray-900 border border-gray-800 hover:border-indigo-500 rounded-xl p-1.5 flex flex-col justify-between gap-1.5 transition shadow">' +
+                        '<div data-cat-card-wrap="1" class="bg-gray-900 border border-gray-800 hover:border-indigo-500 rounded-xl p-1.5 flex flex-col justify-between gap-1.5 transition shadow">' +
                             '<div data-cat-pick-lesson="' + lesson.id + '" data-cat-pick-card="' + card.id + '" ' +
                                 'title="Клікніть, щоб одразу додати це завдання у поточний урок" ' +
                                 'class="relative h-24 w-full rounded-lg bg-gray-950 overflow-hidden cursor-pointer flex items-center justify-center ' + fInfo.frameClass + '">' +
@@ -1341,7 +1329,7 @@
                     VLB.moveOrCopyCardBetweenLessons(fromLessonId, fromCardId, destLessonId, null, true);
                 }
 
-                const cardWrapper = pickEl.closest('.group\\/catcard');
+                const cardWrapper = pickEl.closest('[data-cat-card-wrap]');
                 if (cardWrapper) {
                     const btn = cardWrapper.querySelector('button[data-cat-pick-card]');
                     if (btn) {
