@@ -1,7 +1,7 @@
 /* ============================================================================
    addons.js — Розширені модулі для Візуальної Дошки Уроків
    Включає:
-   1. Приховування дубльованого рядка вкладок учнів + режим компактної шапки
+   1. Приховування всієї панелі інструментів та фільтрів під кнопку "👁️" (за замовчуванням сховано)
    2. Інтерактивний календар при редагуванні дати/теми уроку
    3. Окремі текстові завдання (📝 Текст) + рідер та вікно для 2-го монітора
    4. Вільне перетягування (Pan & Zoom) збільшеної картинки у всі боки (верх/краї)
@@ -20,12 +20,16 @@
     let topicMapModeActive = false;
     let isRenderingMap = false;
 
-    const LS_COMPACT_HEADER_KEY = 'vlb_compact_header_v1';
+    const LS_COMPACT_HEADER_KEY = 'vlb_compact_eye_v2';
     const LS_CAL_AUTOSAVE_KEY = 'vlb_calendar_autosave_v1';
 
-    let isHeaderCompact = false;
+    // За замовчуванням панель інструментів схована під око (true)
+    let isHeaderCompact = true;
     try {
-        isHeaderCompact = window.localStorage.getItem(LS_COMPACT_HEADER_KEY) === '1';
+        const savedCompact = window.localStorage.getItem(LS_COMPACT_HEADER_KEY);
+        if (savedCompact !== null) {
+            isHeaderCompact = savedCompact === '1';
+        }
     } catch (e) {}
 
     let calendarAutoSave = true;
@@ -42,14 +46,14 @@
     let catalogTypeFilter = 'all';
 
     /* ------------------------------------------------------------------------
-       0. ДОДАТКОВІ СТИЛІ (КОМПАКТНА ШАПКА, ТЕКСТОВІ КАРТКИ, КАЛЕНДАР, ЗУМ)
+       0. ДОДАТКОВІ СТИЛІ (ПРИХОВУВАННЯ ПІД ОКО, ТЕКСТОВІ КАРТКИ, КАЛЕНДАР, ЗУМ)
        ------------------------------------------------------------------------ */
     function injectCustomStyles() {
         if (document.getElementById('vlbAddonsStyles')) return;
         const st = document.createElement('style');
         st.id = 'vlbAddonsStyles';
         st.textContent = `
-            /* 1. Ховаємо дубльований рядок вкладок піддошок/учнів у верхній панелі */
+            /* Ховаємо дубльований рядок вкладок піддошок/учнів у верхній панелі */
             #boardTabsBar {
                 display: none !important;
             }
@@ -57,18 +61,19 @@
                 display: none !important;
             }
 
-            /* Компактний режим верхньої панелі (залишає тільки Головна + Назад + Шлях + кнопку Інструменти) */
-            header.vlb-header-compact #addBoardBtn,
-            header.vlb-header-compact #boardManageBtns,
-            header.vlb-header-compact #infoBanner,
-            header.vlb-header-compact > div > div:last-child {
-                display: none !important;
-            }
-            header.vlb-header-compact div.flex.items-center.gap-1.bg-gray-900.border.border-gray-800.rounded-lg {
+            /* Назавжди ховаємо текстове нагадування "1 клік — копіює шлях..." у стрічці фільтрів */
+            #infoBanner span.hidden.xl\\:inline {
                 display: none !important;
             }
 
-            /* 3. Рамка для текстових завдань (Насичена бурштиново-золота) */
+            /* Коли око закрите (режим за замовчуванням) — ховаємо праву панель інструментів, кнопки дошки та фільтр рамок */
+            header.vlb-header-compact #vlbRightToolbar,
+            header.vlb-header-compact #infoBanner,
+            header.vlb-header-compact #vlbBoardManageGroup {
+                display: none !important;
+            }
+
+            /* Рамка для текстових завдань (Насичена бурштиново-золота) */
             .frame-text {
                 border: 3.5px solid #f59e0b !important;
                 box-shadow: 0 4px 12px rgba(245, 158, 11, 0.38), inset 0 0 0 1.5px #090d16 !important;
@@ -78,7 +83,7 @@
                 box-shadow: 0 6px 16px rgba(245, 158, 11, 0.62), inset 0 0 0 1.5px #090d16 !important;
             }
 
-            /* 4. Курсори для панорамування (перетягування) картинки в зумі */
+            /* Курсори для вільного перетягування картинки в зумі */
             #lbViewport {
                 overflow: hidden !important;
                 position: relative !important;
@@ -101,12 +106,29 @@
     }
 
     /* ------------------------------------------------------------------------
-       1. КОМПАКТНА ВЕРХНЯ ПАНЕЛЬ (ПРИХОВУВАННЯ ЗАЙВИХ КНОПОК)
+       1. ПРИХОВУВАННЯ ВСІХ ІНСТРУМЕНТІВ ТА ФІЛЬТРІВ ПІД КНОПКУ "👁️"
        ------------------------------------------------------------------------ */
     function setupHeaderCompactToggle() {
         const header = document.querySelector('header');
-        const crumbBar = document.getElementById('breadcrumbBar');
-        if (!header || !crumbBar) return;
+        if (!header) return;
+
+        const topFlexRow = header.firstElementChild;
+        if (!topFlexRow) return;
+
+        // Позначаємо праву частину шапки (де пошук, кнопки, хмара, імпорт)
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            const rightBlock = searchInput.closest('div.ml-auto');
+            if (rightBlock && !rightBlock.id) {
+                rightBlock.id = 'vlbRightToolbar';
+            }
+        }
+
+        // Позначаємо групу керування дошкою (+ Піддошка, стрілочки, редагування)
+        const addBoardBtn = document.getElementById('addBoardBtn');
+        if (addBoardBtn && addBoardBtn.parentElement && !addBoardBtn.parentElement.id) {
+            addBoardBtn.parentElement.id = 'vlbBoardManageGroup';
+        }
 
         let toggleBtn = document.getElementById('vlbHeaderCompactBtn');
         if (!toggleBtn) {
@@ -121,7 +143,7 @@
                 } catch (err) {}
                 applyHeaderCompactState();
             });
-            crumbBar.parentNode.insertBefore(toggleBtn, crumbBar.nextSibling);
+            topFlexRow.appendChild(toggleBtn);
         }
         applyHeaderCompactState();
     }
@@ -133,14 +155,14 @@
 
         if (isHeaderCompact) {
             header.classList.add('vlb-header-compact');
-            toggleBtn.className = 'flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gray-800 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/40 text-xs font-bold transition cursor-pointer shadow-sm ml-1';
-            toggleBtn.innerHTML = '<span>🛠️</span><span>Показати панель</span>';
-            toggleBtn.title = 'Показати всі інструменти, пошук та фільтри верхньої панелі';
+            toggleBtn.className = 'ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-900 hover:bg-indigo-600 text-gray-300 hover:text-white border border-gray-700 hover:border-indigo-400 text-xs font-bold transition cursor-pointer shadow-sm';
+            toggleBtn.innerHTML = '<span>👁️</span>';
+            toggleBtn.title = 'Показати приховані інструменти, пошук, хмару та фільтр рамок';
         } else {
             header.classList.remove('vlb-header-compact');
-            toggleBtn.className = 'flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-900 hover:bg-gray-800 text-gray-400 hover:text-white border border-gray-800 text-[11px] font-semibold transition cursor-pointer ml-1';
-            toggleBtn.innerHTML = '<span>👁️</span><span class="hidden sm:inline">Сховати кнопки</span>';
-            toggleBtn.title = 'Тимчасово приховати всі рідко використовувані кнопки шапки';
+            toggleBtn.className = ' flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-rose-600/80 text-indigo-200 hover:text-white border border-indigo-500/60 text-xs font-bold transition cursor-pointer shadow-sm';
+            toggleBtn.innerHTML = '<span>👁️</span><span>Сховати</span>';
+            toggleBtn.title = 'Сховати панель інструментів та фільтр рамок під око';
         }
     }
 
@@ -209,7 +231,6 @@
             const currentParsed = parseDateFromLessonTitle(titleInp.value);
             const firstDayOfMonth = new Date(viewYear, viewMonth, 1);
             const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-            // Пн = 0 ... Нд = 6
             const startOffset = (firstDayOfMonth.getDay() + 6) % 7;
 
             let daysHtml = '';
@@ -490,7 +511,7 @@
                 '<div class="p-6 overflow-y-auto flex-1 bg-[#0b101d]">' +
                     '<div id="vlbTrContent" style="font-size:22px;line-height:1.65;" class="text-gray-100 whitespace-pre-wrap font-medium selection:bg-amber-500 selection:text-gray-950"></div>' +
                     '<textarea id="vlbTrQuickEditArea" rows="10" class="hidden w-full bg-gray-950 border border-amber-500/60 rounded-xl p-4 text-base text-white focus:outline-none leading-relaxed"></textarea>' +
-                '</div>' +
+                </div>' +
                 '<div class="px-5 py-3 bg-gray-900 border-t border-gray-800 flex items-center justify-between gap-2">' +
                     '<span class="text-[11px] text-gray-400">Можна збільшити шрифт кнопками A+ / A− або вивести у чисте вікно на 2-й монітор</span>' +
                     '<div class="flex items-center gap-2">' +
@@ -607,11 +628,8 @@
         if (!viewport || !img || viewport.dataset.panInitialized === '1') return;
         viewport.dataset.panInitialized = '1';
 
-        // Прибираємо стандартний data-action="lb-zoom-in" із самої картинки,
-        // щоб клік та перетягування мишкою не викликали примусовий зум у центр
         img.removeAttribute('data-action');
 
-        // Наближення коліщатком миші точно до тієї точки картинки, де стоїть курсор
         viewport.addEventListener('wheel', function (e) {
             e.preventDefault();
             e.stopImmediatePropagation();
@@ -636,13 +654,11 @@
             applyEnhancedLightboxTransform();
         }, { capture: true, passive: false });
 
-        // Перетягування мишкою (вгору, вниз, вліво, вправо, до будь-якого краю)
         img.addEventListener('mousedown', function (e) {
             if (e.button !== 0) return;
             e.preventDefault();
             e.stopPropagation();
             if (lbCurrentScale <= 1.01) {
-                // Якщо картинка ще не збільшена — клік збільшує у точку кліку
                 const rect = viewport.getBoundingClientRect();
                 const cursorX = e.clientX - (rect.left + rect.width / 2);
                 const cursorY = e.clientY - (rect.top + rect.height / 2);
@@ -675,7 +691,6 @@
             }
         });
 
-        // Підтримка сенсорного екрана (Surface Pro)
         img.addEventListener('touchstart', function (e) {
             if (e.touches.length === 1 && lbCurrentScale > 1.01) {
                 isDraggingLb = true;
@@ -697,14 +712,12 @@
             isDraggingLb = false;
         });
 
-        // Подвійний клік по картинці — скидання зуму 100%
         img.addEventListener('dblclick', function (e) {
             e.preventDefault();
             e.stopPropagation();
             resetLightboxPanAndZoom();
         });
 
-        // Перехоплюємо кнопки +, −, 100%, ⬅️, ➡️ у верхній панелі Lightbox
         const lbModal = document.getElementById('lightboxModal');
         if (lbModal) {
             lbModal.addEventListener('click', function (e) {
@@ -738,8 +751,7 @@
     }
 
     /* ------------------------------------------------------------------------
-       5. РОЗУМНЕ ПОРІВНЯННЯ ІГОР ТА МОДЕРНІЗАЦІЯ МОДАЛКИ "ДОДАТИ ЗАВДАННЯ":
-          РЕЖИМ 1: СКРІНШОТ/ПОСИЛАННЯ | РЕЖИМ 2: ТЕКСТ | РЕЖИМ 3: КАТАЛОГ З БАЗИ
+       5. РОЗУМНЕ ПОРІВНЯННЯ ІГОР ТА МОДЕРНІЗАЦІЯ МОДАЛКИ "ДОДАТИ ЗАВДАННЯ"
        ------------------------------------------------------------------------ */
     function normalizeUrlKey(rawUrl) {
         let u = VLB.cleanPathQuotes(rawUrl || '').toLowerCase();
@@ -860,7 +872,6 @@
         const lessonSelectBox = scrollContainer ? scrollContainer.firstElementChild : null;
         if (!scrollContainer || !lessonSelectBox) return;
 
-        // Обгортаємо стандартні поля (1. Картинки, 2. Посилання, 3. Підпис) у контейнер standardPane
         const standardFieldsWrap = document.createElement('div');
         standardFieldsWrap.id = 'vlbModalStandardPane';
         standardFieldsWrap.className = 'space-y-4';
@@ -869,7 +880,6 @@
             standardFieldsWrap.appendChild(lessonSelectBox.nextSibling);
         }
 
-        // Панель перемикання 3-х режимів у вікні "Додати завдання"
         const modeBar = document.createElement('div');
         modeBar.id = 'vlbModalModeBar';
         modeBar.className = 'grid grid-cols-1 sm:grid-cols-3 gap-1.5 bg-gray-950 p-1.5 rounded-xl border border-gray-800';
@@ -884,7 +894,6 @@
                 '<span>📚</span><span>З бази тем / уроків</span>' +
             '</button>';
 
-        // Вкладка 2: Створення / редагування Текстового завдання
         const textPane = document.createElement('div');
         textPane.id = 'vlbModalTextPane';
         textPane.className = 'hidden space-y-3.5 bg-gray-900/60 border border-amber-500/30 rounded-xl p-4';
@@ -909,7 +918,6 @@
                 '</div>' +
             '</div>';
 
-        // Вкладка 3: Візуальний каталог ігор із тем та уроків
         const catalogPane = document.createElement('div');
         catalogPane.id = 'vlbModalCatalogPane';
         catalogPane.className = 'hidden space-y-3';
@@ -938,7 +946,6 @@
         scrollContainer.appendChild(textPane);
         scrollContainer.appendChild(catalogPane);
 
-        // Обробники перемикання вкладок у модалці
         modeBar.addEventListener('click', function (e) {
             const btn = e.target.closest('[data-vlb-modal-mode]');
             if (!btn) return;
@@ -946,7 +953,6 @@
             switchCardModalMode(btn.dataset.vlbModalMode);
         });
 
-        // Вибір теми текстової картки
         document.getElementById('vlbTextThemePicker').addEventListener('click', function (e) {
             const tBtn = e.target.closest('[data-text-theme]');
             if (!tBtn) return;
@@ -960,7 +966,6 @@
             });
         });
 
-        // Пошук і фільтри у каталозі
         document.getElementById('vlbCatalogSearchInput').addEventListener('input', function (e) {
             catalogSearchQuery = e.target.value || '';
             renderCatalogCardsArea();
@@ -980,7 +985,6 @@
             renderCatalogCardsArea();
         });
 
-        // Перехоплюємо натискання "✓ Зберегти" у модалці, якщо активний режим "📝 Текстове завдання"
         const saveMainBtn = cardModal.querySelector('[data-action="save-card-main"]');
         if (saveMainBtn) {
             saveMainBtn.addEventListener('click', function (e) {
@@ -1100,7 +1104,6 @@
 
         function walk(parentId, depth) {
             const children = VLB.getChildBoards(parentId);
-            // Спочатку показуємо розділ "📚 ТЕМИ", потім решту
             children.sort(function (a, b) {
                 if (a.id === 'b_root_topics') return -1;
                 if (b.id === 'b_root_topics') return 1;
@@ -1133,7 +1136,6 @@
         const tree = getCatalogBoardTreeOrdered();
         const state = VLB.getState();
 
-        // Якщо категорію ще не обрано — автоматично обираємо першу папку в "ТЕМИ", де є картки
         if (!catalogSelectedBoardId || !VLB.getBoardById(catalogSelectedBoardId)) {
             const firstTopicWithCards = tree.find(function (item) {
                 return item.cardsCount > 0 && !isStudentBoard(item.board.id) && item.board.id !== state.activeBoardId;
@@ -1202,7 +1204,6 @@
             const selB = VLB.getBoardById(catalogSelectedBoardId);
             if (selB) {
                 boardsToShow = [selB];
-                // Якщо у вибраній папці є підпапки — показуємо і їхні уроки також
                 const subChildren = VLB.getChildBoards(selB.id);
                 subChildren.forEach(function (sc) { boardsToShow.push(sc); });
             }
@@ -1340,7 +1341,6 @@
                     VLB.moveOrCopyCardBetweenLessons(fromLessonId, fromCardId, destLessonId, null, true);
                 }
 
-                // Візуальна позначка, що гру щойно додано
                 const cardWrapper = pickEl.closest('.group\\/catcard');
                 if (cardWrapper) {
                     const btn = cardWrapper.querySelector('button[data-cat-pick-card]');
@@ -1361,7 +1361,6 @@
         const currentBoard = VLB.getBoardById(state.activeBoardId);
         const inStudBoard = currentBoard && isStudentBoard(currentBoard.id);
 
-        // Додаємо швидкі кнопки "+ 📝 Текст" та "+ 📚 З бази" поруч із кнопкою "+ Додати" в кожному уроці
         const addBtns = document.querySelectorAll('#lessonsContainer button[data-action="open-add-card"]');
         addBtns.forEach(function (addBtn) {
             if (addBtn.dataset.quickBtnsInjected === '1') return;
@@ -1386,7 +1385,6 @@
             addBtn.parentNode.appendChild(quickWrap);
         });
 
-        // Прикрашаємо самі картки (бейджики історії 👥 та рамки текстових завдань 📝)
         const cards = document.querySelectorAll('#lessonsContainer .card-thumb-box[data-card-id]');
         cards.forEach(function (cardEl) {
             if (cardEl.dataset.historyDecorated === '1') return;
@@ -1453,7 +1451,7 @@
     }
 
     /* ------------------------------------------------------------------------
-       7. ПОПЕРЕДНІ ФУНКЦІЇ: ПЕРЕХІД ДО УРОКУ, ІСТОРІЯ ГРИ (👥) ТА МАПА КАРТИНОК (🖼️)
+       7. ПЕРЕХІД ДО УРОКУ, ІСТОРІЯ ГРИ (👥) ТА МАПА КАРТИНОК (🖼️)
        ------------------------------------------------------------------------ */
     function jumpToBoardLessonCard(boardId, lessonId, cardId) {
         const state = VLB.getState();
@@ -2155,7 +2153,6 @@
        9. ГЛОБАЛЬНЕ ПЕРЕХОПЛЕННЯ КЛІКІВ (ТЕКСТОВІ КАРТКИ, КАТАЛОГ, КАЛЕНДАР)
        ------------------------------------------------------------------------ */
     document.addEventListener('click', function (e) {
-        // 1. Клік по текстовій картці (або кнопці редагування/зуму текстової картки)
         const editCardBtn = e.target.closest('[data-action="edit-card"]');
         if (editCardBtn) {
             const lId = editCardBtn.dataset.lessonId;
@@ -2188,7 +2185,6 @@
             }
         }
 
-        // Якщо натиснуто на саму текстову картку (або її кнопки 🔍 / 🖥️) — відкриваємо рідер тексту
         const zoomCardBtn = e.target.closest('[data-action="zoom-card"]');
         if (zoomCardBtn) {
             const found = VLB.findLessonAndCard(zoomCardBtn.dataset.lessonId, zoomCardBtn.dataset.cardId);
@@ -2222,7 +2218,6 @@
             }
         }
 
-        // 2. Переходи з історії або мапи
         const jumpBtn = e.target.closest('[data-jump-board]');
         if (jumpBtn) {
             e.preventDefault();
@@ -2250,7 +2245,6 @@
             return;
         }
 
-        // 3. Швидкі кнопки "+ 📚 З бази" та "+ 📝 Текст" у рядку уроку
         const addonBtn = e.target.closest('[data-addon-action]');
         if (addonBtn) {
             e.preventDefault();
@@ -2290,8 +2284,8 @@
        ------------------------------------------------------------------------ */
     function initAllAddons() {
         injectCustomStyles();
-        setupHeaderCompactToggle();
         injectAddonUIElements();
+        setupHeaderCompactToggle();
         setupCardModalModesAndCatalog();
         setupLightboxPanAndZoom();
         ensureTextReaderModalExists();
@@ -2314,7 +2308,6 @@
     if (lessonsEl) mainObserver.observe(lessonsEl, { childList: true, subtree: true });
     if (subboardsEl) mainObserver.observe(subboardsEl, { childList: true });
 
-    // Спостерігач за універсальним діалогом (автоматично додає календар у вікно редагування уроку)
     const dialogModalEl = document.getElementById('dialogModal');
     if (dialogModalEl) {
         const dlgObs = new MutationObserver(function () {
@@ -2325,7 +2318,6 @@
         dlgObs.observe(dialogModalEl, { attributes: true, attributeFilter: ['class'], childList: true, subtree: true });
     }
 
-    // Спостерігач за модалкою картки
     const cardModalEl = document.getElementById('cardModal');
     if (cardModalEl) {
         const modalObs = new MutationObserver(function () {
