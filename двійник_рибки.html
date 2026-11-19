@@ -1,0 +1,2472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Koi Pond</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #0b2a2a;
+      touch-action: none;
+    }
+
+    #pondCanvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      cursor: pointer;
+    }
+
+    /* Minimalistic carved mossy-stone & bamboo Next button (no text, no white box) */
+    #nextBtn {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      width: 62px;
+      height: 62px;
+      border-radius: 50%;
+      border: 3px solid rgba(155, 198, 134, 0.72);
+      background:
+        radial-gradient(circle at 32% 28%, rgba(126, 152, 130, 0.92) 0%, rgba(56, 78, 68, 0.94) 55%, rgba(28, 44, 39, 0.96) 100%);
+      box-shadow:
+        0 8px 22px rgba(0, 12, 12, 0.55),
+        inset 0 2px 5px rgba(215, 240, 200, 0.38),
+        inset 0 -4px 8px rgba(10, 22, 18, 0.65);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      outline: none;
+      z-index: 10;
+      transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+
+    #nextBtn::before {
+      content: "";
+      position: absolute;
+      inset: 4px;
+      border-radius: 50%;
+      border: 1.5px dashed rgba(196, 226, 168, 0.32);
+      pointer-events: none;
+    }
+
+    #nextBtn:hover {
+      transform: scale(1.09);
+      border-color: rgba(235, 226, 162, 0.9);
+      box-shadow:
+        0 10px 26px rgba(0, 18, 16, 0.62),
+        0 0 18px rgba(240, 220, 140, 0.36),
+        inset 0 2px 6px rgba(245, 250, 215, 0.48);
+    }
+
+    #nextBtn:active {
+      transform: scale(0.93);
+    }
+
+    #nextBtn svg {
+      width: 30px;
+      height: 30px;
+      filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+      pointer-events: none;
+    }
+
+    @media (max-width: 720px) {
+      #nextBtn {
+        width: 54px;
+        height: 54px;
+        right: 14px;
+        bottom: 14px;
+      }
+      #nextBtn svg {
+        width: 26px;
+        height: 26px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="pondCanvas"></canvas>
+
+  <!-- Minimalistic organic stone/bamboo skip button with inline SVG arrow only -->
+  <button id="nextBtn" aria-label="Next">
+    <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8 18H27" stroke="#F4EBD0" stroke-width="3.4" stroke-linecap="round"/>
+      <path d="M19.5 10.5L27.5 18L19.5 25.5" stroke="#F4EBD0" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+
+  <script>
+    (() => {
+      "use strict";
+
+      // =========================================================================
+      // 1. CANVAS & VIEWPORT SETUP (CRISP HiDPI)
+      // =========================================================================
+      const canvas = document.getElementById("pondCanvas");
+      const ctx = canvas.getContext("2d", { alpha: false });
+      const nextBtn = document.getElementById("nextBtn");
+
+      let W = window.innerWidth;
+      let H = window.innerHeight;
+      let DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+      // Offscreen static backdrop cache (water gradient, pebbles, sunken leaves, rock basin)
+      const bgCanvas = document.createElement("canvas");
+      const bgCtx = bgCanvas.getContext("2d");
+
+      // Basin layout geometry (recalculated on resize)
+      const layout = {
+        basinSplitX: 0,
+        basinCenterX: 0,
+        basinCenterY: 0,
+        basinRx: 0,
+        basinRy: 0,
+        pondMinX: 0,
+        pondMaxX: 0,
+        pondMinY: 0,
+        pondMaxY: 0,
+        spoutX: 0,
+        spoutY: 0,
+        spoutTipX: 0,
+        spoutTipY: 0
+      };
+
+      // =========================================================================
+      // 2. NATURAL POND PALETTES (SMOOTHLY SHIFTING EACH ROUND)
+      // =========================================================================
+      const PALETTES = [
+        // 0: Emerald Morning Sun
+        {
+          waterTop: "#134e4a",
+          waterMid: "#0d3b38",
+          waterDeep: "#072322",
+          basinWater: "#175e56",
+          caustic: "rgba(182, 245, 220, 0.085)",
+          padMain: "#2f7d4d",
+          padLight: "#4ea363",
+          padDark: "#1c4d30",
+          lotusOuter: "#f48fb1",
+          lotusInner: "#fce4ec",
+          lotusCore: "#ffd54f",
+          pebbleTones: ["#38544f", "#4b665d", "#2c423f", "#607569", "#3c4d49"],
+          moss: ["#4e8a43", "#67a852", "#3a6e34"]
+        },
+        // 1: Warm Amber Sunset
+        {
+          waterTop: "#1f4748",
+          waterMid: "#19363a",
+          waterDeep: "#0f2024",
+          basinWater: "#2a5654",
+          caustic: "rgba(255, 214, 145, 0.095)",
+          padMain: "#3f7a44",
+          padLight: "#699e57",
+          padDark: "#274c2c",
+          lotusOuter: "#ffab91",
+          lotusInner: "#fff3e0",
+          lotusCore: "#ffca28",
+          pebbleTones: ["#574c45", "#6e5f53", "#403834", "#7a6d5e", "#4b453f"],
+          moss: ["#658f3e", "#82ab4f", "#47692c"]
+        },
+        // 2: Jade Spring Stream
+        {
+          waterTop: "#145c4b",
+          waterMid: "#0f473c",
+          waterDeep: "#092c26",
+          basinWater: "#1b705b",
+          caustic: "rgba(195, 255, 218, 0.09)",
+          padMain: "#348a52",
+          padLight: "#5bb86e",
+          padDark: "#1f5734",
+          lotusOuter: "#f06292",
+          lotusInner: "#fff0f5",
+          lotusCore: "#ffe066",
+          pebbleTones: ["#3e5950", "#567066", "#2e453e", "#6d8278", "#475c55"],
+          moss: ["#549c49", "#72bd5e", "#3d7835"]
+        },
+        // 3: Serene Turquoise Lagoon
+        {
+          waterTop: "#125366",
+          waterMid: "#0d3e4f",
+          waterDeep: "#072530",
+          basinWater: "#17677d",
+          caustic: "rgba(175, 240, 255, 0.09)",
+          padMain: "#2a7558",
+          padLight: "#499c77",
+          padDark: "#194a38",
+          lotusOuter: "#ffe082",
+          lotusInner: "#fffdf5",
+          lotusCore: "#ffb300",
+          pebbleTones: ["#3a5561", "#4f6d78", "#2b404a", "#657e87", "#3f525c"],
+          moss: ["#45875a", "#5fa873", "#306342"]
+        },
+        // 4: Twilight Lotus Pond
+        {
+          waterTop: "#1c3d59",
+          waterMid: "#132c42",
+          waterDeep: "#0a1826",
+          basinWater: "#224a6b",
+          caustic: "rgba(205, 198, 255, 0.08)",
+          padMain: "#266353",
+          padLight: "#3f8771",
+          padDark: "#163d34",
+          lotusOuter: "#ce93d8",
+          lotusInner: "#f8eafc",
+          lotusCore: "#ffe57f",
+          pebbleTones: ["#3c4759", "#4f5c70", "#2b3342", "#626e82", "#3e4654"],
+          moss: ["#3f7d59", "#589c71", "#2c5c40"]
+        }
+      ];
+
+      let currentPaletteIndex = 0;
+      let palette = PALETTES[0];
+
+      // =========================================================================
+      // 3. PROCEDURAL WEB AUDIO ENGINE (NO EXTERNAL FILES)
+      // =========================================================================
+      class SoundEngine {
+        constructor() {
+          this.ctx = null;
+          this.unlocked = false;
+        }
+
+        unlock() {
+          if (this.unlocked) {
+            if (this.ctx && this.ctx.state === "suspended") {
+              this.ctx.resume().catch(() => {});
+            }
+            return;
+          }
+          try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            this.ctx = new AudioCtx();
+            if (this.ctx.state === "suspended") {
+              this.ctx.resume().catch(() => {});
+            }
+            this.unlocked = true;
+          } catch (e) {
+            // Audio unavailable
+          }
+        }
+
+        // Subtle soft water-chime tick on hover
+        playHoverTick() {
+          if (!this.ctx || this.ctx.state !== "running") return;
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(980 + Math.random() * 160, now);
+          osc.frequency.exponentialRampToValueAtTime(1320, now + 0.06);
+
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.linearRampToValueAtTime(0.032, now + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.11);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.12);
+        }
+
+        // Gentle ambient water drop from bamboo spout
+        playSpoutDrop() {
+          if (!this.ctx || this.ctx.state !== "running") return;
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(620, now);
+          osc.frequency.exponentialRampToValueAtTime(1180, now + 0.07);
+
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.linearRampToValueAtTime(0.02, now + 0.008);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.1);
+        }
+
+        // Crisp water-drop tone for Next/Skip button
+        playSkipDrop() {
+          if (!this.ctx || this.ctx.state !== "running") return;
+          const now = this.ctx.currentTime;
+          [540, 810].forEach((freq, i) => {
+            const t = now + i * 0.06;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(freq, t);
+            osc.frequency.exponentialRampToValueAtTime(freq * 1.45, t + 0.09);
+
+            gain.gain.setValueAtTime(0.0001, t);
+            gain.gain.linearRampToValueAtTime(0.09, t + 0.012);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(t);
+            osc.stop(t + 0.17);
+          });
+        }
+
+        // Playful bubbly water-plop for distractor fish (non-punishing)
+        playWrongPlop() {
+          if (!this.ctx || this.ctx.state !== "running") return;
+          const now = this.ctx.currentTime;
+
+          // Bubble 1
+          const osc1 = this.ctx.createOscillator();
+          const g1 = this.ctx.createGain();
+          osc1.type = "sine";
+          osc1.frequency.setValueAtTime(340, now);
+          osc1.frequency.exponentialRampToValueAtTime(190, now + 0.07);
+          osc1.frequency.exponentialRampToValueAtTime(460, now + 0.15);
+
+          g1.gain.setValueAtTime(0.001, now);
+          g1.gain.linearRampToValueAtTime(0.14, now + 0.015);
+          g1.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+
+          osc1.connect(g1);
+          g1.connect(this.ctx.destination);
+          osc1.start(now);
+          osc1.stop(now + 0.19);
+
+          // Soft splash noise burst
+          const bufSize = Math.floor(this.ctx.sampleRate * 0.14);
+          const buf = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
+          const data = buf.getChannelData(0);
+          for (let i = 0; i < bufSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufSize * 0.3));
+          }
+          const noise = this.ctx.createBufferSource();
+          noise.buffer = buf;
+
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = "bandpass";
+          filter.frequency.setValueAtTime(1200, now);
+          filter.Q.setValueAtTime(1.4, now);
+
+          const ng = this.ctx.createGain();
+          ng.gain.setValueAtTime(0.09, now);
+          ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+
+          noise.connect(filter);
+          filter.connect(ng);
+          ng.connect(this.ctx.destination);
+          noise.start(now);
+        }
+
+        // Helper for melodic note synthesis
+        _playNote(freq, startTime, duration, type, peakGain, harmonics = false) {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, startTime);
+
+          gain.gain.setValueAtTime(0.0001, startTime);
+          gain.gain.linearRampToValueAtTime(peakGain, startTime + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(startTime);
+          osc.stop(startTime + duration + 0.02);
+
+          if (harmonics) {
+            const osc2 = this.ctx.createOscillator();
+            const g2 = this.ctx.createGain();
+            osc2.type = "sine";
+            osc2.frequency.setValueAtTime(freq * 2, startTime);
+            g2.gain.setValueAtTime(0.0001, startTime);
+            g2.gain.linearRampToValueAtTime(peakGain * 0.28, startTime + 0.01);
+            g2.gain.exponentialRampToValueAtTime(0.0001, startTime + duration * 0.55);
+            osc2.connect(g2);
+            g2.connect(this.ctx.destination);
+            osc2.start(startTime);
+            osc2.stop(startTime + duration * 0.6);
+          }
+        }
+
+        // 4 distinct joyful celebration melodies
+        playCelebration(typeIndex) {
+          if (!this.ctx || this.ctx.state !== "running") return;
+          const now = this.ctx.currentTime + 0.02;
+
+          if (typeIndex === 0) {
+            // 0: Pentatonic Marimba (Leap & Petal Burst)
+            const notes = [523.25, 659.25, 783.99, 1046.5, 880.0, 1046.5, 1318.5];
+            const times = [0, 0.11, 0.22, 0.34, 0.48, 0.6, 0.75];
+            notes.forEach((f, i) => {
+              this._playNote(f, now + times[i], 0.42, "triangle", 0.16, true);
+            });
+          } else if (typeIndex === 1) {
+            // 1: Harp Glissando (Dragonfly Dance)
+            const notes = [392.0, 440.0, 523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.5];
+            notes.forEach((f, i) => {
+              this._playNote(f, now + i * 0.075, 0.65, "sine", 0.11, true);
+            });
+          } else if (typeIndex === 2) {
+            // 2: Kalimba Chimes (Iridescent Ripple & Lotus Bloom)
+            const notes = [587.33, 739.99, 880.0, 1174.66, 987.77, 1174.66, 1479.98];
+            const times = [0, 0.13, 0.26, 0.40, 0.56, 0.70, 0.86];
+            notes.forEach((f, i) => {
+              this._playNote(f, now + times[i], 0.55, "sine", 0.14, true);
+            });
+          } else {
+            // 3: Joyful Bell Arpeggio (Firefly Vortex)
+            const notes = [523.25, 659.25, 783.99, 987.77, 1046.5, 1318.5, 1567.98];
+            notes.forEach((f, i) => {
+              this._playNote(f, now + i * 0.11, 0.75, "sine", 0.12, true);
+            });
+          }
+        }
+      }
+
+      const sound = new SoundEngine();
+
+      // =========================================================================
+      // 4. KOI DNA TRAIT DEFINITIONS & PUZZLE GENERATOR
+      // =========================================================================
+      const BASE_COLORS = [
+        { id: "pearl",     fill: "#f7f4eb", shade: "#d8d4c8", fin: "rgba(247, 244, 235, 0.75)" },
+        { id: "gold",      fill: "#f7c748", shade: "#d4981e", fin: "rgba(250, 214, 102, 0.78)" },
+        { id: "tangerine", fill: "#f28141", shade: "#c9581e", fin: "rgba(247, 154, 96, 0.78)" },
+        { id: "silver",    fill: "#cfe3ed", shade: "#9ab7c7", fin: "rgba(210, 232, 242, 0.76)" },
+        { id: "cream",     fill: "#f0deb6", shade: "#ccb585", fin: "rgba(242, 225, 188, 0.76)" }
+      ];
+
+      const ACCENT_COLORS = [
+        { id: "crimson",  hex: "#d92929" },
+        { id: "ink",      hex: "#1c222b" },
+        { id: "indigo",   hex: "#264694" },
+        { id: "amber",    hex: "#e86315" },
+        { id: "emerald",  hex: "#12876b" }
+      ];
+
+      const HEAD_MARKS = ["none", "tancho", "diamond", "crescent", "twindots"];
+      const BODY_PATTERNS = ["saddles", "ovals", "staggered", "stripe"];
+      const TAIL_STYLES = ["solid", "striped", "tipped", "contrast"];
+      const FIN_ACCENTS = ["plain", "tipped", "bright"];
+
+      function pickRandom(arr) {
+        return arr[Math.floor(Math.random() * arr.length)];
+      }
+
+      // Ensure accent color clearly contrasts with base color
+      function pickContrastingAccent(baseId, excludeId = null) {
+        const valid = ACCENT_COLORS.filter(c => {
+          if (c.id === excludeId) return false;
+          if (baseId === "tangerine" && (c.id === "amber" || c.id === "crimson")) return false;
+          if (baseId === "gold" && c.id === "amber") return false;
+          return true;
+        });
+        return pickRandom(valid);
+      }
+
+      function generateRandomDNA() {
+        const base = pickRandom(BASE_COLORS);
+        const headMark = pickRandom(HEAD_MARKS);
+        const headColor = pickContrastingAccent(base.id);
+        const bodyPattern = pickRandom(BODY_PATTERNS);
+        const patternColor = pickContrastingAccent(base.id);
+        const tailStyle = pickRandom(TAIL_STYLES);
+        const tailColor = tailStyle === "solid" ? patternColor : pickContrastingAccent(base.id);
+        const finAccent = pickRandom(FIN_ACCENTS);
+        const finColor = finAccent === "plain" ? patternColor : pickContrastingAccent(base.id);
+
+        return {
+          base,
+          headMark,
+          headColor: headMark === "none" ? ACCENT_COLORS[0] : headColor,
+          bodyPattern,
+          patternColor,
+          tailStyle,
+          tailColor,
+          finAccent,
+          finColor
+        };
+      }
+
+      // Canonical signature for exact visual comparison
+      function dnaSignature(d) {
+        return [
+          d.base.id,
+          d.headMark,
+          d.headMark === "none" ? "x" : d.headColor.id,
+          d.bodyPattern,
+          d.patternColor.id,
+          d.tailStyle,
+          d.tailStyle === "solid" ? "x" : d.tailColor.id,
+          d.finAccent,
+          d.finAccent === "plain" ? "x" : d.finColor.id
+        ].join("|");
+      }
+
+      function cloneDNA(d) {
+        return {
+          base: d.base,
+          headMark: d.headMark,
+          headColor: d.headColor,
+          bodyPattern: d.bodyPattern,
+          patternColor: d.patternColor,
+          tailStyle: d.tailStyle,
+          tailColor: d.tailColor,
+          finAccent: d.finAccent,
+          finColor: d.finColor
+        };
+      }
+
+      // Create a fair, attention-testing distractor differing in 1-2 clear visual traits
+      function createDistractorDNA(target, tier, usedSigs) {
+        for (let attempt = 0; attempt < 40; attempt++) {
+          const d = cloneDNA(target);
+
+          if (tier === 0) {
+            // Close cousin: same base & dorsal pattern, different head mark OR tail style
+            if (Math.random() < 0.55) {
+              const others = HEAD_MARKS.filter(m => m !== target.headMark);
+              d.headMark = pickRandom(others);
+              if (d.headMark !== "none") d.headColor = pickContrastingAccent(d.base.id);
+            } else {
+              const others = TAIL_STYLES.filter(t => t !== target.tailStyle);
+              d.tailStyle = pickRandom(others);
+              d.tailColor = pickContrastingAccent(d.base.id);
+            }
+          } else if (tier === 1) {
+            // Medium cousin: same base, different dorsal pattern OR pattern color
+            if (Math.random() < 0.5) {
+              const others = BODY_PATTERNS.filter(p => p !== target.bodyPattern);
+              d.bodyPattern = pickRandom(others);
+            } else {
+              d.patternColor = pickContrastingAccent(d.base.id, target.patternColor.id);
+            }
+            if (Math.random() < 0.35) {
+              const others = FIN_ACCENTS.filter(f => f !== target.finAccent);
+              d.finAccent = pickRandom(others);
+              d.finColor = pickContrastingAccent(d.base.id);
+            }
+          } else {
+            // Distinct variety: different base color or multi-trait variation
+            const otherBases = BASE_COLORS.filter(b => b.id !== target.base.id);
+            d.base = pickRandom(otherBases);
+            d.patternColor = pickContrastingAccent(d.base.id);
+            if (Math.random() < 0.6) {
+              d.headMark = pickRandom(HEAD_MARKS);
+              d.headColor = pickContrastingAccent(d.base.id);
+            }
+            if (Math.random() < 0.5) {
+              d.bodyPattern = pickRandom(BODY_PATTERNS);
+            }
+            if (Math.random() < 0.5) {
+              d.tailStyle = pickRandom(TAIL_STYLES);
+              d.tailColor = pickContrastingAccent(d.base.id);
+            }
+          }
+
+          const sig = dnaSignature(d);
+          if (!usedSigs.has(sig)) {
+            usedSigs.add(sig);
+            return d;
+          }
+        }
+
+        // Guaranteed fallback distinct DNA
+        let fallback = generateRandomDNA();
+        while (usedSigs.has(dnaSignature(fallback))) {
+          fallback = generateRandomDNA();
+        }
+        usedSigs.add(dnaSignature(fallback));
+        return fallback;
+      }
+
+      // =========================================================================
+      // 5. ARTICULATED KOI FISH CLASS (10-SEGMENT SPINE & REALISTIC ANATOMY)
+      // =========================================================================
+      class KoiFish {
+        constructor(dna, x, y, scale, isTarget = false, isMatch = false) {
+          this.dna = dna;
+          this.scale = scale;
+          this.isTarget = isTarget;
+          this.isMatch = isMatch;
+
+          this.segCount = 10;
+          this.segLen = 9.2 * scale;
+          this.segments = [];
+          const initAngle = Math.random() * Math.PI * 2;
+          for (let i = 0; i < this.segCount; i++) {
+            this.segments.push({
+              x: x - Math.cos(initAngle) * i * this.segLen,
+              y: y - Math.sin(initAngle) * i * this.segLen,
+              angle: initAngle
+            });
+          }
+
+          this.angle = initAngle;
+          this.baseSpeed = isTarget ? 34 : 38 + Math.random() * 14;
+          this.speed = this.baseSpeed;
+          this.swimPhase = Math.random() * Math.PI * 2;
+          this.wanderAngle = (Math.random() - 0.5) * 0.8;
+          this.wanderTimer = 0.8 + Math.random() * 1.8;
+
+          // Target basin figure-eight phase
+          this.basinPhase = Math.random() * Math.PI * 2;
+
+          // Interactive states
+          this.hoverAmount = 0;
+          this.wiggleTimer = 0;
+          this.dartTimer = 0;
+
+          // Celebration states
+          this.leapProgress = 0; // 0 = in water, 0..1 = leaping arc
+          this.isLeaping = false;
+          this.spinMode = false;
+          this.spinAngle = 0;
+          this.glowPulse = 0;
+        }
+
+        get head() {
+          return this.segments[0];
+        }
+
+        triggerWrongReaction() {
+          this.wiggleTimer = 0.85;
+          this.dartTimer = 0.72;
+          // Slight playful turn away
+          this.angle += (Math.random() < 0.5 ? 1 : -1) * (0.35 + Math.random() * 0.35);
+        }
+
+        update(dt, pondFishes, hoveredFish) {
+          const isHovered = hoveredFish === this;
+          const targetHover = isHovered ? 1 : 0;
+          this.hoverAmount += (targetHover - this.hoverAmount) * Math.min(1, dt * 8);
+
+          if (this.wiggleTimer > 0) this.wiggleTimer = Math.max(0, this.wiggleTimer - dt);
+          if (this.dartTimer > 0) this.dartTimer = Math.max(0, this.dartTimer - dt);
+
+          // Update leaping animation if active
+          if (this.isLeaping) {
+            this.leapProgress += dt * 0.92;
+            if (this.leapProgress >= 1) {
+              this.leapProgress = 0;
+              this.isLeaping = false;
+              spawnRipple(this.head.x, this.head.y, 110, "rgba(255, 248, 220, 0.75)", 3.2);
+              spawnWaterSplash(this.head.x, this.head.y, 20);
+            }
+          }
+
+          if (this.isTarget) {
+            this._updateBasinSwim(dt);
+          } else {
+            this._updatePondSwim(dt, pondFishes, isHovered);
+          }
+
+          // Advance tail undulation phase
+          const wiggleBoost = this.wiggleTimer > 0 ? 3.2 : 1.0;
+          const speedRatio = Math.max(0.45, this.speed / 44);
+          this.swimPhase += dt * 5.2 * speedRatio * wiggleBoost;
+
+          // Solve articulated spine constraints
+          this._solveSpine();
+        }
+
+        _updateBasinSwim(dt) {
+          // Graceful figure-8 (Lissajous) inside the left stone basin
+          this.basinPhase += dt * 0.44;
+          const rx = layout.basinRx * 0.46;
+          const ry = layout.basinRy * 0.56;
+          const targetX = layout.basinCenterX + Math.sin(this.basinPhase) * rx;
+          const targetY = layout.basinCenterY + Math.sin(this.basinPhase * 2) * ry * 0.62;
+
+          const dx = targetX - this.head.x;
+          const dy = targetY - this.head.y;
+          const desiredAngle = Math.atan2(dy, dx);
+          this.angle = lerpAngle(this.angle, desiredAngle, Math.min(1, dt * 3.4));
+
+          this.speed = this.baseSpeed * (0.9 + 0.15 * Math.cos(this.basinPhase * 2));
+          this.head.x += Math.cos(this.angle) * this.speed * dt;
+          this.head.y += Math.sin(this.angle) * this.speed * dt;
+          this.head.angle = this.angle;
+        }
+
+        _updatePondSwim(dt, pondFishes, isHovered) {
+          if (this.spinMode) {
+            // Joyful tight celebration spiral
+            this.angle += dt * 4.4;
+            this.speed = 115;
+            this.head.x += Math.cos(this.angle) * this.speed * dt;
+            this.head.y += Math.sin(this.angle) * this.speed * dt;
+            this.head.angle = this.angle;
+            return;
+          }
+
+          // Smooth wander steering
+          this.wanderTimer -= dt;
+          if (this.wanderTimer <= 0) {
+            this.wanderTimer = 1.2 + Math.random() * 2.2;
+            this.wanderAngle = (Math.random() - 0.5) * 1.1;
+          }
+
+          let steerX = Math.cos(this.angle + this.wanderAngle * 0.55);
+          let steerY = Math.sin(this.angle + this.wanderAngle * 0.55);
+
+          // Soft pond boundary avoidance
+          const margin = 68 * this.scale;
+          const minX = layout.pondMinX + margin;
+          const maxX = layout.pondMaxX - margin;
+          const minY = layout.pondMinY + margin;
+          const maxY = layout.pondMaxY - margin;
+
+          if (this.head.x < minX) steerX += (minX - this.head.x) * 0.045;
+          if (this.head.x > maxX) steerX -= (this.head.x - maxX) * 0.045;
+          if (this.head.y < minY) steerY += (minY - this.head.y) * 0.045;
+          if (this.head.y > maxY) steerY -= (this.head.y - maxY) * 0.045;
+
+          // Avoid Next button bottom-right corner gently
+          const btnX = W - 54;
+          const btnY = H - 54;
+          const dbx = this.head.x - btnX;
+          const dby = this.head.y - btnY;
+          const distBtn = Math.hypot(dbx, dby);
+          if (distBtn < 110 && distBtn > 1) {
+            steerX += (dbx / distBtn) * 1.8;
+            steerY += (dby / distBtn) * 1.8;
+          }
+
+          // Gentle separation from other pond Koi so they remain easy to observe
+          for (let i = 0; i < pondFishes.length; i++) {
+            const other = pondFishes[i];
+            if (other === this) continue;
+            const ox = this.head.x - other.head.x;
+            const oy = this.head.y - other.head.y;
+            const dist = Math.hypot(ox, oy);
+            const minDist = 115 * this.scale;
+            if (dist < minDist && dist > 0.1) {
+              const push = (1 - dist / minDist) * 1.5;
+              steerX += (ox / dist) * push;
+              steerY += (oy / dist) * push;
+            }
+          }
+
+          const desiredAngle = Math.atan2(steerY, steerX);
+          const turnRate = this.dartTimer > 0 ? 4.8 : 1.9;
+          this.angle = lerpAngle(this.angle, desiredAngle, Math.min(1, dt * turnRate));
+
+          // Speed modulation: calm normally, extra slow on hover, quick playful dart on wrong click
+          let targetSpeed = this.baseSpeed;
+          if (this.dartTimer > 0) {
+            targetSpeed = this.baseSpeed * 3.4;
+          } else if (this.isLeaping) {
+            targetSpeed = this.baseSpeed * 2.1;
+          } else if (isHovered) {
+            targetSpeed = this.baseSpeed * 0.30;
+          }
+
+          this.speed += (targetSpeed - this.speed) * Math.min(1, dt * 6);
+          this.head.x += Math.cos(this.angle) * this.speed * dt;
+          this.head.y += Math.sin(this.angle) * this.speed * dt;
+
+          // Hard safety clamp inside pond
+          this.head.x = Math.max(layout.pondMinX + 26, Math.min(layout.pondMaxX - 26, this.head.x));
+          this.head.y = Math.max(layout.pondMinY + 26, Math.min(layout.pondMaxY - 26, this.head.y));
+          this.head.angle = this.angle;
+        }
+
+        _solveSpine() {
+          const wiggleAmp = this.wiggleTimer > 0 ? 0.22 : 0.085;
+          for (let i = 1; i < this.segCount; i++) {
+            const prev = this.segments[i - 1];
+            const curr = this.segments[i];
+            const dx = prev.x - curr.x;
+            const dy = prev.y - curr.y;
+            let segAngle = Math.atan2(dy, dx);
+
+            // Travelling sine wave undulation increasing toward tail
+            const t = i / (this.segCount - 1);
+            const wave = Math.sin(this.swimPhase - i * 0.62) * wiggleAmp * t * t;
+            segAngle += wave;
+
+            curr.x = prev.x - Math.cos(segAngle) * this.segLen;
+            curr.y = prev.y - Math.sin(segAngle) * this.segLen;
+            curr.angle = segAngle;
+          }
+        }
+
+        // Generous hit detection along body segments
+        hitTest(px, py) {
+          const widths = [18, 22, 24, 23, 20, 17, 14, 11, 8, 6];
+          for (let i = 0; i < this.segCount; i++) {
+            const s = this.segments[i];
+            const r = (widths[i] + 10) * this.scale;
+            const dx = px - s.x;
+            const dy = py - s.y;
+            if (dx * dx + dy * dy <= r * r) return true;
+          }
+          return false;
+        }
+
+        // Body half-width profile (plump head/shoulders, graceful taper to tail)
+        _halfWidth(i) {
+          const profile = [11.5, 16.5, 18.2, 17.2, 14.8, 12.0, 9.2, 6.6, 4.4, 2.5];
+          return profile[i] * this.scale;
+        }
+
+        draw(ctx, time) {
+          // Compute leap elevation (parabolic arc)
+          const leapHeight = this.isLeaping ? Math.sin(this.leapProgress * Math.PI) : 0;
+          const leapScale = 1 + leapHeight * 0.44;
+          const shadowOffsetX = 12 + leapHeight * 38;
+          const shadowOffsetY = 18 + leapHeight * 48;
+
+          // Subtle hover luminous ring beneath fish
+          if (this.hoverAmount > 0.02 && !this.isTarget) {
+            const mid = this.segments[2];
+            ctx.save();
+            const r = (46 + Math.sin(time * 4.5) * 4) * this.scale;
+            const grad = ctx.createRadialGradient(mid.x, mid.y, r * 0.3, mid.x, mid.y, r * 1.35);
+            grad.addColorStop(0, `rgba(255, 244, 188, ${0.26 * this.hoverAmount})`);
+            grad.addColorStop(0.65, `rgba(255, 238, 168, ${0.14 * this.hoverAmount})`);
+            grad.addColorStop(1, "rgba(255, 238, 168, 0)");
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(mid.x, mid.y, r * 1.35, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = `rgba(255, 245, 200, ${0.52 * this.hoverAmount})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(mid.x, mid.y, r, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          // 1. Soft cast shadow on pond bed
+          ctx.save();
+          ctx.translate(shadowOffsetX, shadowOffsetY);
+          this._drawBodySilhouette(ctx, `rgba(0, 12, 14, ${0.34 - leapHeight * 0.14})`);
+          ctx.restore();
+
+          // Apply leap scale around mid-body if leaping
+          ctx.save();
+          if (leapHeight > 0.001) {
+            const pivot = this.segments[2];
+            ctx.translate(pivot.x, pivot.y - leapHeight * 36);
+            ctx.scale(leapScale, leapScale);
+            ctx.translate(-pivot.x, -pivot.y);
+          }
+
+          // 2. Pectoral & Pelvic fins (underneath body edge)
+          this._drawFins(ctx);
+
+          // 3. Flowing translucent caudal (tail) fin
+          this._drawTailFin(ctx);
+
+          // 4. Main body + clipped dorsal markings + head crown
+          this._drawBodyAndMarkings(ctx);
+
+          // 5. Delicate dorsal fin ridge along spine
+          this._drawDorsalRidge(ctx);
+
+          // 6. Whiskers (barbels) & glossy eyes
+          this._drawHeadDetails(ctx);
+
+          ctx.restore();
+        }
+
+        _buildBodyPoints() {
+          const leftPts = [];
+          const rightPts = [];
+          for (let i = 0; i < this.segCount; i++) {
+            const s = this.segments[i];
+            const hw = this._halfWidth(i);
+            const nx = -Math.sin(s.angle);
+            const ny = Math.cos(s.angle);
+            leftPts.push({ x: s.x + nx * hw, y: s.y + ny * hw });
+            rightPts.push({ x: s.x - nx * hw, y: s.y - ny * hw });
+          }
+          return { leftPts, rightPts };
+        }
+
+        _traceBodyPath(ctx, leftPts, rightPts) {
+          const h = this.segments[0];
+          const snoutX = h.x + Math.cos(h.angle) * 14.5 * this.scale;
+          const snoutY = h.y + Math.sin(h.angle) * 14.5 * this.scale;
+          const tail = this.segments[this.segCount - 1];
+
+          ctx.beginPath();
+          ctx.moveTo(snoutX, snoutY);
+
+          // Left side curve
+          for (let i = 0; i < leftPts.length - 1; i++) {
+            const p0 = leftPts[i];
+            const p1 = leftPts[i + 1];
+            const mx = (p0.x + p1.x) * 0.5;
+            const my = (p0.y + p1.y) * 0.5;
+            ctx.quadraticCurveTo(p0.x, p0.y, mx, my);
+          }
+          ctx.lineTo(tail.x, tail.y);
+
+          // Right side curve back to snout
+          for (let i = rightPts.length - 1; i > 0; i--) {
+            const p0 = rightPts[i];
+            const p1 = rightPts[i - 1];
+            const mx = (p0.x + p1.x) * 0.5;
+            const my = (p0.y + p1.y) * 0.5;
+            ctx.quadraticCurveTo(p0.x, p0.y, mx, my);
+          }
+          ctx.quadraticCurveTo(rightPts[0].x, rightPts[0].y, snoutX, snoutY);
+          ctx.closePath();
+        }
+
+        _drawBodySilhouette(ctx, fillStyle) {
+          const { leftPts, rightPts } = this._buildBodyPoints();
+          this._traceBodyPath(ctx, leftPts, rightPts);
+          ctx.fillStyle = fillStyle;
+          ctx.fill();
+        }
+
+        _drawFins(ctx) {
+          const sPec = this.segments[2];
+          const sPel = this.segments[5];
+          const flutter = Math.sin(this.swimPhase * 0.85) * 0.18;
+
+          const finBase = this.dna.finAccent === "bright" ? this.dna.finColor.hex : this.dna.base.fin;
+          const hasTip = this.dna.finAccent === "tipped";
+
+          // Left & Right Pectoral Fins
+          [-1, 1].forEach(side => {
+            ctx.save();
+            ctx.translate(sPec.x, sPec.y);
+            ctx.rotate(sPec.angle + side * (1.05 + flutter * side));
+
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.bezierCurveTo(
+              14 * this.scale, side * 10 * this.scale,
+              28 * this.scale, side * 18 * this.scale,
+              24 * this.scale, side * 26 * this.scale
+            );
+            ctx.bezierCurveTo(
+              14 * this.scale, side * 30 * this.scale,
+              -2 * this.scale, side * 20 * this.scale,
+              -6 * this.scale, side * 4 * this.scale
+            );
+            ctx.closePath();
+
+            ctx.globalAlpha = this.dna.finAccent === "bright" ? 0.88 : 0.78;
+            ctx.fillStyle = finBase;
+            ctx.fill();
+
+            if (hasTip) {
+              ctx.save();
+              ctx.clip();
+              ctx.fillStyle = this.dna.finColor.hex;
+              ctx.globalAlpha = 0.92;
+              ctx.beginPath();
+              ctx.arc(20 * this.scale, side * 24 * this.scale, 12.5 * this.scale, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.restore();
+            }
+
+            // Delicate fin rays
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+            ctx.lineWidth = 0.9 * this.scale;
+            for (let r = 0; r < 4; r++) {
+              ctx.beginPath();
+              ctx.moveTo(0, side * 2 * this.scale);
+              ctx.lineTo((18 - r * 3.5) * this.scale, side * (14 + r * 3.8) * this.scale);
+              ctx.stroke();
+            }
+
+            ctx.restore();
+          });
+
+          // Smaller Pelvic Fins
+          [-1, 1].forEach(side => {
+            ctx.save();
+            ctx.translate(sPel.x, sPel.y);
+            ctx.rotate(sPel.angle + side * (1.28 - flutter * 0.5 * side));
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.quadraticCurveTo(10 * this.scale, side * 12 * this.scale, 2 * this.scale, side * 17 * this.scale);
+            ctx.quadraticCurveTo(-5 * this.scale, side * 12 * this.scale, -4 * this.scale, 0);
+            ctx.closePath();
+            ctx.globalAlpha = 0.65;
+            ctx.fillStyle = finBase;
+            ctx.fill();
+            ctx.restore();
+          });
+        }
+
+        _drawTailFin(ctx) {
+          const tail = this.segments[this.segCount - 1];
+          const prev = this.segments[this.segCount - 2];
+          const tailAngle = tail.angle + Math.sin(this.swimPhase - 4.2) * 0.24;
+          const tailLen = 30 * this.scale;
+          const spread = 18 * this.scale;
+
+          ctx.save();
+          ctx.translate(tail.x, tail.y);
+          ctx.rotate(tailAngle + Math.PI);
+
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.bezierCurveTo(tailLen * 0.35, -spread * 0.55, tailLen * 0.8, -spread * 1.05, tailLen, -spread * 0.82);
+          ctx.quadraticCurveTo(tailLen * 0.72, 0, tailLen, spread * 0.82);
+          ctx.bezierCurveTo(tailLen * 0.8, spread * 1.05, tailLen * 0.35, spread * 0.55, 0, 0);
+          ctx.closePath();
+
+          if (this.dna.tailStyle === "contrast") {
+            ctx.globalAlpha = 0.88;
+            ctx.fillStyle = this.dna.tailColor.hex;
+            ctx.fill();
+          } else {
+            ctx.globalAlpha = 0.8;
+            ctx.fillStyle = this.dna.base.fin;
+            ctx.fill();
+          }
+
+          if (this.dna.tailStyle === "tipped") {
+            ctx.save();
+            ctx.clip();
+            ctx.globalAlpha = 0.92;
+            ctx.fillStyle = this.dna.tailColor.hex;
+            ctx.fillRect(tailLen * 0.54, -spread * 1.2, tailLen * 0.6, spread * 2.4);
+            ctx.restore();
+          } else if (this.dna.tailStyle === "striped") {
+            ctx.save();
+            ctx.clip();
+            ctx.strokeStyle = this.dna.tailColor.hex;
+            ctx.globalAlpha = 0.88;
+            ctx.lineWidth = 2.4 * this.scale;
+            for (let k = -3; k <= 3; k++) {
+              ctx.beginPath();
+              ctx.moveTo(0, 0);
+              ctx.lineTo(tailLen * 1.05, k * spread * 0.27);
+              ctx.stroke();
+            }
+            ctx.restore();
+          }
+
+          // Subtle delicate sheen rays
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+          ctx.lineWidth = 1 * this.scale;
+          for (let k = -2; k <= 2; k++) {
+            ctx.beginPath();
+            ctx.moveTo(2 * this.scale, 0);
+            ctx.lineTo(tailLen * 0.88, k * spread * 0.26);
+            ctx.stroke();
+          }
+
+          ctx.restore();
+        }
+
+        _drawBodyAndMarkings(ctx) {
+          const { leftPts, rightPts } = this._buildBodyPoints();
+          this._traceBodyPath(ctx, leftPts, rightPts);
+
+          // Base body fill
+          ctx.fillStyle = this.dna.base.fill;
+          ctx.fill();
+
+          // Clip everything inside the body contour so markings wrap cleanly
+          ctx.save();
+          ctx.clip();
+
+          // Cylindrical body edge shading
+          ctx.strokeStyle = this.dna.base.shade;
+          ctx.lineWidth = 5.5 * this.scale;
+          ctx.stroke();
+
+          // --- DORSAL BODY PATTERN ---
+          ctx.fillStyle = this.dna.patternColor.hex;
+          const pType = this.dna.bodyPattern;
+
+          if (pType === "saddles") {
+            // 3 wide distinct saddle bands wrapping across the back
+            [2, 5, 7].forEach((idx, k) => {
+              const s = this.segments[idx];
+              const hw = this._halfWidth(idx);
+              ctx.save();
+              ctx.translate(s.x, s.y);
+              ctx.rotate(s.angle);
+              ctx.beginPath();
+              ctx.ellipse(0, 0, (k === 2 ? 7.5 : 10.5) * this.scale, hw * 1.15, 0, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.restore();
+            });
+          } else if (pType === "ovals") {
+            // 3 bold oval dorsal spots along the center spine
+            [2, 5, 7].forEach((idx, k) => {
+              const s = this.segments[idx];
+              ctx.save();
+              ctx.translate(s.x, s.y);
+              ctx.rotate(s.angle);
+              ctx.beginPath();
+              ctx.ellipse(0, 0, (10.5 - k * 1.4) * this.scale, (8.2 - k * 1.2) * this.scale, 0, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.restore();
+            });
+          } else if (pType === "staggered") {
+            // 5 alternating left/right polka spots along the back
+            const spotSpec = [
+              { idx: 2, side: -1, r: 6.8 },
+              { idx: 3, side: 1,  r: 6.8 },
+              { idx: 5, side: -1, r: 6.2 },
+              { idx: 6, side: 1,  r: 5.5 },
+              { idx: 8, side: -1, r: 4.5 }
+            ];
+            spotSpec.forEach(sp => {
+              const s = this.segments[sp.idx];
+              const hw = this._halfWidth(sp.idx);
+              const nx = -Math.sin(s.angle) * sp.side * hw * 0.45;
+              const ny = Math.cos(s.angle) * sp.side * hw * 0.45;
+              ctx.beginPath();
+              ctx.arc(s.x + nx, s.y + ny, sp.r * this.scale, 0, Math.PI * 2);
+              ctx.fill();
+            });
+          } else if (pType === "stripe") {
+            // Bold continuous dorsal stripe following the spine
+            ctx.beginPath();
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.strokeStyle = this.dna.patternColor.hex;
+            ctx.lineWidth = 10.5 * this.scale;
+            ctx.moveTo(this.segments[2].x, this.segments[2].y);
+            for (let i = 3; i <= 8; i++) {
+              ctx.lineTo(this.segments[i].x, this.segments[i].y);
+            }
+            ctx.stroke();
+          }
+
+          // --- HEAD CROWN MARKING ---
+          if (this.dna.headMark !== "none") {
+            const h0 = this.segments[0];
+            ctx.save();
+            ctx.translate(h0.x + Math.cos(h0.angle) * 2.5 * this.scale, h0.y + Math.sin(h0.angle) * 2.5 * this.scale);
+            ctx.rotate(h0.angle);
+            ctx.fillStyle = this.dna.headColor.hex;
+
+            if (this.dna.headMark === "tancho") {
+              ctx.beginPath();
+              ctx.arc(0, 0, 6.8 * this.scale, 0, Math.PI * 2);
+              ctx.fill();
+            } else if (this.dna.headMark === "diamond") {
+              ctx.beginPath();
+              ctx.moveTo(8.5 * this.scale, 0);
+              ctx.lineTo(0, 6.5 * this.scale);
+              ctx.lineTo(-8.5 * this.scale, 0);
+              ctx.lineTo(0, -6.5 * this.scale);
+              ctx.closePath();
+              ctx.fill();
+            } else if (this.dna.headMark === "crescent") {
+              ctx.beginPath();
+              ctx.arc(1.5 * this.scale, 0, 7.2 * this.scale, -Math.PI * 0.65, Math.PI * 0.65);
+              ctx.arc(-2.2 * this.scale, 0, 5.2 * this.scale, Math.PI * 0.65, -Math.PI * 0.65, true);
+              ctx.closePath();
+              ctx.fill();
+            } else if (this.dna.headMark === "twindots") {
+              ctx.beginPath();
+              ctx.arc(0.5 * this.scale, -4.6 * this.scale, 3.6 * this.scale, 0, Math.PI * 2);
+              ctx.arc(0.5 * this.scale, 4.6 * this.scale, 3.6 * this.scale, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            ctx.restore();
+          }
+
+          // Subtle glossy dorsal highlight along spine
+          ctx.beginPath();
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
+          ctx.lineWidth = 4.2 * this.scale;
+          ctx.lineCap = "round";
+          ctx.moveTo(this.segments[0].x, this.segments[0].y);
+          for (let i = 1; i < 6; i++) {
+            ctx.lineTo(this.segments[i].x, this.segments[i].y);
+          }
+          ctx.stroke();
+
+          ctx.restore(); // end body clip
+        }
+
+        _drawDorsalRidge(ctx) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(this.segments[3].x, this.segments[3].y);
+          for (let i = 4; i <= 7; i++) {
+            const s = this.segments[i];
+            const waveOff = Math.sin(this.swimPhase - i * 0.6) * 2.5 * this.scale;
+            ctx.lineTo(s.x - Math.sin(s.angle) * waveOff, s.y + Math.cos(s.angle) * waveOff);
+          }
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.34)";
+          ctx.lineWidth = 2.6 * this.scale;
+          ctx.lineCap = "round";
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        _drawHeadDetails(ctx) {
+          const h = this.segments[0];
+          ctx.save();
+          ctx.translate(h.x, h.y);
+          ctx.rotate(h.angle);
+
+          // Delicate barbels (whiskers) near snout
+          ctx.strokeStyle = this.dna.base.shade;
+          ctx.lineWidth = 1.15 * this.scale;
+          ctx.lineCap = "round";
+          [-1, 1].forEach(side => {
+            ctx.beginPath();
+            ctx.moveTo(11.5 * this.scale, side * 5.2 * this.scale);
+            ctx.quadraticCurveTo(16.5 * this.scale, side * 9.5 * this.scale, 14.5 * this.scale, side * 13.5 * this.scale);
+            ctx.stroke();
+          });
+
+          // Small glossy dark eyes on sides of head
+          [-1, 1].forEach(side => {
+            const ex = 6.2 * this.scale;
+            const ey = side * 9.5 * this.scale;
+            ctx.fillStyle = "#11161a";
+            ctx.beginPath();
+            ctx.ellipse(ex, ey, 2.7 * this.scale, 1.9 * this.scale, side * 0.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+            ctx.beginPath();
+            ctx.arc(ex + 0.9 * this.scale, ey - side * 0.4 * this.scale, 0.8 * this.scale, 0, Math.PI * 2);
+            ctx.fill();
+          });
+
+          ctx.restore();
+        }
+      }
+
+      // =========================================================================
+      // 6. LIVING ECOSYSTEM ENTITIES (LILY PADS, GRASS, DRAGONFLIES, PARTICLES)
+      // =========================================================================
+      let lilyPads = [];
+      let aquaticGrass = [];
+      let ambientDragonflies = [];
+      let ripples = [];
+      let particles = [];
+      let celebrationDragonflies = [];
+      let celebrationLotuses = [];
+      let fireflies = [];
+      let spoutDropTimer = 0.8;
+      let ambientRippleTimer = 1.5;
+
+      function createEcosystem() {
+        lilyPads = [];
+        aquaticGrass = [];
+        ambientDragonflies = [];
+
+        // Underwater gently swaying aquatic grass tufts
+        const grassCount = Math.floor((W * H) / 48000) + 12;
+        for (let i = 0; i < grassCount; i++) {
+          const inBasin = i < 3;
+          const x = inBasin
+            ? layout.basinCenterX + (Math.random() - 0.5) * layout.basinRx * 1.1
+            : layout.pondMinX + 40 + Math.random() * (layout.pondMaxX - layout.pondMinX - 80);
+          const y = inBasin
+            ? layout.basinCenterY + (Math.random() - 0.5) * layout.basinRy * 1.1
+            : 40 + Math.random() * (H - 80);
+
+          const blades = [];
+          const bladeCount = 3 + Math.floor(Math.random() * 4);
+          for (let b = 0; b < bladeCount; b++) {
+            blades.push({
+              len: 28 + Math.random() * 34,
+              baseAngle: -Math.PI * 0.5 + (Math.random() - 0.5) * 1.4,
+              phase: Math.random() * Math.PI * 2,
+              width: 2.2 + Math.random() * 1.8
+            });
+          }
+          aquaticGrass.push({ x, y, blades });
+        }
+
+        // Floating stylized lily pads (placed near perimeter & open pockets so fish stay clearly visible)
+        const padAnchors = [
+          { rx: 0.34, ry: 0.12, r: 44, lotus: true },
+          { rx: 0.56, ry: 0.09, r: 34, lotus: false },
+          { rx: 0.82, ry: 0.13, r: 50, lotus: true },
+          { rx: 0.93, ry: 0.34, r: 38, lotus: false },
+          { rx: 0.92, ry: 0.65, r: 46, lotus: true },
+          { rx: 0.36, ry: 0.88, r: 48, lotus: true },
+          { rx: 0.62, ry: 0.91, r: 38, lotus: false },
+          { rx: 0.78, ry: 0.86, r: 32, lotus: false },
+          { rx: 0.66, ry: 0.44, r: 30, lotus: false }
+        ];
+
+        const padScale = Math.min(1.15, Math.max(0.68, Math.min(W / 1280, H / 760)));
+        padAnchors.forEach(a => {
+          const px = a.rx * W + (Math.random() - 0.5) * 28;
+          const py = a.ry * H + (Math.random() - 0.5) * 22;
+          // Ensure pad stays outside stone basin
+          if (px > layout.pondMinX + 20) {
+            const dewDrops = [];
+            const dewCount = 2 + Math.floor(Math.random() * 3);
+            for (let d = 0; d < dewCount; d++) {
+              const ang = Math.random() * Math.PI * 2;
+              const dist = (0.25 + Math.random() * 0.45) * a.r * padScale;
+              dewDrops.push({
+                dx: Math.cos(ang) * dist,
+                dy: Math.sin(ang) * dist,
+                r: 1.8 + Math.random() * 2.2
+              });
+            }
+            lilyPads.push({
+              x: px,
+              y: py,
+              baseX: px,
+              baseY: py,
+              r: a.r * padScale,
+              angle: Math.random() * Math.PI * 2,
+              bobPhase: Math.random() * Math.PI * 2,
+              hasLotus: a.lotus,
+              lotusRot: Math.random() * Math.PI * 2,
+              dewDrops
+            });
+          }
+        });
+
+        // 2 ambient procedural dragonflies
+        const dfColors = ["#38d9c0", "#5aa9ff"];
+        for (let i = 0; i < 2; i++) {
+          ambientDragonflies.push(createDragonfly(dfColors[i]));
+        }
+      }
+
+      function createDragonfly(color) {
+        return {
+          x: layout.pondMinX + Math.random() * (W - layout.pondMinX),
+          y: Math.random() * H,
+          tx: layout.pondMinX + Math.random() * (W - layout.pondMinX),
+          ty: Math.random() * H,
+          angle: Math.random() * Math.PI * 2,
+          color,
+          wingPhase: Math.random() * Math.PI * 2,
+          state: "fly", // "fly" | "rest"
+          timer: 2 + Math.random() * 3
+        };
+      }
+
+      function spawnRipple(x, y, maxR = 65, color = "rgba(215, 245, 240, 0.42)", lineWidth = 1.8) {
+        ripples.push({ x, y, r: 4, maxR, alpha: 1, color, lineWidth });
+      }
+
+      function spawnWaterSplash(x, y, count = 14) {
+        for (let i = 0; i < count; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const spd = 45 + Math.random() * 115;
+          particles.push({
+            type: "droplet",
+            x,
+            y,
+            vx: Math.cos(ang) * spd,
+            vy: Math.sin(ang) * spd - 20,
+            r: 2.2 + Math.random() * 3.4,
+            life: 0.55 + Math.random() * 0.35,
+            maxLife: 0.9,
+            color: "rgba(225, 250, 255, 0.85)"
+          });
+        }
+      }
+
+      // =========================================================================
+      // 7. STATIC BACKDROP RENDERER (PEBBLES, SUNKEN LEAVES, MOSSY STONE BASIN)
+      // =========================================================================
+      function renderStaticBackdrop() {
+        bgCanvas.width = Math.floor(W * DPR);
+        bgCanvas.height = Math.floor(H * DPR);
+        bgCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+        // 1. Deep realistic pond water gradient
+        const waterGrad = bgCtx.createRadialGradient(
+          W * 0.62, H * 0.45, Math.min(W, H) * 0.08,
+          W * 0.55, H * 0.5, Math.max(W, H) * 0.82
+        );
+        waterGrad.addColorStop(0, palette.waterTop);
+        waterGrad.addColorStop(0.55, palette.waterMid);
+        waterGrad.addColorStop(1, palette.waterDeep);
+        bgCtx.fillStyle = waterGrad;
+        bgCtx.fillRect(0, 0, W, H);
+
+        // 2. Smooth river pebbles scattered across the pond bed
+        const pebbleCount = Math.floor((W * H) / 4800);
+        for (let i = 0; i < pebbleCount; i++) {
+          const px = Math.random() * W;
+          const py = Math.random() * H;
+          const rx = 7 + Math.random() * 16;
+          const ry = rx * (0.55 + Math.random() * 0.35);
+          const rot = Math.random() * Math.PI;
+          const tone = palette.pebbleTones[Math.floor(Math.random() * palette.pebbleTones.length)];
+
+          bgCtx.save();
+          bgCtx.translate(px, py);
+          bgCtx.rotate(rot);
+          bgCtx.globalAlpha = 0.32 + Math.random() * 0.22;
+
+          // Pebble shadow
+          bgCtx.fillStyle = "rgba(0, 8, 10, 0.45)";
+          bgCtx.beginPath();
+          bgCtx.ellipse(2, 3, rx, ry, 0, 0, Math.PI * 2);
+          bgCtx.fill();
+
+          // Pebble body
+          bgCtx.fillStyle = tone;
+          bgCtx.beginPath();
+          bgCtx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+          bgCtx.fill();
+
+          // Soft wet highlight
+          bgCtx.fillStyle = "rgba(255, 255, 255, 0.12)";
+          bgCtx.beginPath();
+          bgCtx.ellipse(-rx * 0.25, -ry * 0.25, rx * 0.45, ry * 0.35, 0, 0, Math.PI * 2);
+          bgCtx.fill();
+          bgCtx.restore();
+        }
+
+        // 3. Slowly settled sunken leaves on the pond floor
+        const leafCount = 16;
+        for (let i = 0; i < leafCount; i++) {
+          const lx = layout.pondMinX + Math.random() * (W - layout.pondMinX);
+          const ly = Math.random() * H;
+          const lr = 12 + Math.random() * 14;
+          const rot = Math.random() * Math.PI * 2;
+          bgCtx.save();
+          bgCtx.translate(lx, ly);
+          bgCtx.rotate(rot);
+          bgCtx.globalAlpha = 0.22;
+          bgCtx.fillStyle = i % 2 === 0 ? "#7a5c38" : "#4a663b";
+          bgCtx.beginPath();
+          bgCtx.moveTo(-lr, 0);
+          bgCtx.quadraticCurveTo(0, -lr * 0.65, lr, 0);
+          bgCtx.quadraticCurveTo(0, lr * 0.65, -lr, 0);
+          bgCtx.fill();
+          bgCtx.restore();
+        }
+
+        // 4. Left Side Organic Mossy River-Stone Basin (~26% width)
+        const cx = layout.basinCenterX;
+        const cy = layout.basinCenterY;
+        const rx = layout.basinRx;
+        const ry = layout.basinRy;
+
+        // Basin interior water glow (slightly brighter shallow rock pool)
+        bgCtx.save();
+        const basinGrad = bgCtx.createRadialGradient(cx, cy, rx * 0.1, cx, cy, Math.max(rx, ry) * 1.05);
+        basinGrad.addColorStop(0, palette.basinWater);
+        basinGrad.addColorStop(0.75, palette.waterMid);
+        basinGrad.addColorStop(1, palette.waterDeep);
+        bgCtx.fillStyle = basinGrad;
+        bgCtx.beginPath();
+        bgCtx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        bgCtx.fill();
+
+        // Inner shallow stone shadow ring
+        bgCtx.strokeStyle = "rgba(0, 12, 12, 0.55)";
+        bgCtx.lineWidth = 18;
+        bgCtx.stroke();
+        bgCtx.restore();
+
+        // Organic ring of wet river stones forming the basin border
+        const stoneCount = 26;
+        for (let i = 0; i < stoneCount; i++) {
+          const t = (i / stoneCount) * Math.PI * 2;
+          const jitter = 0.94 + Math.sin(i * 3.7) * 0.08;
+          const sx = cx + Math.cos(t) * (rx + 10) * jitter;
+          const sy = cy + Math.sin(t) * (ry + 10) * jitter;
+          const sRx = 22 + (i % 3) * 8 + Math.abs(Math.sin(i * 2.1)) * 10;
+          const sRy = 16 + ((i + 1) % 3) * 6;
+          const sRot = t + Math.PI * 0.5 + Math.sin(i * 5) * 0.25;
+
+          bgCtx.save();
+          bgCtx.translate(sx, sy);
+          bgCtx.rotate(sRot);
+
+          // Cast shadow into pond water
+          bgCtx.fillStyle = "rgba(0, 10, 12, 0.52)";
+          bgCtx.beginPath();
+          bgCtx.ellipse(5, 7, sRx * 1.06, sRy * 1.06, 0, 0, Math.PI * 2);
+          bgCtx.fill();
+
+          // Wet river stone gradient
+          const sg = bgCtx.createRadialGradient(-sRx * 0.3, -sRy * 0.3, 2, 0, 0, sRx * 1.15);
+          sg.addColorStop(0, "#83908a");
+          sg.addColorStop(0.55, "#4c5955");
+          sg.addColorStop(1, "#273130");
+          bgCtx.fillStyle = sg;
+          bgCtx.beginPath();
+          bgCtx.ellipse(0, 0, sRx, sRy, 0, 0, Math.PI * 2);
+          bgCtx.fill();
+
+          // Specular wet sheen
+          bgCtx.fillStyle = "rgba(220, 240, 235, 0.16)";
+          bgCtx.beginPath();
+          bgCtx.ellipse(-sRx * 0.26, -sRy * 0.28, sRx * 0.42, sRy * 0.26, -0.2, 0, Math.PI * 2);
+          bgCtx.fill();
+
+          // Lush moss tufts on select stones
+          if (i % 2 === 0) {
+            const mossColor = palette.moss[i % palette.moss.length];
+            bgCtx.fillStyle = mossColor;
+            for (let m = 0; m < 4; m++) {
+              const mx = (m - 1.5) * 5.5;
+              const my = -sRy * 0.3 + Math.sin(m * 2.2) * 4;
+              bgCtx.beginPath();
+              bgCtx.arc(mx, my, 5 + (m % 2) * 3, 0, Math.PI * 2);
+              bgCtx.fill();
+            }
+          }
+          bgCtx.restore();
+        }
+
+        // 5. Stylized Bamboo Water Spout at top-left of the basin
+        drawBambooSpout(bgCtx);
+      }
+
+      function drawBambooSpout(c) {
+        const x1 = layout.spoutX;
+        const y1 = layout.spoutY;
+        const x2 = layout.spoutTipX;
+        const y2 = layout.spoutTipY;
+        const angle = Math.atan2(y2 - y1, x2 - x1);
+        const len = Math.hypot(x2 - x1, y2 - y1);
+
+        c.save();
+        c.translate(x1, y1);
+        c.rotate(angle);
+
+        // Bamboo shadow
+        c.fillStyle = "rgba(0, 12, 12, 0.45)";
+        c.beginPath();
+        c.roundRect(0, 5, len, 16, 4);
+        c.fill();
+
+        // Bamboo cylinder gradient
+        const bg = c.createLinearGradient(0, -8, 0, 10);
+        bg.addColorStop(0, "#a8c973");
+        bg.addColorStop(0.45, "#749949");
+        bg.addColorStop(1, "#3d5724");
+        c.fillStyle = bg;
+        c.beginPath();
+        c.roundRect(0, -8, len, 17, 4);
+        c.fill();
+
+        // Bamboo node rings
+        c.strokeStyle = "#d5e8a7";
+        c.lineWidth = 2.4;
+        [len * 0.38, len * 0.74].forEach(nx => {
+          c.beginPath();
+          c.moveTo(nx, -8.5);
+          c.lineTo(nx, 9.5);
+          c.stroke();
+        });
+
+        // Dark hollow spout opening
+        c.fillStyle = "#1c2b14";
+        c.beginPath();
+        c.ellipse(len, 0.5, 4.5, 7.5, 0, 0, Math.PI * 2);
+        c.fill();
+
+        // Twine binding
+        c.strokeStyle = "#5c4328";
+        c.lineWidth = 3;
+        c.beginPath();
+        c.moveTo(len * 0.32, -9);
+        c.lineTo(len * 0.32, 10);
+        c.moveTo(len * 0.36, -9);
+        c.lineTo(len * 0.36, 10);
+        c.stroke();
+
+        c.restore();
+      }
+
+      // =========================================================================
+      // 8. LIVE RENDERING HELPERS (CAUSTICS, LILY PADS, LOTUS, DRAGONFLIES)
+      // =========================================================================
+      function drawCaustics(time) {
+        ctx.save();
+        ctx.fillStyle = palette.caustic;
+        const cols = 6;
+        const rows = 4;
+        const cellW = W / cols;
+        const cellH = H / rows;
+
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const cx = (c + 0.5) * cellW + Math.sin(time * 0.45 + r * 1.4 + c) * 36;
+            const cy = (r + 0.5) * cellH + Math.cos(time * 0.38 + c * 1.7 + r) * 28;
+            const radX = cellW * (0.34 + 0.08 * Math.sin(time * 0.7 + c + r));
+            const radY = cellH * (0.28 + 0.08 * Math.cos(time * 0.6 + c * 2));
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, radX, radY, time * 0.08 + c, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+
+      function drawAquaticGrass(time) {
+        ctx.save();
+        ctx.lineCap = "round";
+        for (let i = 0; i < aquaticGrass.length; i++) {
+          const tuft = aquaticGrass[i];
+          for (let b = 0; b < tuft.blades.length; b++) {
+            const bl = tuft.blades[b];
+            const sway = Math.sin(time * 1.15 + bl.phase) * 14;
+            const tipX = tuft.x + Math.cos(bl.baseAngle) * bl.len + sway;
+            const tipY = tuft.y + Math.sin(bl.baseAngle) * bl.len;
+            const cpX = tuft.x + Math.cos(bl.baseAngle) * bl.len * 0.5 + sway * 0.4;
+            const cpY = tuft.y + Math.sin(bl.baseAngle) * bl.len * 0.5;
+
+            ctx.strokeStyle = "rgba(38, 108, 72, 0.36)";
+            ctx.lineWidth = bl.width;
+            ctx.beginPath();
+            ctx.moveTo(tuft.x, tuft.y);
+            ctx.quadraticCurveTo(cpX, cpY, tipX, tipY);
+            ctx.stroke();
+          }
+        }
+        ctx.restore();
+      }
+
+      function drawSpoutStream(time) {
+        const sx = layout.spoutTipX;
+        const sy = layout.spoutTipY;
+        const dropX = sx + 22;
+        const dropY = sy + 28;
+
+        ctx.save();
+        ctx.strokeStyle = "rgba(215, 248, 250, 0.45)";
+        ctx.lineWidth = 2.6 + Math.sin(time * 10) * 0.4;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.quadraticCurveTo(sx + 14, sy + 6, dropX, dropY);
+        ctx.stroke();
+
+        // Bright water glint
+        ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
+        ctx.beginPath();
+        ctx.arc(dropX, dropY, 2.8 + Math.sin(time * 12) * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawLilyPads(time) {
+        for (let i = 0; i < lilyPads.length; i++) {
+          const p = lilyPads[i];
+          const bobX = Math.sin(time * 0.65 + p.bobPhase) * 3.5;
+          const bobY = Math.cos(time * 0.55 + p.bobPhase) * 2.8;
+          p.x = p.baseX + bobX;
+          p.y = p.baseY + bobY;
+          const rot = p.angle + Math.sin(time * 0.35 + p.bobPhase) * 0.06;
+
+          ctx.save();
+          ctx.translate(p.x, p.y);
+
+          // Soft underwater shadow
+          ctx.fillStyle = "rgba(0, 12, 12, 0.32)";
+          ctx.beginPath();
+          ctx.arc(8, 10, p.r * 1.02, rot + 0.24, rot + Math.PI * 2 - 0.24);
+          ctx.lineTo(8, 10);
+          ctx.closePath();
+          ctx.fill();
+
+          // Pad body with notch
+          ctx.rotate(rot);
+          const pg = ctx.createRadialGradient(-p.r * 0.2, -p.r * 0.2, p.r * 0.1, 0, 0, p.r);
+          pg.addColorStop(0, palette.padLight);
+          pg.addColorStop(0.7, palette.padMain);
+          pg.addColorStop(1, palette.padDark);
+          ctx.fillStyle = pg;
+          ctx.beginPath();
+          ctx.arc(0, 0, p.r, 0.22, Math.PI * 2 - 0.22);
+          ctx.lineTo(0, 0);
+          ctx.closePath();
+          ctx.fill();
+
+          // Radial veins
+          ctx.strokeStyle = "rgba(185, 235, 175, 0.24)";
+          ctx.lineWidth = 1.2;
+          for (let v = 0; v < 9; v++) {
+            const va = 0.5 + (v / 8) * (Math.PI * 2 - 1.0);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.cos(va) * p.r * 0.86, Math.sin(va) * p.r * 0.86);
+            ctx.stroke();
+          }
+
+          // Dew droplets
+          for (let d = 0; d < p.dewDrops.length; d++) {
+            const dew = p.dewDrops[d];
+            ctx.fillStyle = "rgba(230, 252, 255, 0.65)";
+            ctx.beginPath();
+            ctx.arc(dew.dx, dew.dy, dew.r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+            ctx.beginPath();
+            ctx.arc(dew.dx - dew.r * 0.3, dew.dy - dew.r * 0.3, dew.r * 0.35, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // Blooming multi-layered lotus flower on select pads
+          if (p.hasLotus) {
+            drawLotusFlower(ctx, 0, 0, p.r * 0.46, p.lotusRot + time * 0.05, 1);
+          }
+
+          ctx.restore();
+        }
+      }
+
+      function drawLotusFlower(c, x, y, size, rot, bloomScale) {
+        c.save();
+        c.translate(x, y);
+        c.rotate(rot);
+        c.scale(bloomScale, bloomScale);
+
+        // Outer petals
+        const outerCount = 8;
+        for (let i = 0; i < outerCount; i++) {
+          c.save();
+          c.rotate((i / outerCount) * Math.PI * 2);
+          c.fillStyle = palette.lotusOuter;
+          c.beginPath();
+          c.moveTo(0, 0);
+          c.quadraticCurveTo(size * 0.45, -size * 0.42, size, 0);
+          c.quadraticCurveTo(size * 0.45, size * 0.42, 0, 0);
+          c.fill();
+          c.restore();
+        }
+
+        // Inner petals
+        const innerCount = 8;
+        for (let i = 0; i < innerCount; i++) {
+          c.save();
+          c.rotate(((i + 0.5) / innerCount) * Math.PI * 2);
+          c.fillStyle = palette.lotusInner;
+          c.beginPath();
+          c.moveTo(0, 0);
+          c.quadraticCurveTo(size * 0.34, -size * 0.32, size * 0.72, 0);
+          c.quadraticCurveTo(size * 0.34, size * 0.32, 0, 0);
+          c.fill();
+          c.restore();
+        }
+
+        // Golden stamen center
+        c.fillStyle = palette.lotusCore;
+        c.beginPath();
+        c.arc(0, 0, size * 0.22, 0, Math.PI * 2);
+        c.fill();
+
+        c.restore();
+      }
+
+      function updateAndDrawDragonflies(dt, time) {
+        for (let i = 0; i < ambientDragonflies.length; i++) {
+          const df = ambientDragonflies[i];
+          df.wingPhase += dt * (df.state === "fly" ? 48 : 10);
+          df.timer -= dt;
+
+          if (df.state === "fly") {
+            const dx = df.tx - df.x;
+            const dy = df.ty - df.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist < 14 || df.timer <= 0) {
+              // Rest briefly on a lily pad or pick a new target
+              if (Math.random() < 0.45 && lilyPads.length > 0) {
+                const pad = pickRandom(lilyPads);
+                df.tx = pad.x;
+                df.ty = pad.y;
+                if (Math.hypot(pad.x - df.x, pad.y - df.y) < 35) {
+                  df.state = "rest";
+                  df.timer = 1.6 + Math.random() * 2.4;
+                } else {
+                  df.timer = 3.5;
+                }
+              } else {
+                df.tx = 60 + Math.random() * (W - 120);
+                df.ty = 60 + Math.random() * (H - 120);
+                df.timer = 2.5 + Math.random() * 2.5;
+              }
+            } else {
+              const targetAngle = Math.atan2(dy, dx);
+              df.angle = lerpAngle(df.angle, targetAngle, Math.min(1, dt * 6));
+              const spd = Math.min(165, 55 + dist * 0.9);
+              df.x += Math.cos(df.angle) * spd * dt;
+              df.y += Math.sin(df.angle) * spd * dt;
+            }
+          } else {
+            if (df.timer <= 0) {
+              df.state = "fly";
+              df.tx = 80 + Math.random() * (W - 160);
+              df.ty = 80 + Math.random() * (H - 160);
+              df.timer = 3;
+            }
+          }
+
+          drawDragonfly(ctx, df.x, df.y, df.angle, df.color, df.wingPhase, 1);
+        }
+      }
+
+      function drawDragonfly(c, x, y, angle, color, wingPhase, scale) {
+        c.save();
+        c.translate(x, y);
+        c.rotate(angle);
+        c.scale(scale, scale);
+
+        // Shadow far below on water surface
+        c.save();
+        c.translate(14, 18);
+        c.fillStyle = "rgba(0, 12, 12, 0.2)";
+        c.beginPath();
+        c.ellipse(0, 0, 14, 3, 0, 0, Math.PI * 2);
+        c.fill();
+        c.restore();
+
+        // Translucent shimmering wings (4 wings)
+        const flap = Math.sin(wingPhase) * 0.24;
+        c.fillStyle = "rgba(225, 250, 255, 0.42)";
+        c.strokeStyle = "rgba(255, 255, 255, 0.55)";
+        c.lineWidth = 0.7;
+        [-1, 1].forEach(side => {
+          // Forewing
+          c.save();
+          c.rotate(side * (1.28 + flap));
+          c.beginPath();
+          c.ellipse(11, 0, 11, 3.1, 0, 0, Math.PI * 2);
+          c.fill();
+          c.stroke();
+          c.restore();
+
+          // Hindwing
+          c.save();
+          c.translate(-4, 0);
+          c.rotate(side * (1.58 - flap * 0.8));
+          c.beginPath();
+          c.ellipse(9.5, 0, 9.5, 2.7, 0, 0, Math.PI * 2);
+          c.fill();
+          c.stroke();
+          c.restore();
+        });
+
+        // Segmented iridescent abdomen
+        c.strokeStyle = color;
+        c.lineWidth = 2.4;
+        c.lineCap = "round";
+        c.beginPath();
+        c.moveTo(-2, 0);
+        c.lineTo(-19, 0);
+        c.stroke();
+
+        // Thorax & head
+        c.fillStyle = color;
+        c.beginPath();
+        c.ellipse(2, 0, 4.5, 2.8, 0, 0, Math.PI * 2);
+        c.fill();
+
+        c.fillStyle = "#122428";
+        c.beginPath();
+        c.arc(7, -1.6, 1.5, 0, Math.PI * 2);
+        c.arc(7, 1.6, 1.5, 0, Math.PI * 2);
+        c.fill();
+
+        c.restore();
+      }
+
+      // =========================================================================
+      // 9. GAME STATE, PUZZLE ROUNDS & 4 CELEBRATION SPECTACLES
+      // =========================================================================
+      let targetFish = null;
+      let pondFishes = [];
+      let hoveredFish = null;
+
+      let state = "playing"; // "playing" | "celebrating" | "transition"
+      let celebrationTimer = 0;
+      let celebrationType = 0;
+      let lastCelebrationType = -1;
+      let matchedFishRef = null;
+
+      let transitionAlpha = 0;
+      let transitionPhase = 0; // 0 = fading out, 1 = fading in
+
+      const pointer = { x: -999, y: -999, active: false };
+
+      function computeLayout() {
+        const splitRatio = W < 780 ? 0.30 : 0.26;
+        layout.basinSplitX = W * splitRatio;
+        layout.basinCenterX = layout.basinSplitX * 0.50;
+        layout.basinCenterY = H * 0.50;
+        layout.basinRx = layout.basinSplitX * 0.42;
+        layout.basinRy = Math.min(H * 0.40, layout.basinRx * 1.48);
+
+        layout.pondMinX = layout.basinSplitX + 22;
+        layout.pondMaxX = W;
+        layout.pondMinY = 0;
+        layout.pondMaxY = H;
+
+        layout.spoutX = Math.max(8, layout.basinCenterX - layout.basinRx * 1.05);
+        layout.spoutY = Math.max(18, layout.basinCenterY - layout.basinRy * 0.92);
+        layout.spoutTipX = layout.basinCenterX - layout.basinRx * 0.42;
+        layout.spoutTipY = layout.basinCenterY - layout.basinRy * 0.48;
+      }
+
+      function startNewRound(shiftPalette = true) {
+        if (shiftPalette) {
+          currentPaletteIndex = (currentPaletteIndex + 1 + Math.floor(Math.random() * (PALETTES.length - 1))) % PALETTES.length;
+          palette = PALETTES[currentPaletteIndex];
+        }
+
+        renderStaticBackdrop();
+        createEcosystem();
+
+        // Clear celebration leftovers
+        celebrationDragonflies = [];
+        celebrationLotuses = [];
+        fireflies = [];
+        particles = [];
+        ripples = [];
+        hoveredFish = null;
+        matchedFishRef = null;
+        state = "playing";
+
+        const fishScale = Math.min(1.16, Math.max(0.76, Math.min(W / 1280, H / 740)));
+        const targetDNA = generateRandomDNA();
+        const usedSigs = new Set([dnaSignature(targetDNA)]);
+
+        // Spawn Target Koi inside left stone basin
+        targetFish = new KoiFish(targetDNA, layout.basinCenterX, layout.basinCenterY, fishScale * 1.06, true, false);
+
+        // Determine number of pond fish (7 to 9 depending on screen area)
+        const pondCount = W >= 1150 ? 8 : 7;
+        pondFishes = [];
+
+        // Create 1 exact twin + (pondCount - 1) carefully crafted distractors
+        const dnaList = [cloneDNA(targetDNA)];
+        for (let i = 1; i < pondCount; i++) {
+          const tier = i <= 2 ? 0 : (i <= 5 ? 1 : 2);
+          dnaList.push(createDistractorDNA(targetDNA, tier, usedSigs));
+        }
+
+        // Shuffle fish positions cleanly across a grid with jitter so none spawn stacked
+        const cols = 3;
+        const rows = Math.ceil(pondCount / cols);
+        const cellW = (layout.pondMaxX - layout.pondMinX - 120) / cols;
+        const cellH = (H - 140) / rows;
+        const slots = [];
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            slots.push({
+              x: layout.pondMinX + 70 + (c + 0.5) * cellW + (Math.random() - 0.5) * cellW * 0.35,
+              y: 70 + (r + 0.5) * cellH + (Math.random() - 0.5) * cellH * 0.35
+            });
+          }
+        }
+        // Fisher-Yates shuffle slots
+        for (let i = slots.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [slots[i], slots[j]] = [slots[j], slots[i]];
+        }
+
+        for (let i = 0; i < pondCount; i++) {
+          const isMatch = i === 0;
+          const pos = slots[i];
+          const koi = new KoiFish(dnaList[i], pos.x, pos.y, fishScale, false, isMatch);
+          pondFishes.push(koi);
+        }
+      }
+
+      function triggerCelebration(matchedFish) {
+        state = "celebrating";
+        matchedFishRef = matchedFish;
+        celebrationTimer = 2.4;
+
+        // Pick one of 4 spectacles, never repeating the exact same one twice in a row
+        let nextType = Math.floor(Math.random() * 4);
+        if (nextType === lastCelebrationType) {
+          nextType = (nextType + 1) % 4;
+        }
+        celebrationType = nextType;
+        lastCelebrationType = nextType;
+
+        sound.playCelebration(celebrationType);
+
+        const fx = matchedFish.head.x;
+        const fy = matchedFish.head.y;
+
+        if (celebrationType === 0) {
+          // 0: Synchronized Leap & Petal Burst
+          matchedFish.isLeaping = true;
+          matchedFish.leapProgress = 0.01;
+          spawnWaterSplash(fx, fy, 22);
+          spawnRipple(fx, fy, 130, "rgba(255, 240, 190, 0.78)", 3);
+
+          const petalColors = [palette.lotusOuter, palette.lotusInner, "#ffd54f", "#ffab91"];
+          for (let i = 0; i < 38; i++) {
+            const ang = Math.random() * Math.PI * 2;
+            const spd = 40 + Math.random() * 145;
+            particles.push({
+              type: "petal",
+              x: fx,
+              y: fy,
+              vx: Math.cos(ang) * spd,
+              vy: Math.sin(ang) * spd,
+              rot: Math.random() * Math.PI * 2,
+              vRot: (Math.random() - 0.5) * 6,
+              r: 6 + Math.random() * 6,
+              life: 1.8 + Math.random() * 0.7,
+              maxLife: 2.5,
+              color: pickRandom(petalColors)
+            });
+          }
+        } else if (celebrationType === 1) {
+          // 1: Dragonfly Celebration Dance
+          matchedFish.spinMode = true;
+          const colors = ["#3ef2d1", "#68b5ff", "#ffd452", "#ff7eb6", "#a8ff78", "#c58aff"];
+          for (let i = 0; i < 7; i++) {
+            celebrationDragonflies.push({
+              cx: fx,
+              cy: fy,
+              orbitAngle: (i / 7) * Math.PI * 2,
+              orbitRadius: 150 + Math.random() * 55,
+              color: colors[i % colors.length],
+              wingPhase: Math.random() * Math.PI * 2
+            });
+          }
+        } else if (celebrationType === 2) {
+          // 2: Iridescent Ripple & Lotus Bloom
+          const ringColors = [
+            "rgba(255, 224, 130, 0.85)",
+            "rgba(255, 160, 195, 0.78)",
+            "rgba(130, 245, 230, 0.78)",
+            "rgba(195, 165, 255, 0.75)"
+          ];
+          ringColors.forEach((col, idx) => {
+            setTimeout(() => {
+              spawnRipple(fx, fy, Math.max(W, H) * 0.55, col, 3.6);
+            }, idx * 210);
+          });
+
+          for (let i = 0; i < 5; i++) {
+            const ang = (i / 5) * Math.PI * 2 + Math.random() * 0.4;
+            const dist = 62 + Math.random() * 34;
+            celebrationLotuses.push({
+              x: fx + Math.cos(ang) * dist,
+              y: fy + Math.sin(ang) * dist,
+              size: 24 + Math.random() * 12,
+              rot: Math.random() * Math.PI * 2,
+              scale: 0.01
+            });
+          }
+        } else {
+          // 3: Firefly Vortex around both matched fish and target basin
+          for (let i = 0; i < 42; i++) {
+            const aroundTarget = i < 14;
+            fireflies.push({
+              cx: aroundTarget ? layout.basinCenterX : fx,
+              cy: aroundTarget ? layout.basinCenterY : fy,
+              angle: Math.random() * Math.PI * 2,
+              radius: 30 + Math.random() * 120,
+              rise: 0,
+              speed: 2.2 + Math.random() * 2.2,
+              size: 2.8 + Math.random() * 3.2,
+              phase: Math.random() * Math.PI * 2
+            });
+          }
+        }
+      }
+
+      function beginTransition() {
+        if (state === "transition") return;
+        state = "transition";
+        transitionAlpha = 0;
+        transitionPhase = 0;
+      }
+
+      // =========================================================================
+      // 10. INPUT HANDLING (MOUSE + TOUCH)
+      // =========================================================================
+      function getCanvasPoint(e) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top
+        };
+      }
+
+      canvas.addEventListener("pointermove", e => {
+        const pt = getCanvasPoint(e);
+        pointer.x = pt.x;
+        pointer.y = pt.y;
+        pointer.active = true;
+      });
+
+      canvas.addEventListener("pointerleave", () => {
+        pointer.active = false;
+        hoveredFish = null;
+      });
+
+      canvas.addEventListener("pointerdown", e => {
+        sound.unlock();
+        if (state !== "playing") return;
+
+        const pt = getCanvasPoint(e);
+        pointer.x = pt.x;
+        pointer.y = pt.y;
+        pointer.active = true;
+
+        // Check pond Koi hits (top-most first)
+        let clickedFish = null;
+        for (let i = pondFishes.length - 1; i >= 0; i--) {
+          if (pondFishes[i].hitTest(pt.x, pt.y)) {
+            clickedFish = pondFishes[i];
+            break;
+          }
+        }
+
+        if (clickedFish) {
+          if (clickedFish.isMatch) {
+            triggerCelebration(clickedFish);
+          } else {
+            // Playful non-punishing distractor splash & wiggle
+            sound.playWrongPlop();
+            clickedFish.triggerWrongReaction();
+            spawnWaterSplash(clickedFish.head.x, clickedFish.head.y, 12);
+            spawnRipple(clickedFish.head.x, clickedFish.head.y, 76, "rgba(215, 248, 255, 0.65)", 2.4);
+          }
+        } else {
+          // Gentle water ripple wherever the child taps the pond
+          spawnRipple(pt.x, pt.y, 48, "rgba(210, 245, 242, 0.36)", 1.6);
+        }
+      });
+
+      nextBtn.addEventListener("click", e => {
+        e.stopPropagation();
+        sound.unlock();
+        sound.playSkipDrop();
+        beginTransition();
+      });
+
+      // =========================================================================
+      // 11. MAIN ANIMATION LOOP (60 FPS)
+      // =========================================================================
+      let lastTime = performance.now();
+
+      function update(dt, time) {
+        // Bamboo spout dripping ripples
+        spoutDropTimer -= dt;
+        if (spoutDropTimer <= 0) {
+          spoutDropTimer = 1.6 + Math.random() * 1.4;
+          spawnRipple(layout.spoutTipX + 22, layout.spoutTipY + 28, 44, "rgba(220, 250, 250, 0.48)", 1.5);
+          sound.playSpoutDrop();
+        }
+
+        // Occasional calm pond ripple
+        ambientRippleTimer -= dt;
+        if (ambientRippleTimer <= 0) {
+          ambientRippleTimer = 2.4 + Math.random() * 3.0;
+          const rx = layout.pondMinX + 40 + Math.random() * (W - layout.pondMinX - 80);
+          const ry = 40 + Math.random() * (H - 80);
+          spawnRipple(rx, ry, 42 + Math.random() * 26, "rgba(200, 240, 240, 0.25)", 1.3);
+        }
+
+        // Hover detection during active play
+        if (state === "playing" && pointer.active) {
+          let foundHover = null;
+          for (let i = pondFishes.length - 1; i >= 0; i--) {
+            if (pondFishes[i].hitTest(pointer.x, pointer.y)) {
+              foundHover = pondFishes[i];
+              break;
+            }
+          }
+          if (foundHover && foundHover !== hoveredFish) {
+            sound.playHoverTick();
+          }
+          hoveredFish = foundHover;
+        } else {
+          hoveredFish = null;
+        }
+
+        // Update Koi fish
+        if (targetFish) targetFish.update(dt, pondFishes, null);
+        for (let i = 0; i < pondFishes.length; i++) {
+          pondFishes[i].update(dt, pondFishes, hoveredFish);
+        }
+
+        // Update ripples
+        for (let i = ripples.length - 1; i >= 0; i--) {
+          const rp = ripples[i];
+          rp.r += dt * (rp.maxR * 0.85);
+          rp.alpha = Math.max(0, 1 - rp.r / rp.maxR);
+          if (rp.alpha <= 0.01) ripples.splice(i, 1);
+        }
+
+        // Update particles (water droplets, lotus petals, golden pollen)
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.life -= dt;
+          if (p.life <= 0) {
+            particles.splice(i, 1);
+            continue;
+          }
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          if (p.type === "droplet") {
+            p.vx *= 0.94;
+            p.vy *= 0.94;
+          } else if (p.type === "petal") {
+            p.vx *= 0.97;
+            p.vy *= 0.97;
+            p.rot += p.vRot * dt;
+          }
+        }
+
+        // Update active celebration spectacle
+        if (state === "celebrating") {
+          celebrationTimer -= dt;
+
+          // Dragonfly celebration spiral
+          for (let i = 0; i < celebrationDragonflies.length; i++) {
+            const d = celebrationDragonflies[i];
+            d.orbitAngle += dt * 3.4;
+            d.orbitRadius = Math.max(46, d.orbitRadius - dt * 36);
+            d.wingPhase += dt * 58;
+            if (matchedFishRef) {
+              d.cx += (matchedFishRef.head.x - d.cx) * Math.min(1, dt * 4);
+              d.cy += (matchedFishRef.head.y - d.cy) * Math.min(1, dt * 4);
+            }
+            const px = d.cx + Math.cos(d.orbitAngle) * d.orbitRadius;
+            const py = d.cy + Math.sin(d.orbitAngle) * d.orbitRadius;
+            if (Math.random() < 0.45) {
+              particles.push({
+                type: "pollen",
+                x: px,
+                y: py,
+                vx: (Math.random() - 0.5) * 16,
+                vy: (Math.random() - 0.5) * 16,
+                r: 2 + Math.random() * 2.5,
+                life: 0.65,
+                maxLife: 0.65,
+                color: "#ffe875"
+              });
+            }
+          }
+
+          // Blooming celebration lotuses
+          for (let i = 0; i < celebrationLotuses.length; i++) {
+            const l = celebrationLotuses[i];
+            l.scale += (1 - l.scale) * Math.min(1, dt * 4.5);
+            l.rot += dt * 0.45;
+          }
+
+          // Firefly vortex
+          for (let i = 0; i < fireflies.length; i++) {
+            const f = fireflies[i];
+            f.angle += dt * f.speed;
+            f.radius = Math.max(16, f.radius * (1 - dt * 0.25));
+            f.rise += dt * 22;
+          }
+
+          if (celebrationTimer <= 0) {
+            beginTransition();
+          }
+        }
+
+        // Smooth water-curtain transition between rounds
+        if (state === "transition") {
+          if (transitionPhase === 0) {
+            transitionAlpha += dt * 2.4;
+            if (transitionAlpha >= 1) {
+              transitionAlpha = 1;
+              transitionPhase = 1;
+              startNewRound(true);
+              state = "transition";
+            }
+          } else {
+            transitionAlpha -= dt * 2.2;
+            if (transitionAlpha <= 0) {
+              transitionAlpha = 0;
+              state = "playing";
+            }
+          }
+        }
+      }
+
+      function render(dt, time) {
+        // 1. Static cached pond floor, pebbles, and left mossy stone basin
+        ctx.drawImage(bgCanvas, 0, 0, W, H);
+
+        // 2. Gently swaying underwater aquatic grass
+        drawAquaticGrass(time);
+
+        // 3. Soft shimmering water caustics
+        drawCaustics(time);
+
+        // 4. Target Koi inside left stone basin & Pond Koi on the right
+        if (targetFish) targetFish.draw(ctx, time);
+        for (let i = 0; i < pondFishes.length; i++) {
+          if (!pondFishes[i].isLeaping) {
+            pondFishes[i].draw(ctx, time);
+          }
+        }
+
+        // 5. Expanding surface water ripples
+        for (let i = 0; i < ripples.length; i++) {
+          const rp = ripples[i];
+          ctx.save();
+          ctx.globalAlpha = rp.alpha;
+          ctx.strokeStyle = rp.color;
+          ctx.lineWidth = rp.lineWidth;
+          ctx.beginPath();
+          ctx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 6. Bamboo spout water stream
+        drawSpoutStream(time);
+
+        // 7. Floating lily pads & blooming lotus flowers
+        drawLilyPads(time);
+
+        // Celebration blooming lotuses
+        for (let i = 0; i < celebrationLotuses.length; i++) {
+          const l = celebrationLotuses[i];
+          drawLotusFlower(ctx, l.x, l.y, l.size, l.rot, l.scale);
+        }
+
+        // Draw leaping fish above lily pads so it visibly jumps out of water
+        for (let i = 0; i < pondFishes.length; i++) {
+          if (pondFishes[i].isLeaping) {
+            pondFishes[i].draw(ctx, time);
+          }
+        }
+
+        // 8. Particles (water splashes, lotus petals, golden pollen)
+        for (let i = 0; i < particles.length; i++) {
+          const p = particles[i];
+          const a = Math.max(0, p.life / p.maxLife);
+          ctx.save();
+          ctx.globalAlpha = a;
+          if (p.type === "petal") {
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rot);
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, p.r, p.r * 0.55, 0, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        // 9. Firefly vortex celebration
+        for (let i = 0; i < fireflies.length; i++) {
+          const f = fireflies[i];
+          const fx = f.cx + Math.cos(f.angle) * f.radius;
+          const fy = f.cy + Math.sin(f.angle) * f.radius - f.rise;
+          const pulse = 0.6 + 0.4 * Math.sin(time * 9 + f.phase);
+          ctx.save();
+          const fg = ctx.createRadialGradient(fx, fy, 0.5, fx, fy, f.size * 4.2);
+          fg.addColorStop(0, `rgba(255, 252, 200, ${0.95 * pulse})`);
+          fg.addColorStop(0.4, `rgba(255, 215, 95, ${0.55 * pulse})`);
+          fg.addColorStop(1, "rgba(255, 200, 60, 0)");
+          ctx.fillStyle = fg;
+          ctx.beginPath();
+          ctx.arc(fx, fy, f.size * 4.2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // 10. Ambient & Celebration Dragonflies flying over the pond
+        updateAndDrawDragonflies(dt, time);
+
+        for (let i = 0; i < celebrationDragonflies.length; i++) {
+          const d = celebrationDragonflies[i];
+          const dx = d.cx + Math.cos(d.orbitAngle) * d.orbitRadius;
+          const dy = d.cy + Math.sin(d.orbitAngle) * d.orbitRadius;
+          drawDragonfly(ctx, dx, dy, d.orbitAngle + Math.PI * 0.5, d.color, d.wingPhase, 1.15);
+        }
+
+        // 11. Gentle water-shimmer transition overlay
+        if (transitionAlpha > 0.005) {
+          ctx.save();
+          ctx.globalAlpha = transitionAlpha * 0.88;
+          ctx.fillStyle = palette.waterDeep;
+          ctx.fillRect(0, 0, W, H);
+          ctx.restore();
+        }
+      }
+
+      function loop(now) {
+        const dt = Math.min(0.05, (now - lastTime) / 1000);
+        lastTime = now;
+        const time = now * 0.001;
+
+        update(dt, time);
+        render(dt, time);
+
+        requestAnimationFrame(loop);
+      }
+
+      // =========================================================================
+      // 12. RESIZE & INITIALIZATION
+      // =========================================================================
+      function handleResize() {
+        W = window.innerWidth;
+        H = window.innerHeight;
+        DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+        canvas.width = Math.floor(W * DPR);
+        canvas.height = Math.floor(H * DPR);
+        ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+        computeLayout();
+        renderStaticBackdrop();
+        createEcosystem();
+      }
+
+      function lerpAngle(a, b, t) {
+        let diff = b - a;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        return a + diff * t;
+      }
+
+      window.addEventListener("resize", () => {
+        handleResize();
+        // Keep existing fish cleanly inside updated bounds
+        if (targetFish) {
+          targetFish.head.x = layout.basinCenterX;
+          targetFish.head.y = layout.basinCenterY;
+        }
+      });
+
+      window.onload = () => {
+        handleResize();
+        startNewRound(false);
+        lastTime = performance.now();
+        requestAnimationFrame(loop);
+      };
+    })();
+  </script>
+</body>
+</html>
