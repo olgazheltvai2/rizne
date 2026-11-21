@@ -324,9 +324,12 @@
 
             <!-- Стрічка завантажених картинок (1, 2, 3...) -->
             <div id="modalGalleryBox" class="hidden bg-gray-950 border border-gray-800 rounded-xl p-3 space-y-2">
-              <div class="flex items-center justify-between">
+              <div class="flex items-center justify-between gap-2 flex-wrap">
                 <span id="modalGalleryCountText" class="text-xs font-bold text-purple-300">Завантажено картинок: 1</span>
                 <button type="button" data-action="clear-gallery-images" class="text-[11px] text-rose-400 hover:underline cursor-pointer">🗑️ Очистити всі картинки</button>
+              </div>
+              <div id="modalAutoPullNotice" class="hidden text-[11px] text-emerald-300 bg-emerald-950/50 border border-emerald-700/50 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2 flex-wrap">
+                <span id="modalAutoPullText">✨ Картинку автоматично підтягнуто з іншого уроку (спільне фото — без дублікатів у пам'яті)</span>
               </div>
               <div id="modalGalleryStrip" class="flex items-center gap-2.5 overflow-x-auto pb-1"></div>
               <p class="text-[11px] text-gray-400">
@@ -372,6 +375,17 @@
           </div>
           <input id="modalCardUrlInput" type="text" placeholder="https://... або D:\Ігри\гра.html (або залиште порожнім для показу картинок)"
             class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white font-mono placeholder-gray-500 focus:border-indigo-500 focus:outline-none">
+        </div>
+
+        <!-- Опція: оновити обкладинку в усіх інших уроках із цим самим посиланням -->
+        <div id="modalSyncImageAllWrap" class="hidden bg-indigo-950/40 border border-indigo-500/45 rounded-xl px-3.5 py-2.5">
+          <label class="flex items-start gap-2.5 text-xs text-indigo-100 cursor-pointer select-none">
+            <input id="modalSyncImageAllChk" type="checkbox" class="accent-indigo-500 w-4 h-4 mt-0.5 rounded shrink-0 cursor-pointer">
+            <span>
+              <b id="modalSyncImageAllLabel">Оновити цю картинку в усіх інших уроках із таким самим посиланням</b>
+              <span class="block text-[11px] text-gray-400 mt-0.5">Не ставте галочку, якщо на це саме посилання (напр. підручник чи сайт) у різних уроках мають бути різні скріншоти.</span>
+            </span>
+          </label>
         </div>
 
         <!-- 3. Колір рамки та необов'язкова підказка при наведенні -->
@@ -679,7 +693,19 @@
       let activeFilter = 'all';
       let searchQuery = '';
 
-      let editingContext = { lessonId: null, cardId: null, galleryImages: [] };
+      let editingContext = {
+        lessonId: null,
+        cardId: null,
+        galleryImages: [],
+        sharedMediaId: null,
+        sharedThumb: null,
+        sharedGalleryCount: 0,
+        imagesModifiedByUser: false,
+        autoPulledFromInfo: null,
+        userClearedAutoPullForKey: '',
+        autoFilledTitle: false
+      };
+      let urlAutoPullTimer = null;
       let duplicatingContext = null;
       let lightboxContext = { lessonId: null, cardId: null, zoom: 1, slideIndex: 0, images: [] };
       let dialogCallback = null;
@@ -821,46 +847,81 @@
         });
       }
 
-      function saveCardMediaLocalAndQueueCloud(cardId, galleryArray, uploadToCloud) {
-        if (!cardId || !Array.isArray(galleryArray) || galleryArray.length === 0) return;
-        mediaCache[cardId] = galleryArray.slice();
-        idbPut('media_' + cardId, mediaCache[cardId]);
+      function getCardMediaKey(card) {
+        if (!card) return '';
+        return card.mediaId || card.id || '';
+      }
+
+      function isMediaKeyStillUsed(mediaKey, ignoreCardId) {
+        if (!mediaKey || !appState || !Array.isArray(appState.boards)) return false;
+        for (let bi = 0; bi < appState.boards.length; bi++) {
+          const lessons = appState.boards[bi].lessons || [];
+          for (let li = 0; li < lessons.length; li++) {
+            const cards = lessons[li].cards || [];
+            for (let ci = 0; ci < cards.length; ci++) {
+              const c = cards[ci];
+              if (!c) continue;
+              if (ignoreCardId && c.id === ignoreCardId) continue;
+              if (getCardMediaKey(c) === mediaKey) return true;
+            }
+          }
+        }
+        return false;
+      }
+
+      function saveCardMediaLocalAndQueueCloud(mediaKey, galleryArray, uploadToCloud) {
+        if (!mediaKey || !Array.isArray(galleryArray) || galleryArray.length === 0) return;
+        mediaCache[mediaKey] = galleryArray.slice();
+        idbPut('media_' + mediaKey, mediaCache[mediaKey]);
         if (uploadToCloud) {
-          enqueueCardMediaUpload(cardId);
+          enqueueCardMediaUpload(mediaKey);
         }
       }
 
-      function deleteCardMediaEverywhere(cardId) {
-        if (!cardId) return;
-        delete mediaCache[cardId];
-        idbDelete('media_' + cardId);
+      function deleteCardMediaEverywhere(mediaKey) {
+        if (!mediaKey) return;
+        // ЗАПОБІЖНИК: ніколи не видаляємо спільну картинку, якщо вона ще використовується в інших уроках!
+        if (isMediaKeyStillUsed(mediaKey, null)) return;
+        delete mediaCache[mediaKey];
+        idbDelete('media_' + mediaKey);
         if (fbMediaRootRef) {
-          fbMediaRootRef.child(cardId).remove().catch(function () {});
+          fbMediaRootRef.child(mediaKey).remove().catch(function () {});
         }
+      }
+
+      function cleanupUnusedMediaKeys(keysList) {
+        if (!Array.isArray(keysList) || keysList.length === 0) return;
+        const seen = {};
+        keysList.forEach(function (k) {
+          if (!k || seen[k]) return;
+          seen[k] = true;
+          deleteCardMediaEverywhere(k);
+        });
       }
 
       function ensureCardFullGallery(card) {
         if (!card) return Promise.resolve([]);
-        const cId = card.id;
+        const mKey = getCardMediaKey(card);
+        if (!mKey) return Promise.resolve(card.image ? [card.image] : []);
         if (Array.isArray(card.gallery) && card.gallery.length > 0) {
-          mediaCache[cId] = card.gallery.slice();
-          return Promise.resolve(mediaCache[cId]);
+          mediaCache[mKey] = card.gallery.slice();
+          return Promise.resolve(mediaCache[mKey]);
         }
-        if (mediaCache[cId] && mediaCache[cId].length > 0) {
-          return Promise.resolve(mediaCache[cId]);
+        if (mediaCache[mKey] && mediaCache[mKey].length > 0) {
+          return Promise.resolve(mediaCache[mKey]);
         }
-        return idbGet('media_' + cId).then(function (localArr) {
+        return idbGet('media_' + mKey).then(function (localArr) {
           if (Array.isArray(localArr) && localArr.length > 0) {
-            mediaCache[cId] = localArr;
+            mediaCache[mKey] = localArr;
             return localArr;
           }
           if (fbMediaRootRef) {
-            return fbMediaRootRef.child(cId).once('value').then(function (snap) {
+            return fbMediaRootRef.child(mKey).once('value').then(function (snap) {
               const val = snap.val();
               const remoteArr = val && Array.isArray(val.gallery) ? val.gallery : (Array.isArray(val) ? val : null);
               if (remoteArr && remoteArr.length > 0) {
-                mediaCache[cId] = remoteArr;
-                idbPut('media_' + cId, remoteArr);
+                mediaCache[mKey] = remoteArr;
+                idbPut('media_' + mKey, remoteArr);
                 return remoteArr;
               }
               return card.image ? [card.image] : [];
@@ -947,16 +1008,17 @@
               const hasInlineGallery = Array.isArray(card.gallery) && card.gallery.length > 0;
               const hasHeavyThumb = !card.thumbReady && card.image && card.image.length > 14000;
 
+              const mKey = getCardMediaKey(card);
               if (hasInlineGallery || hasHeavyThumb) {
                 const fullImages = hasInlineGallery ? card.gallery.slice() : [card.image];
                 card.galleryCount = fullImages.length;
                 delete card.gallery;
                 anyChanged = true;
 
-                mediaCache[card.id] = fullImages;
-                idbPut('media_' + card.id, fullImages);
+                mediaCache[mKey] = fullImages;
+                idbPut('media_' + mKey, fullImages);
                 if (shouldUploadMigratedMedia) {
-                  enqueueCardMediaUpload(card.id);
+                  enqueueCardMediaUpload(mKey);
                 }
 
                 tasks.push(
@@ -967,13 +1029,13 @@
                 );
               } else {
                 if (!card.galleryCount) {
-                  card.galleryCount = (mediaCache[card.id] && mediaCache[card.id].length) ? mediaCache[card.id].length : 1;
+                  card.galleryCount = (mediaCache[mKey] && mediaCache[mKey].length) ? mediaCache[mKey].length : 1;
                 }
                 card.thumbReady = true;
-                if (!mediaCache[card.id]) {
-                  idbGet('media_' + card.id).then(function (cached) {
+                if (!mediaCache[mKey]) {
+                  idbGet('media_' + mKey).then(function (cached) {
                     if (Array.isArray(cached) && cached.length > 0) {
-                      mediaCache[card.id] = cached;
+                      mediaCache[mKey] = cached;
                     }
                   });
                 }
@@ -1288,17 +1350,72 @@
 
       function getCardGalleryCount(card) {
         if (!card) return 0;
+        const mKey = getCardMediaKey(card);
         if (Array.isArray(card.gallery) && card.gallery.length > 0) {
           return card.gallery.length;
         }
-        if (mediaCache[card.id] && mediaCache[card.id].length > 0) {
-          return mediaCache[card.id].length;
+        if (mKey && mediaCache[mKey] && mediaCache[mKey].length > 0) {
+          return mediaCache[mKey].length;
         }
         if (typeof card.galleryCount === 'number' && card.galleryCount > 0) {
           return card.galleryCount;
         }
         if (card.image) return 1;
         return 0;
+      }
+
+      function normalizeUrlForReuse(rawUrl) {
+        let u = cleanPathQuotes(rawUrl || '').toLowerCase();
+        if (!u || u.length < 6) return '';
+        u = u.replace(/[\\/]+$/, '');
+        if (u.indexOf('.') === -1 && u.indexOf('/') === -1 && u.indexOf(BS) === -1) {
+          return '';
+        }
+        if (u.length > 3 && u.charAt(1) === ':' && (u.charAt(2) === BS || u.charAt(2) === '/')) {
+          return 'local_rel:' + u.slice(2).replace(/\//g, BS);
+        }
+        return 'url:' + u;
+      }
+
+      function isCardFromTopicsTree(boardId) {
+        const path = getBoardBreadcrumbPath(boardId);
+        if (!path || path.length === 0) return false;
+        const root = path[0];
+        if (root.id === 'b_root_topics') return true;
+        return (root.name || '').toLowerCase().indexOf('тем') !== -1;
+      }
+
+      function findCardsBySameUrl(rawUrl, excludeCardId) {
+        const key = normalizeUrlForReuse(rawUrl);
+        if (!key || !appState || !Array.isArray(appState.boards)) return [];
+        const matches = [];
+        appState.boards.forEach(function (board) {
+          (board.lessons || []).forEach(function (lesson) {
+            (lesson.cards || []).forEach(function (card) {
+              if (!card) return;
+              if (excludeCardId && card.id === excludeCardId) return;
+              if (card.badge === 'text' || (card.textContent && !card.url)) return;
+              const cKey = normalizeUrlForReuse(card.url);
+              if (cKey && cKey === key) {
+                matches.push({ board: board, lesson: lesson, card: card });
+              }
+            });
+          });
+        });
+        return matches;
+      }
+
+      function findBestMatchForAutoImage(rawUrl, excludeCardId) {
+        const matches = findCardsBySameUrl(rawUrl, excludeCardId);
+        if (matches.length === 0) return null;
+        // Спочатку шукаємо реальну картинку (не авто-заглушку SVG), з пріоритетом з розділу «📚 ТЕМИ»
+        const withRealImage = matches.filter(function (m) {
+          return m.card && m.card.image && m.card.image.indexOf('data:image/svg+xml') !== 0;
+        });
+        const pool = withRealImage.length > 0 ? withRealImage : matches.filter(function (m) { return m.card && m.card.image; });
+        if (pool.length === 0) return null;
+        const fromTopics = pool.find(function (m) { return isCardFromTopicsTree(m.board.id); });
+        return fromTopics || pool[pool.length - 1];
       }
 
       function classifyCard(card) {
@@ -1587,20 +1704,35 @@
         return false;
       }
 
-      function deleteBoardAndDescendants(boardId) {
+      function collectBoardSubtreeMediaKeys(boardId, outKeys) {
         const children = getChildBoards(boardId);
         children.forEach(function (ch) {
-          deleteBoardAndDescendants(ch.id);
+          collectBoardSubtreeMediaKeys(ch.id, outKeys);
         });
         const b = getBoardById(boardId);
         if (b && Array.isArray(b.lessons)) {
           b.lessons.forEach(function (l) {
             (l.cards || []).forEach(function (c) {
-              deleteCardMediaEverywhere(c.id);
+              const mk = getCardMediaKey(c);
+              if (mk) outKeys.push(mk);
             });
           });
         }
+      }
+
+      function removeBoardSubtreeFromState(boardId) {
+        const children = getChildBoards(boardId);
+        children.forEach(function (ch) {
+          removeBoardSubtreeFromState(ch.id);
+        });
         appState.boards = appState.boards.filter(function (x) { return x.id !== boardId; });
+      }
+
+      function deleteBoardAndDescendants(boardId) {
+        const keysToCheck = [];
+        collectBoardSubtreeMediaKeys(boardId, keysToCheck);
+        removeBoardSubtreeFromState(boardId);
+        cleanupUnusedMediaKeys(keysToCheck);
       }
 
       /* ========================================================================
@@ -2331,7 +2463,21 @@
         appState.activeBoardId = board.id;
         appState.activeLessonId = lesson.id;
         updateActiveLessonHighlightInDOM();
-        editingContext = { lessonId: lesson.id, cardId: cardId || null, galleryImages: [] };
+        editingContext = {
+          lessonId: lesson.id,
+          cardId: cardId || null,
+          galleryImages: [],
+          sharedMediaId: null,
+          sharedThumb: null,
+          sharedGalleryCount: 0,
+          imagesModifiedByUser: false,
+          autoPulledFromInfo: null,
+          userClearedAutoPullForKey: '',
+          autoFilledTitle: false
+        };
+
+        const syncChk = document.getElementById('modalSyncImageAllChk');
+        if (syncChk) syncChk.checked = false;
 
         const sel = document.getElementById('modalLessonSelect');
         sel.innerHTML = board.lessons.map(function (l) {
@@ -2352,11 +2498,15 @@
           titleInp.value = card.title || '';
           typeSel.value = card.badge || 'auto';
           editingContext.galleryImages = card.image ? [card.image] : [];
+          editingContext.sharedMediaId = getCardMediaKey(card);
+          editingContext.sharedThumb = card.image || null;
+          editingContext.sharedGalleryCount = getCardGalleryCount(card);
           copyBtn.classList.remove('hidden');
 
           ensureCardFullGallery(card).then(function (fullImgs) {
-            if (editingContext.cardId === cardId && Array.isArray(fullImgs) && fullImgs.length > 0) {
+            if (editingContext.cardId === cardId && !editingContext.imagesModifiedByUser && Array.isArray(fullImgs) && fullImgs.length > 0) {
               editingContext.galleryImages = fullImgs.slice();
+              editingContext.sharedGalleryCount = fullImgs.length;
               renderModalGalleryStrip();
               updateModalUrlTypeIndicator();
             }
@@ -2372,6 +2522,7 @@
 
         renderModalGalleryStrip();
         updateModalUrlTypeIndicator();
+        updateModalSyncAllCheckboxUI();
         switchModalImageTab('upload');
         document.getElementById('cardModal').classList.remove('hidden');
         setTimeout(function () { urlInp.focus(); }, 50);
@@ -2381,16 +2532,32 @@
         const box = document.getElementById('modalGalleryBox');
         const strip = document.getElementById('modalGalleryStrip');
         const countTxt = document.getElementById('modalGalleryCountText');
+        const autoNotice = document.getElementById('modalAutoPullNotice');
+        const autoText = document.getElementById('modalAutoPullText');
         const imgs = editingContext.galleryImages || [];
 
         if (imgs.length === 0) {
           box.classList.add('hidden');
           strip.innerHTML = '';
+          if (autoNotice) autoNotice.classList.add('hidden');
           return;
         }
 
         box.classList.remove('hidden');
-        countTxt.textContent = 'Завантажено картинок у це завдання: ' + imgs.length + ' шт.';
+        const displayCount = (!editingContext.imagesModifiedByUser && editingContext.sharedGalleryCount > imgs.length)
+          ? editingContext.sharedGalleryCount
+          : imgs.length;
+        countTxt.textContent = 'Завантажено картинок у це завдання: ' + displayCount + ' шт.';
+
+        if (autoNotice && autoText) {
+          if (editingContext.autoPulledFromInfo && !editingContext.imagesModifiedByUser) {
+            autoText.textContent = '✨ Картинку автоматично підтягнуто з «' + editingContext.autoPulledFromInfo.boardName + ' • ' + editingContext.autoPulledFromInfo.lessonNumber + '» (спільне фото — не займає зайвої пам\'яті; вставте іншу або натисніть «Очистити», щоб замінити)';
+            autoNotice.classList.remove('hidden');
+          } else {
+            autoNotice.classList.add('hidden');
+          }
+        }
+
         strip.innerHTML = imgs.map(function (src, idx) {
           return '<div class="relative shrink-0 bg-gray-900 border-2 ' + (idx === 0 ? 'border-indigo-500' : 'border-gray-700') + ' rounded-xl p-1.5 flex flex-col items-center gap-1">' +
             '<div class="relative">' +
@@ -2408,9 +2575,126 @@
 
       function addImageToModalGallery(dataUrl) {
         if (!dataUrl) return;
-        editingContext.galleryImages.push(dataUrl);
+        // Якщо перед цим картинка була лише автопідтягнута — замінюємо її новим скріншотом користувача
+        if (editingContext.autoPulledFromInfo && !editingContext.imagesModifiedByUser) {
+          editingContext.galleryImages = [dataUrl];
+        } else {
+          editingContext.galleryImages.push(dataUrl);
+        }
+        editingContext.imagesModifiedByUser = true;
+        editingContext.autoPulledFromInfo = null;
+        editingContext.sharedMediaId = null;
+        editingContext.sharedThumb = null;
+        editingContext.sharedGalleryCount = 0;
         renderModalGalleryStrip();
         updateModalUrlTypeIndicator();
+        updateModalSyncAllCheckboxUI();
+      }
+
+      function updateModalSyncAllCheckboxUI() {
+        const wrap = document.getElementById('modalSyncImageAllWrap');
+        const label = document.getElementById('modalSyncImageAllLabel');
+        const chk = document.getElementById('modalSyncImageAllChk');
+        if (!wrap || !label || !chk) return;
+
+        const urlVal = (document.getElementById('modalCardUrlInput').value || '').trim();
+        const matches = findCardsBySameUrl(urlVal, editingContext.cardId);
+        const hasImage = editingContext.galleryImages && editingContext.galleryImages.length > 0;
+        const shouldShow = matches.length > 0 && hasImage && (editingContext.imagesModifiedByUser || Boolean(editingContext.cardId));
+
+        if (!shouldShow) {
+          wrap.classList.add('hidden');
+          chk.checked = false;
+          return;
+        }
+
+        label.textContent = 'Оновити цю картинку в усіх інших уроках із таким самим посиланням (знайдено: ' + matches.length + ')';
+        wrap.classList.remove('hidden');
+      }
+
+      function tryAutoPullImageForModalUrl() {
+        const urlInp = document.getElementById('modalCardUrlInput');
+        const titleInp = document.getElementById('modalCardTitleInput');
+        if (!urlInp) return;
+
+        const rawUrl = (urlInp.value || '').trim();
+        const urlKey = normalizeUrlForReuse(rawUrl);
+
+        // Не чіпаємо, якщо користувач уже вручну додав/змінив картинку або редагує існуючу картку зі своїм фото
+        const canAutoPull = !editingContext.imagesModifiedByUser &&
+          (editingContext.galleryImages.length === 0 || editingContext.autoPulledFromInfo !== null);
+
+        if (canAutoPull) {
+          if (!urlKey) {
+            if (editingContext.autoPulledFromInfo) {
+              editingContext.galleryImages = [];
+              editingContext.sharedMediaId = null;
+              editingContext.sharedThumb = null;
+              editingContext.sharedGalleryCount = 0;
+              editingContext.autoPulledFromInfo = null;
+              if (editingContext.autoFilledTitle && titleInp) {
+                titleInp.value = '';
+                editingContext.autoFilledTitle = false;
+              }
+              renderModalGalleryStrip();
+              updateModalUrlTypeIndicator();
+            }
+          } else if (editingContext.userClearedAutoPullForKey !== urlKey) {
+            const match = findBestMatchForAutoImage(rawUrl, editingContext.cardId);
+            if (match && match.card) {
+              const mKey = getCardMediaKey(match.card);
+              const galCnt = getCardGalleryCount(match.card);
+              editingContext.sharedMediaId = mKey;
+              editingContext.sharedThumb = match.card.image;
+              editingContext.sharedGalleryCount = galCnt;
+              editingContext.autoPulledFromInfo = {
+                boardName: getBoardFullTitle(match.board.id),
+                lessonNumber: match.lesson.number,
+                sourceCardId: match.card.id,
+                mediaId: mKey
+              };
+              editingContext.galleryImages = (mediaCache[mKey] && mediaCache[mKey].length > 0)
+                ? mediaCache[mKey].slice()
+                : [match.card.image];
+
+              if (titleInp && match.card.title && (!titleInp.value.trim() || editingContext.autoFilledTitle)) {
+                titleInp.value = match.card.title;
+                editingContext.autoFilledTitle = true;
+              }
+
+              renderModalGalleryStrip();
+              updateModalUrlTypeIndicator();
+
+              // Якщо повна галерея є в локальному IndexedDB (0 байт трафіку Firebase), підтягнемо її для прев'ю
+              if ((!mediaCache[mKey] || mediaCache[mKey].length === 0) && galCnt > 1) {
+                idbGet('media_' + mKey).then(function (localImgs) {
+                  if (Array.isArray(localImgs) && localImgs.length > 0 &&
+                      !editingContext.imagesModifiedByUser &&
+                      editingContext.sharedMediaId === mKey) {
+                    mediaCache[mKey] = localImgs;
+                    editingContext.galleryImages = localImgs.slice();
+                    editingContext.sharedGalleryCount = localImgs.length;
+                    renderModalGalleryStrip();
+                  }
+                });
+              }
+            } else if (editingContext.autoPulledFromInfo) {
+              editingContext.galleryImages = [];
+              editingContext.sharedMediaId = null;
+              editingContext.sharedThumb = null;
+              editingContext.sharedGalleryCount = 0;
+              editingContext.autoPulledFromInfo = null;
+              if (editingContext.autoFilledTitle && titleInp) {
+                titleInp.value = '';
+                editingContext.autoFilledTitle = false;
+              }
+              renderModalGalleryStrip();
+              updateModalUrlTypeIndicator();
+            }
+          }
+        }
+
+        updateModalSyncAllCheckboxUI();
       }
 
       function switchModalImageTab(tabName) {
@@ -2463,17 +2747,26 @@
 
         const generatedUrl = canvas.toDataURL('image/webp', 0.88);
         editingContext.galleryImages = [generatedUrl];
+        editingContext.imagesModifiedByUser = true;
+        editingContext.autoPulledFromInfo = null;
+        editingContext.sharedMediaId = null;
+        editingContext.sharedThumb = null;
+        editingContext.sharedGalleryCount = 0;
         renderModalGalleryStrip();
+        updateModalSyncAllCheckboxUI();
       }
 
       function updateModalUrlTypeIndicator() {
+        const effCount = (!editingContext.imagesModifiedByUser && editingContext.sharedGalleryCount > editingContext.galleryImages.length)
+          ? editingContext.sharedGalleryCount
+          : editingContext.galleryImages.length;
         const tempCard = {
           url: document.getElementById('modalCardUrlInput').value,
           badge: document.getElementById('modalCardTypeSelect').value,
-          galleryCount: editingContext.galleryImages.length
+          galleryCount: effCount
         };
         const cType = classifyCard(tempCard);
-        const info = getFrameInfo(cType, editingContext.galleryImages.length);
+        const info = getFrameInfo(cType, effCount);
         const badge = document.getElementById('modalDetectedTypeBadge');
         if (badge) {
           badge.textContent = info.badgeText;
@@ -2493,9 +2786,18 @@
         const url = document.getElementById('modalCardUrlInput').value.trim();
         const title = document.getElementById('modalCardTitleInput').value.trim();
         const badge = document.getElementById('modalCardTypeSelect').value;
+        const syncAllChk = document.getElementById('modalSyncImageAllChk');
+        const shouldSyncAllSameUrl = Boolean(syncAllChk && syncAllChk.checked && !document.getElementById('modalSyncImageAllWrap').classList.contains('hidden'));
+
+        const reuseSharedWithoutUpload = !editingContext.imagesModifiedByUser && Boolean(editingContext.sharedMediaId);
+        const savedSharedMediaId = editingContext.sharedMediaId;
+        const savedSharedThumb = editingContext.sharedThumb;
+        const savedSharedGalCount = editingContext.sharedGalleryCount;
+        const savedOriginLessonId = editingContext.lessonId;
+        const savedEditCardId = editingContext.cardId;
 
         let fullGallery = (editingContext.galleryImages || []).slice();
-        if (fullGallery.length === 0) {
+        if (fullGallery.length === 0 && !reuseSharedWithoutUpload) {
           const tempType = classifyCard({ url: url, badge: badge, galleryCount: 0 });
           const bg = tempType === 'pdf' ? ['#9f1239', '#f43f5e', '📄'] : (tempType === 'local' ? ['#065f46', '#10b981', '💻'] : ['#1e3a8a', '#3b82f6', '🌐']);
           fullGallery = [createSvgThumb(bg[0], bg[1], bg[2], (title || 'МАТЕРІАЛ').slice(0, 18).toUpperCase(), 'Клік — відкрити', 'landscape')];
@@ -2503,57 +2805,107 @@
 
         document.getElementById('cardModal').classList.add('hidden');
 
-        createThumbnailDataUrl(fullGallery[0]).then(function (lightThumb) {
-          if (editingContext.cardId && !asCopy) {
-            const originLesson = board.lessons.find(function (l) { return l.id === editingContext.lessonId; });
-            const idx = originLesson ? originLesson.cards.findIndex(function (c) { return c.id === editingContext.cardId; }) : -1;
+        const thumbPromise = (reuseSharedWithoutUpload && savedSharedThumb)
+          ? Promise.resolve(savedSharedThumb)
+          : createThumbnailDataUrl(fullGallery[0]);
+
+        thumbPromise.then(function (lightThumb) {
+          const finalGalCount = reuseSharedWithoutUpload
+            ? Math.max(1, savedSharedGalCount || fullGallery.length)
+            : fullGallery.length;
+          const oldMediaKeysToClean = [];
+          let targetMediaKey = '';
+          let savedCardId = null;
+
+          if (savedEditCardId && !asCopy) {
+            const originLesson = board.lessons.find(function (l) { return l.id === savedOriginLessonId; });
+            const idx = originLesson ? originLesson.cards.findIndex(function (c) { return c.id === savedEditCardId; }) : -1;
             if (originLesson && idx !== -1) {
               const card = originLesson.cards[idx];
+              const prevMediaKey = getCardMediaKey(card);
+              savedCardId = card.id;
+
+              if (reuseSharedWithoutUpload) {
+                targetMediaKey = savedSharedMediaId;
+              } else if (shouldSyncAllSameUrl) {
+                targetMediaKey = 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+                if (prevMediaKey) oldMediaKeysToClean.push(prevMediaKey);
+                saveCardMediaLocalAndQueueCloud(targetMediaKey, fullGallery, true);
+              } else {
+                // Якщо попередній mediaKey спільний з іншими картками — створюємо новий, щоб не затерти інші уроки!
+                if (prevMediaKey && isMediaKeyStillUsed(prevMediaKey, card.id)) {
+                  targetMediaKey = 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+                } else {
+                  targetMediaKey = prevMediaKey || card.id;
+                }
+                saveCardMediaLocalAndQueueCloud(targetMediaKey, fullGallery, true);
+              }
+
               card.url = url;
               card.title = title;
               card.badge = badge;
               card.image = lightThumb;
-              card.galleryCount = fullGallery.length;
+              card.galleryCount = finalGalCount;
+              card.mediaId = targetMediaKey;
               card.thumbReady = true;
               delete card.gallery;
-
-              saveCardMediaLocalAndQueueCloud(card.id, fullGallery, true);
 
               if (originLesson.id !== targetLesson.id) {
                 originLesson.cards.splice(idx, 1);
                 targetLesson.cards.push(card);
               }
             }
-            showToast('Завдання оновлено!', 'emerald');
-            saveState();
-            renderLessonsList();
           } else {
             if (!Array.isArray(targetLesson.cards)) targetLesson.cards = [];
+            const newId = 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+            savedCardId = newId;
+
+            if (reuseSharedWithoutUpload) {
+              targetMediaKey = savedSharedMediaId;
+            } else {
+              targetMediaKey = newId;
+              saveCardMediaLocalAndQueueCloud(targetMediaKey, fullGallery, true);
+            }
+
             const newCard = {
-              id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+              id: newId,
               title: title,
               url: url,
               badge: badge,
               image: lightThumb,
-              galleryCount: fullGallery.length,
+              galleryCount: finalGalCount,
+              mediaId: targetMediaKey,
               thumbReady: true
             };
             targetLesson.cards.push(newCard);
-            saveCardMediaLocalAndQueueCloud(newCard.id, fullGallery, true);
+          }
 
-            const rowSec = document.querySelector('#lessonsContainer section[data-lesson-id="' + targetLesson.id + '"]');
-            const strip = rowSec ? rowSec.querySelector('[data-role="cards-strip"]') : null;
-            const addBtn = strip ? strip.querySelector('[data-role="add-card-btn"]') : null;
-            const cType = classifyCard(newCard);
-            if (strip && addBtn && (activeFilter === 'all' || activeFilter === cType) && !searchQuery.trim()) {
-              strip.insertBefore(buildCardDomElement(targetLesson, newCard), addBtn);
-              updateActiveLessonHighlightInDOM();
-            } else {
-              renderLessonsList();
-            }
+          // Якщо користувач поставив галочку — оновлюємо картинку та спільний mediaId в усіх інших уроках із цим самим посиланням
+          let propagatedCount = 0;
+          if (shouldSyncAllSameUrl && url && targetMediaKey) {
+            const sameUrlMatches = findCardsBySameUrl(url, savedCardId);
+            sameUrlMatches.forEach(function (m) {
+              const oldK = getCardMediaKey(m.card);
+              if (oldK && oldK !== targetMediaKey) oldMediaKeysToClean.push(oldK);
+              m.card.image = lightThumb;
+              m.card.galleryCount = finalGalCount;
+              m.card.mediaId = targetMediaKey;
+              m.card.thumbReady = true;
+              delete m.card.gallery;
+              propagatedCount++;
+            });
+          }
 
-            saveState();
-            showToast('Додано у «' + targetLesson.number + '» (' + fullGallery.length + ' карт.)!', 'emerald');
+          cleanupUnusedMediaKeys(oldMediaKeysToClean);
+          saveState();
+          renderLessonsList();
+
+          if (propagatedCount > 0) {
+            showToast('Збережено та оновлено картинку ще у ' + propagatedCount + ' уроках із цим посиланням!', 'emerald');
+          } else if (savedEditCardId && !asCopy) {
+            showToast('Завдання оновлено!', 'emerald');
+          } else {
+            showToast('Додано у «' + targetLesson.number + '» (' + finalGalCount + ' карт.)!', 'emerald');
           }
         });
       }
@@ -2627,6 +2979,7 @@
         const board = found.board;
         const galCount = getCardGalleryCount(card);
 
+        const srcMediaKey = getCardMediaKey(card);
         duplicatingContext = {
           sourceCardId: card.id,
           cardData: {
@@ -2634,17 +2987,10 @@
             url: card.url || '',
             badge: card.badge || 'auto',
             image: card.image,
-            galleryCount: galCount,
-            gallery: [card.image]
+            mediaId: srcMediaKey,
+            galleryCount: galCount
           }
         };
-
-        ensureCardFullGallery(card).then(function (fullImgs) {
-          if (duplicatingContext && duplicatingContext.sourceCardId === card.id && Array.isArray(fullImgs) && fullImgs.length > 0) {
-            duplicatingContext.cardData.gallery = fullImgs.slice();
-            duplicatingContext.cardData.galleryCount = fullImgs.length;
-          }
-        });
 
         document.getElementById('dupPreviewImg').src = card.image;
         document.getElementById('dupPreviewUrl').textContent = card.url || ('Набір картинок (' + galCount + ' шт.)');
@@ -2682,18 +3028,18 @@
         if (!duplicatingContext || !targetLesson) return;
         if (!Array.isArray(targetLesson.cards)) targetLesson.cards = [];
         const newCardId = 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-        const fullGal = duplicatingContext.cardData.gallery.slice();
+        // Спільне mediaId — НЕ створює дублікат картинки у Firebase card_media!
         const newCard = {
           id: newCardId,
           title: duplicatingContext.cardData.title,
           url: duplicatingContext.cardData.url,
           badge: duplicatingContext.cardData.badge,
           image: duplicatingContext.cardData.image,
-          galleryCount: fullGal.length,
+          mediaId: duplicatingContext.cardData.mediaId || duplicatingContext.sourceCardId,
+          galleryCount: duplicatingContext.cardData.galleryCount || 1,
           thumbReady: true
         };
         targetLesson.cards.push(newCard);
-        saveCardMediaLocalAndQueueCloud(newCardId, fullGal, true);
       }
 
       /* ========================================================================
@@ -2962,30 +3308,33 @@
 
         if (isCopy) {
           const src = fromL.cards[idx];
-          ensureCardFullGallery(src).then(function (fullGal) {
-            const newId = 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-            const cardObj = {
-              id: newId,
-              title: src.title,
-              url: src.url,
-              badge: src.badge,
-              image: src.image,
-              galleryCount: fullGal.length || getCardGalleryCount(src),
-              thumbReady: true
-            };
-            saveCardMediaLocalAndQueueCloud(newId, fullGal, true);
-            if (!Array.isArray(toL.cards)) toL.cards = [];
-            if (beforeCardId) {
-              const targetIdx = toL.cards.findIndex(function (c) { return c.id === beforeCardId; });
-              if (targetIdx !== -1) toL.cards.splice(targetIdx, 0, cardObj);
-              else toL.cards.push(cardObj);
-            } else {
-              toL.cards.push(cardObj);
-            }
-            saveState();
-            renderLessonsList();
-            showToast('Завдання скопійовано у «' + toL.number + '»!', 'emerald');
-          });
+          const sharedKey = getCardMediaKey(src);
+          // Якщо раптом стара картка мала вбудований масив gallery — зберігаємо один раз під спільним ключем
+          if (Array.isArray(src.gallery) && src.gallery.length > 0) {
+            saveCardMediaLocalAndQueueCloud(sharedKey, src.gallery.slice(), true);
+          }
+          const newId = 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+          const cardObj = {
+            id: newId,
+            title: src.title,
+            url: src.url,
+            badge: src.badge,
+            image: src.image,
+            mediaId: sharedKey,
+            galleryCount: getCardGalleryCount(src) || 1,
+            thumbReady: true
+          };
+          if (!Array.isArray(toL.cards)) toL.cards = [];
+          if (beforeCardId) {
+            const targetIdx = toL.cards.findIndex(function (c) { return c.id === beforeCardId; });
+            if (targetIdx !== -1) toL.cards.splice(targetIdx, 0, cardObj);
+            else toL.cards.push(cardObj);
+          } else {
+            toL.cards.push(cardObj);
+          }
+          saveState();
+          renderLessonsList();
+          showToast('Завдання скопійовано у «' + toL.number + '»!', 'emerald');
         } else {
           const cardObj = fromL.cards.splice(idx, 1)[0];
           if (!Array.isArray(toL.cards)) toL.cards = [];
@@ -3288,10 +3637,9 @@
               'Видалити урок',
               'bg-rose-600 hover:bg-rose-500',
               function () {
-                (les.cards || []).forEach(function (c) {
-                  deleteCardMediaEverywhere(c.id);
-                });
+                const keysToCheck = (les.cards || []).map(getCardMediaKey);
                 b.lessons = b.lessons.filter(function (l) { return l.id !== lId; });
+                cleanupUnusedMediaKeys(keysToCheck);
                 ensureActiveLesson();
                 closeCustomDialog();
                 saveState();
@@ -3344,8 +3692,9 @@
             const lId = target.dataset.lessonId;
             const found = findLessonAndCard(lId, cId);
             if (found.lesson) {
+              const removedKey = found.card ? getCardMediaKey(found.card) : cId;
               found.lesson.cards = (found.lesson.cards || []).filter(function (c) { return c.id !== cId; });
-              deleteCardMediaEverywhere(cId);
+              cleanupUnusedMediaKeys([removedKey]);
               const domCard = target.closest('.card-thumb-box');
               if (domCard && domCard.parentNode) {
                 domCard.parentNode.removeChild(domCard);
@@ -3364,7 +3713,11 @@
               const tmp = editingContext.galleryImages[idx - 1];
               editingContext.galleryImages[idx - 1] = editingContext.galleryImages[idx];
               editingContext.galleryImages[idx] = tmp;
+              editingContext.imagesModifiedByUser = true;
+              editingContext.autoPulledFromInfo = null;
+              editingContext.sharedMediaId = null;
               renderModalGalleryStrip();
+              updateModalSyncAllCheckboxUI();
             }
             break;
           }
@@ -3374,21 +3727,51 @@
               const tmp = editingContext.galleryImages[idx + 1];
               editingContext.galleryImages[idx + 1] = editingContext.galleryImages[idx];
               editingContext.galleryImages[idx] = tmp;
+              editingContext.imagesModifiedByUser = true;
+              editingContext.autoPulledFromInfo = null;
+              editingContext.sharedMediaId = null;
               renderModalGalleryStrip();
+              updateModalSyncAllCheckboxUI();
             }
             break;
           }
           case 'gallery-img-del': {
             const idx = parseInt(target.dataset.idx, 10);
+            const wasAuto = Boolean(editingContext.autoPulledFromInfo);
             editingContext.galleryImages.splice(idx, 1);
+            if (wasAuto && editingContext.galleryImages.length === 0) {
+              editingContext.userClearedAutoPullForKey = normalizeUrlForReuse(document.getElementById('modalCardUrlInput').value);
+              editingContext.autoPulledFromInfo = null;
+              editingContext.sharedMediaId = null;
+              editingContext.sharedThumb = null;
+              editingContext.sharedGalleryCount = 0;
+              editingContext.imagesModifiedByUser = false;
+            } else {
+              editingContext.imagesModifiedByUser = true;
+              editingContext.autoPulledFromInfo = null;
+              editingContext.sharedMediaId = null;
+            }
             renderModalGalleryStrip();
             updateModalUrlTypeIndicator();
+            updateModalSyncAllCheckboxUI();
             break;
           }
           case 'clear-gallery-images': {
+            const wasAuto = Boolean(editingContext.autoPulledFromInfo);
             editingContext.galleryImages = [];
+            editingContext.autoPulledFromInfo = null;
+            editingContext.sharedMediaId = null;
+            editingContext.sharedThumb = null;
+            editingContext.sharedGalleryCount = 0;
+            if (wasAuto) {
+              editingContext.userClearedAutoPullForKey = normalizeUrlForReuse(document.getElementById('modalCardUrlInput').value);
+              editingContext.imagesModifiedByUser = false;
+            } else {
+              editingContext.imagesModifiedByUser = true;
+            }
             renderModalGalleryStrip();
             updateModalUrlTypeIndicator();
+            updateModalSyncAllCheckboxUI();
             break;
           }
 
@@ -3633,12 +4016,24 @@
           }, 350);
         } else if (id === 'modalCardUrlInput') {
           updateModalUrlTypeIndicator();
+          if (urlAutoPullTimer) clearTimeout(urlAutoPullTimer);
+          urlAutoPullTimer = setTimeout(function () {
+            tryAutoPullImageForModalUrl();
+          }, 120);
+        } else if (id === 'modalCardTitleInput') {
+          editingContext.autoFilledTitle = false;
         } else if (id === 'genCoverTitleInput') {
           drawGeneratedCover();
         } else if (id === 'modalExternalImgUrl') {
           if (e.target.value.trim()) {
             editingContext.galleryImages = [e.target.value.trim()];
+            editingContext.imagesModifiedByUser = true;
+            editingContext.autoPulledFromInfo = null;
+            editingContext.sharedMediaId = null;
+            editingContext.sharedThumb = null;
+            editingContext.sharedGalleryCount = 0;
             renderModalGalleryStrip();
+            updateModalSyncAllCheckboxUI();
           }
         } else if (id === 'replaceOldPathInput' || id === 'replaceNewPathInput') {
           updatePathReplacePreview();
