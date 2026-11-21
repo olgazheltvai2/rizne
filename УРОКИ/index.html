@@ -704,9 +704,15 @@
       let uploadedInBatch = 0;
 
       let fbBoardRef = null;
+      let fbMetaRef = null;
       let fbMediaRootRef = null;
       let isApplyingRemoteUpdate = false;
+      let pushDebounceTimer = null;
+      let hasPendingCloudPush = false;
       let idbInstancePromise = null;
+      const tabSyncChannel = (typeof BroadcastChannel !== 'undefined')
+        ? new BroadcastChannel('VisualLessonBoard_LocalTabSync_v4')
+        : null;
 
       function openIDB() {
         if (idbInstancePromise) return idbInstancePromise;
@@ -790,10 +796,10 @@
           img.onload = function () {
             try {
               const canvas = document.createElement('canvas');
-              const maxH = 144;
-              const maxW = 320;
-              let w = img.naturalWidth || img.width || 240;
-              let h = img.naturalHeight || img.height || 144;
+              const maxH = 120;
+              const maxW = 240;
+              let w = img.naturalWidth || img.width || 220;
+              let h = img.naturalHeight || img.height || 120;
               if (h > maxH) { w = Math.round(w * (maxH / h)); h = maxH; }
               if (w > maxW) { h = Math.round(h * (maxW / w)); w = maxW; }
               canvas.width = Math.max(1, w);
@@ -802,8 +808,8 @@
               ctx.fillStyle = '#090d16';
               ctx.fillRect(0, 0, canvas.width, canvas.height);
               ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-              const out = canvas.toDataURL('image/webp', 0.76);
-              resolve(out.indexOf('data:image/webp') === 0 ? out : canvas.toDataURL('image/jpeg', 0.76));
+              const out = canvas.toDataURL('image/webp', 0.68);
+              resolve(out.indexOf('data:image/webp') === 0 ? out : canvas.toDataURL('image/jpeg', 0.68));
             } catch (err) {
               resolve(srcDataUrl);
             }
@@ -1050,6 +1056,77 @@
         }
       }
 
+      function pullFullStateFromCloud(forceReplace) {
+        if (!fbBoardRef) return Promise.resolve();
+        updateCloudBadge('saving', 'Оновлюю з хмари...');
+        return fbBoardRef.once('value').then(function (snap) {
+          const cloudVal = snap.val();
+          if (cloudVal && Array.isArray(cloudVal.boards)) {
+            const cloudClean = normalizeAndCleanState(cloudVal);
+            const cloudTime = cloudClean.updatedAt || 0;
+            const localTime = appState.updatedAt || 0;
+            const localCardsCount = countTotalCards(appState);
+            const cloudCardsCount = countTotalCards(cloudClean);
+
+            if (forceReplace || appState.isInitialTemplate || cloudTime > localTime || (cloudTime === localTime && cloudCardsCount >= localCardsCount)) {
+              isApplyingRemoteUpdate = true;
+              const keepActiveBoard = appState.activeBoardId;
+              const keepActiveLesson = appState.activeLessonId;
+              const keepThumbH = appState.thumbHeight;
+              appState = cloudClean;
+              appState.isInitialTemplate = false;
+              if (keepActiveBoard && getBoardById(keepActiveBoard)) {
+                appState.activeBoardId = keepActiveBoard;
+              }
+              if (keepActiveLesson) {
+                appState.activeLessonId = keepActiveLesson;
+              }
+              if (keepThumbH) {
+                appState.thumbHeight = keepThumbH;
+              }
+              return migrateAndOptimizeState(appState, true).then(function (changed) {
+                if (!appState.updatedAt) {
+                  appState.updatedAt = Date.now();
+                }
+                saveLocalOnly(false);
+                renderApp();
+                isApplyingRemoteUpdate = false;
+                if (changed) {
+                  pushStateToFirebase(true);
+                } else if (fbMetaRef) {
+                  fbMetaRef.set({
+                    updatedAt: appState.updatedAt,
+                    clientId: appState.clientId || MY_CLIENT_ID
+                  }).catch(function () {});
+                }
+                if (pendingMediaQueue.length === 0) {
+                  updateCloudBadge('online', 'Хмара синхронізована ✓');
+                }
+              });
+            } else {
+              const merged = localTime >= cloudTime
+                ? mergeUnuploadedLocalCardsIntoCloud(cloudClean, appState)
+                : mergeUnuploadedLocalCardsIntoCloud(appState, cloudClean);
+              appState = merged.state;
+              appState.isInitialTemplate = false;
+              return migrateAndOptimizeState(appState, true).then(function () {
+                saveLocalOnly(true);
+                renderApp();
+                pushStateToFirebase(true);
+              });
+            }
+          } else {
+            if (!appState.isInitialTemplate) {
+              pushStateToFirebase(true);
+            } else {
+              updateCloudBadge('online', 'Хмара готова (натисніть 📂 Імпорт JSON)');
+            }
+          }
+        }).catch(function () {
+          updateCloudBadge('offline', 'Офлайн');
+        });
+      }
+
       function initFirebaseAutoCloud() {
         try {
           if (typeof firebase === 'undefined') return;
@@ -1061,104 +1138,74 @@
           }
           const db = firebase.database();
           fbBoardRef = db.ref('visual_lesson_board_olga/state_v2');
+          fbMetaRef = db.ref('visual_lesson_board_olga/meta');
           fbMediaRootRef = db.ref('visual_lesson_board_olga/card_media');
+
+          // Локальна синхронізація між вкладками одного браузера БЕЗ витрати трафіку Firebase
+          if (tabSyncChannel) {
+            tabSyncChannel.onmessage = function (ev) {
+              const msg = ev && ev.data;
+              if (!msg || msg.clientId === MY_CLIENT_ID || msg.type !== 'idb-updated') return;
+              if (msg.updatedAt && msg.updatedAt <= (appState.updatedAt || 0)) return;
+              idbGet('root').then(function (freshLocal) {
+                if (!freshLocal || !Array.isArray(freshLocal.boards)) return;
+                isApplyingRemoteUpdate = true;
+                const keepActiveBoard = appState.activeBoardId;
+                const keepActiveLesson = appState.activeLessonId;
+                appState = normalizeAndCleanState(freshLocal);
+                appState.isInitialTemplate = false;
+                if (keepActiveBoard && getBoardById(keepActiveBoard)) appState.activeBoardId = keepActiveBoard;
+                if (keepActiveLesson) appState.activeLessonId = keepActiveLesson;
+                renderApp();
+                isApplyingRemoteUpdate = false;
+              });
+            };
+          }
+
+          // Клік по індикатору хмари — примусова синхронізація за бажанням
+          const badgeEl = document.getElementById('cloudStatusBadge');
+          if (badgeEl && !badgeEl.dataset.syncClickBound) {
+            badgeEl.dataset.syncClickBound = '1';
+            badgeEl.style.cursor = 'pointer';
+            badgeEl.title = 'Економний режим трафіку активний. Клікніть, щоб примусово перевірити оновлення з хмари.';
+            badgeEl.addEventListener('click', function () {
+              pullFullStateFromCloud(false);
+            });
+          }
 
           if (pendingMediaQueue.length > 0) {
             processMediaUploadQueue();
           }
 
-          fbBoardRef.once('value').then(function (snap) {
-            const cloudVal = snap.val();
+          // ЕКОНОМНИЙ СТАРТ: спершу читаємо крихітний маркер meta (~60 байт замість усієї бази!)
+          fbMetaRef.once('value').then(function (metaSnap) {
+            const meta = metaSnap.val();
+            const localTime = appState.updatedAt || 0;
 
-            if (cloudVal && Array.isArray(cloudVal.boards)) {
-              const cloudClean = normalizeAndCleanState(cloudVal);
-              const cloudTime = cloudClean.updatedAt || 0;
-              const localTime = appState.updatedAt || 0;
-              const localCardsCount = countTotalCards(appState);
-              const cloudCardsCount = countTotalCards(cloudClean);
-
-              if (appState.isInitialTemplate) {
-                isApplyingRemoteUpdate = true;
-                const keepActiveBoard = appState.activeBoardId;
-                appState = cloudClean;
-                appState.isInitialTemplate = false;
-                if (keepActiveBoard && getBoardById(keepActiveBoard)) {
-                  appState.activeBoardId = keepActiveBoard;
+            if (meta && typeof meta.updatedAt === 'number') {
+              if (!appState.isInitialTemplate && localTime >= meta.updatedAt) {
+                // Локальна копія в IndexedDB вже найсвіжіша — НЕ скачуємо state_v2 (0 байт трафіку!)
+                if (localTime > meta.updatedAt) {
+                  pushStateToFirebase(true);
+                } else if (pendingMediaQueue.length === 0) {
+                  updateCloudBadge('online', 'Хмара синхронізована ✓');
                 }
-                migrateAndOptimizeState(appState, true).then(function (changed) {
-                  saveLocalOnly();
-                  renderApp();
-                  isApplyingRemoteUpdate = false;
-                  if (changed) pushStateToFirebase();
-                });
-              } else if (localCardsCount > cloudCardsCount || localTime > cloudTime) {
-                const merged = mergeUnuploadedLocalCardsIntoCloud(appState, cloudClean);
-                if (localTime >= cloudTime) {
-                  const reverseMerge = mergeUnuploadedLocalCardsIntoCloud(cloudClean, appState);
-                  appState = reverseMerge.state;
-                } else {
-                  appState = merged.state;
-                }
-                appState.isInitialTemplate = false;
-                migrateAndOptimizeState(appState, true).then(function () {
-                  saveLocalOnly();
-                  renderApp();
-                  pushStateToFirebase();
-                });
               } else {
-                isApplyingRemoteUpdate = true;
-                const keepActiveBoard = appState.activeBoardId;
-                appState = cloudClean;
-                appState.isInitialTemplate = false;
-                if (keepActiveBoard && getBoardById(keepActiveBoard)) {
-                  appState.activeBoardId = keepActiveBoard;
-                }
-                migrateAndOptimizeState(appState, true).then(function (changed) {
-                  saveLocalOnly();
-                  renderApp();
-                  isApplyingRemoteUpdate = false;
-                  if (changed) pushStateToFirebase();
-                });
-              }
-              if (pendingMediaQueue.length === 0) {
-                updateCloudBadge('online', 'Хмара синхронізована ✓');
+                // У хмарі новіша версія (наприклад, правили з іншого ноутбука) — скачуємо один раз
+                pullFullStateFromCloud(false);
               }
             } else {
-              if (!appState.isInitialTemplate) {
-                pushStateToFirebase();
-              } else {
-                updateCloudBadge('online', 'Хмара готова (натисніть 📂 Імпорт JSON)');
-              }
+              // Перший запуск після оновлення коду — синхронізуємося один раз і створюємо meta
+              pullFullStateFromCloud(false);
             }
 
-            fbBoardRef.on('value', function (liveSnap) {
-              const remote = liveSnap.val();
-              if (!remote || !Array.isArray(remote.boards)) return;
-              if (remote.clientId === MY_CLIENT_ID) return;
-
-              const remoteTime = remote.updatedAt || 0;
-              const localTime = appState.updatedAt || 0;
-              if (appState.isInitialTemplate || remoteTime > localTime) {
-                isApplyingRemoteUpdate = true;
-                const keepActiveBoard = appState.activeBoardId;
-                const keepActiveLesson = appState.activeLessonId;
-                appState = normalizeAndCleanState(remote);
-                appState.isInitialTemplate = false;
-                if (keepActiveBoard && getBoardById(keepActiveBoard)) {
-                  appState.activeBoardId = keepActiveBoard;
-                }
-                if (keepActiveLesson) {
-                  appState.activeLessonId = keepActiveLesson;
-                }
-                migrateAndOptimizeState(appState, false).then(function () {
-                  saveLocalOnly();
-                  renderApp();
-                  isApplyingRemoteUpdate = false;
-                  if (pendingMediaQueue.length === 0) {
-                    updateCloudBadge('online', 'Оновлено з хмари ✓');
-                  }
-                });
-              }
+            // Слухаємо ТІЛЬКИ крихітний meta (~60 байт), а НЕ важкий state_v2!
+            fbMetaRef.on('value', function (liveMetaSnap) {
+              const liveMeta = liveMetaSnap.val();
+              if (!liveMeta || typeof liveMeta.updatedAt !== 'number') return;
+              if (liveMeta.clientId === MY_CLIENT_ID) return;
+              if (liveMeta.updatedAt <= (appState.updatedAt || 0)) return;
+              pullFullStateFromCloud(false);
             });
           }).catch(function () {
             updateCloudBadge('offline', 'Офлайн');
@@ -1168,15 +1215,29 @@
         }
       }
 
-      function pushStateToFirebase() {
+      function flushCloudPushNow() {
         if (!fbBoardRef || isApplyingRemoteUpdate) return;
+        if (pushDebounceTimer) {
+          clearTimeout(pushDebounceTimer);
+          pushDebounceTimer = null;
+        }
+        hasPendingCloudPush = false;
         if (pendingMediaQueue.length === 0) {
           updateCloudBadge('saving', 'Зберігаю...');
         }
         appState.isInitialTemplate = false;
-        appState.updatedAt = Date.now();
+        if (!appState.updatedAt) appState.updatedAt = Date.now();
         appState.clientId = MY_CLIENT_ID;
+        const tsToWrite = appState.updatedAt;
+
         fbBoardRef.set(appState).then(function () {
+          if (fbMetaRef) {
+            return fbMetaRef.set({
+              updatedAt: tsToWrite,
+              clientId: MY_CLIENT_ID
+            });
+          }
+        }).then(function () {
           if (pendingMediaQueue.length === 0) {
             updateCloudBadge('online', 'Хмара синхронізована ✓');
           } else {
@@ -1186,6 +1247,37 @@
           updateCloudBadge('offline', 'Помилка мережі');
         });
       }
+
+      function pushStateToFirebase(immediate) {
+        if (!fbBoardRef || isApplyingRemoteUpdate) return;
+        hasPendingCloudPush = true;
+        if (pushDebounceTimer) {
+          clearTimeout(pushDebounceTimer);
+          pushDebounceTimer = null;
+        }
+        if (immediate) {
+          flushCloudPushNow();
+          return;
+        }
+        if (pendingMediaQueue.length === 0) {
+          updateCloudBadge('saving', 'Зберігаю...');
+        }
+        pushDebounceTimer = setTimeout(function () {
+          flushCloudPushNow();
+        }, 1200);
+      }
+
+      window.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden' && hasPendingCloudPush) {
+          flushCloudPushNow();
+        }
+      });
+
+      window.addEventListener('beforeunload', function () {
+        if (hasPendingCloudPush) {
+          flushCloudPushNow();
+        }
+      });
 
       /* ========================================================================
          1. КЛАСИФІКАЦІЯ ТИПІВ КАРТОК І РАМОК
@@ -1562,8 +1654,18 @@
         });
       }
 
-      function saveLocalOnly() {
-        idbPut('root', appState);
+      function saveLocalOnly(notifySiblingTabs) {
+        idbPut('root', appState).then(function () {
+          if (notifySiblingTabs && tabSyncChannel) {
+            try {
+              tabSyncChannel.postMessage({
+                type: 'idb-updated',
+                updatedAt: appState.updatedAt || Date.now(),
+                clientId: MY_CLIENT_ID
+              });
+            } catch (e) {}
+          }
+        });
       }
 
       function saveState() {
@@ -1573,8 +1675,8 @@
         appState.updatedAt = Date.now();
         appState.clientId = MY_CLIENT_ID;
         updateFooterStatus(timeStr);
-        saveLocalOnly();
-        pushStateToFirebase();
+        saveLocalOnly(true);
+        pushStateToFirebase(false);
       }
 
       window.addEventListener('dragover', function (e) {
@@ -3527,7 +3629,7 @@
           applyThumbHeight(appState.thumbHeight);
           if (thumbSliderSaveTimer) clearTimeout(thumbSliderSaveTimer);
           thumbSliderSaveTimer = setTimeout(function () {
-            saveState();
+            saveLocalOnly(false);
           }, 350);
         } else if (id === 'modalCardUrlInput') {
           updateModalUrlTypeIndicator();
