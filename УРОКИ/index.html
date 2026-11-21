@@ -1364,16 +1364,47 @@
         return 0;
       }
 
-      function normalizeUrlForReuse(rawUrl) {
-        let u = cleanPathQuotes(rawUrl || '').toLowerCase();
-        if (!u || u.length < 6) return '';
-        u = u.replace(/[\\/]+$/, '');
+    function normalizeUrlForReuse(rawUrl) {
+        let u = cleanPathQuotes(rawUrl || '')
+          .replace(/[\u200B-\u200D\uFEFF]/g, '')
+          .trim();
+        if (!u || u.length < 5) return '';
+
+        // Розкодовуємо кирилицю та пробіли (%D0%..., %20) з адресного рядка браузера
+        for (let i = 0; i < 2; i++) {
+          try {
+            const dec = decodeURIComponent(u);
+            if (dec === u) break;
+            u = dec;
+          } catch (e) {
+            break;
+          }
+        }
+
+        u = u.toLowerCase().trim();
+
+        // Приводимо file:///D:/... і D:\... до єдиного вигляду без букви диска
+        if (u.indexOf('file://') === 0) {
+          u = u.replace(/^file:\/*/, '');
+        }
+        if (u.length > 3 && u.charAt(1) === ':' && (u.charAt(2) === BS || u.charAt(2) === '/')) {
+          return 'local_rel:' + u.slice(2).replace(/\//g, BS).replace(/[\\]+/g, BS).replace(/[\\]+$/, '');
+        }
+
         if (u.indexOf('.') === -1 && u.indexOf('/') === -1 && u.indexOf(BS) === -1) {
           return '';
         }
-        if (u.length > 3 && u.charAt(1) === ':' && (u.charAt(2) === BS || u.charAt(2) === '/')) {
-          return 'local_rel:' + u.slice(2).replace(/\//g, BS);
+
+        // Однакові ігри Wordwall незалежно від мови (/uk/, /ru/) чи хвоста назви
+        const wwMatch = u.match(/wordwall\.net\/(?:[a-z]{2}\/)?(?:resource|play)\/(\d+)/);
+        if (wwMatch) {
+          return 'wordwall:' + wwMatch[1];
         }
+
+        // Прибираємо http/https, www., /index.html та слеш у кінці
+        u = u.replace(/^https?:\/\//, '').replace(/^www\./, '');
+        u = u.replace(/\/index\.html?([?#]|$)/, '$1');
+        u = u.replace(/[\\/]+$/, '');
         return 'url:' + u;
       }
 
@@ -2783,6 +2814,12 @@
 
         appState.activeLessonId = targetLesson.id;
 
+        if (urlAutoPullTimer) {
+          clearTimeout(urlAutoPullTimer);
+          urlAutoPullTimer = null;
+        }
+        tryAutoPullImageForModalUrl();
+
         const url = document.getElementById('modalCardUrlInput').value.trim();
         const title = document.getElementById('modalCardTitleInput').value.trim();
         const badge = document.getElementById('modalCardTypeSelect').value;
@@ -4014,12 +4051,9 @@
           thumbSliderSaveTimer = setTimeout(function () {
             saveLocalOnly(false);
           }, 350);
-        } else if (id === 'modalCardUrlInput') {
+       } else if (id === 'modalCardUrlInput') {
           updateModalUrlTypeIndicator();
-          if (urlAutoPullTimer) clearTimeout(urlAutoPullTimer);
-          urlAutoPullTimer = setTimeout(function () {
-            tryAutoPullImageForModalUrl();
-          }, 120);
+          tryAutoPullImageForModalUrl();
         } else if (id === 'modalCardTitleInput') {
           editingContext.autoFilledTitle = false;
         } else if (id === 'genCoverTitleInput') {
