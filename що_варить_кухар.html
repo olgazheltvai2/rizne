@@ -1,0 +1,2300 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Буль-Буль Хаос</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #140b06;
+    font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  }
+  canvas {
+    display: block; width: 100vw; height: 100vh;
+    touch-action: none;
+  }
+  .copper-plate {
+    position: fixed;
+    z-index: 20;
+    cursor: pointer;
+    border: 3px solid #3c1f10;
+    border-radius: 14px;
+    background:
+      radial-gradient(circle at 12px 50%, #5c3318 0 4px, #d99b66 4.5px 6px, transparent 6.5px),
+      radial-gradient(circle at calc(100% - 12px) 50%, #5c3318 0 4px, #d99b66 4.5px 6px, transparent 6.5px),
+      linear-gradient(180deg, #d79a63 0%, #9b5a2e 38%, #6d3717 82%, #4a230d 100%);
+    box-shadow:
+      0 6px 18px rgba(0,0,0,0.65),
+      inset 0 2px 2px rgba(255,226,184,0.65),
+      inset 0 -3px 6px rgba(32,12,4,0.75);
+    color: #fff2d6;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    text-shadow: 0 2px 3px rgba(25,10,2,0.9);
+    transition: transform 0.14s ease, filter 0.14s ease, box-shadow 0.14s ease;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .copper-plate:hover {
+    filter: brightness(1.13);
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 9px 22px rgba(0,0,0,0.75), 0 0 18px rgba(255,180,75,0.45), inset 0 2px 3px rgba(255,235,200,0.8);
+  }
+  .copper-plate:active {
+    transform: translateY(2px) scale(0.97);
+    filter: brightness(0.96);
+  }
+  #langBtn {
+    top: 18px; right: 22px;
+    min-width: 108px; height: 48px;
+    padding: 0 24px;
+    font-size: 20px;
+  }
+  #nextBtn {
+    bottom: 18px; right: 22px;
+    min-width: 146px; height: 54px;
+    padding: 0 26px;
+    font-size: 22px;
+    background:
+      radial-gradient(circle at 12px 50%, #5c3318 0 4px, #f2c388 4.5px 6px, transparent 6.5px),
+      radial-gradient(circle at calc(100% - 12px) 50%, #5c3318 0 4px, #f2c388 4.5px 6px, transparent 6.5px),
+      linear-gradient(180deg, #e5b77b 0%, #b57b42 45%, #7c4b21 88%, #522e12 100%);
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<button id="langBtn" class="copper-plate" aria-label="Language">УКР</button>
+<button id="nextBtn" class="copper-plate" aria-label="Next">ДАЛІ ➔</button>
+
+<script>
+(() => {
+  'use strict';
+
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const langBtn = document.getElementById('langBtn');
+  const nextBtn = document.getElementById('nextBtn');
+
+  // Логічна сцена 16:9 (адаптується під будь-який широкий екран без чорних смуг)
+  const W = 1600, H = 900;
+  let viewScale = 1, viewOffX = 0, viewOffY = 0, dpr = 1;
+  let bgCache = null;
+
+  // Мова інтерфейсу (одна кнопка: УКР або РУС)
+  let lang = 'uk';
+  function updateLangUI() {
+    langBtn.textContent = lang === 'uk' ? 'УКР' : 'РУС';
+    nextBtn.textContent = lang === 'uk' ? 'ДАЛІ ➔' : 'ДАЛЕЕ ➔';
+  }
+  langBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    Sound.unlock();
+    lang = lang === 'uk' ? 'ru' : 'uk';
+    updateLangUI();
+    Sound.playClick();
+  });
+
+  // =========================================================================
+  // ПРОЦЕДУРНИЙ ЗВУКОВИЙ РУШІЙ (Web Audio API — без жодних зовнішніх файлів)
+  // =========================================================================
+  const Sound = (() => {
+    let ac = null;
+    function unlock() {
+      if (!ac) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) ac = new AudioCtx();
+      }
+      if (ac && ac.state === 'suspended') ac.resume();
+    }
+    function noiseBuffer(dur = 0.5) {
+      const len = Math.floor(ac.sampleRate * dur);
+      const buf = ac.createBuffer(1, len, ac.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      return buf;
+    }
+    function playClick() {
+      if (!ac) return;
+      const t = ac.currentTime;
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(520, t);
+      o.frequency.exponentialRampToValueAtTime(220, t + 0.07);
+      g.gain.setValueAtTime(0.16, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+      o.connect(g); g.connect(ac.destination);
+      o.start(t); o.stop(t + 0.09);
+    }
+    function playBubble(pitchMul = 1) {
+      if (!ac) return;
+      const t = ac.currentTime;
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sine';
+      const base = (240 + Math.random() * 140) * pitchMul;
+      o.frequency.setValueAtTime(base, t);
+      o.frequency.exponentialRampToValueAtTime(base * 2.5, t + 0.09);
+      g.gain.setValueAtTime(0.001, t);
+      g.gain.linearRampToValueAtTime(0.14, t + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+      o.connect(g); g.connect(ac.destination);
+      o.start(t); o.stop(t + 0.12);
+    }
+    function playSplash(heavy = 1) {
+      if (!ac) return;
+      const t = ac.currentTime;
+      // Водний шум
+      const src = ac.createBufferSource();
+      src.buffer = noiseBuffer(0.35);
+      const flt = ac.createBiquadFilter();
+      flt.type = 'bandpass';
+      flt.frequency.setValueAtTime(950, t);
+      flt.frequency.exponentialRampToValueAtTime(340, t + 0.3);
+      flt.Q.value = 1.6;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.26 * heavy, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+      src.connect(flt); flt.connect(g); g.connect(ac.destination);
+      src.start(t);
+      // Глибокий «бульк»
+      const o = ac.createOscillator(), og = ac.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(175, t);
+      o.frequency.exponentialRampToValueAtTime(65, t + 0.08);
+      o.frequency.exponentialRampToValueAtTime(390, t + 0.18);
+      og.gain.setValueAtTime(0.28 * heavy, t);
+      og.gain.exponentialRampToValueAtTime(0.001, t + 0.21);
+      o.connect(og); og.connect(ac.destination);
+      o.start(t); o.stop(t + 0.22);
+      setTimeout(() => playBubble(1.1), 90);
+      setTimeout(() => playBubble(1.45), 160);
+    }
+    function playSpark() {
+      if (!ac) return;
+      const t = ac.currentTime;
+      const src = ac.createBufferSource();
+      src.buffer = noiseBuffer(0.12);
+      const flt = ac.createBiquadFilter();
+      flt.type = 'highpass';
+      flt.frequency.value = 3200;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.09, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+      src.connect(flt); flt.connect(g); g.connect(ac.destination);
+      src.start(t);
+    }
+    function playObjectCue(id) {
+      if (!ac) return;
+      const t = ac.currentTime;
+      if (id === 'clock') {
+        for (let i = 0; i < 6; i++) {
+          const o = ac.createOscillator(), g = ac.createGain();
+          o.type = 'sine';
+          o.frequency.setValueAtTime(i % 2 ? 2250 : 1850, t + i * 0.045);
+          g.gain.setValueAtTime(0.11, t + i * 0.045);
+          g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.045 + 0.04);
+          o.connect(g); g.connect(ac.destination);
+          o.start(t + i * 0.045); o.stop(t + i * 0.045 + 0.045);
+        }
+      } else if (id === 'train') {
+        [0, 0.18].forEach((off, idx) => {
+          [520, 650].forEach(freq => {
+            const o = ac.createOscillator(), g = ac.createGain();
+            o.type = 'triangle';
+            o.frequency.setValueAtTime(freq, t + off);
+            g.gain.setValueAtTime(0.001, t + off);
+            g.gain.linearRampToValueAtTime(0.09, t + off + 0.02);
+            g.gain.exponentialRampToValueAtTime(0.001, t + off + (idx ? 0.22 : 0.14));
+            o.connect(g); g.connect(ac.destination);
+            o.start(t + off); o.stop(t + off + 0.24);
+          });
+        });
+      } else if (id === 'plunger') {
+        const o = ac.createOscillator(), g = ac.createGain();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(110, t);
+        o.frequency.exponentialRampToValueAtTime(480, t + 0.14);
+        o.frequency.exponentialRampToValueAtTime(190, t + 0.22);
+        g.gain.setValueAtTime(0.24, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.24);
+        o.connect(g); g.connect(ac.destination);
+        o.start(t); o.stop(t + 0.25);
+      } else if (id === 'phone') {
+        for (let i = 0; i < 4; i++) {
+          const o = ac.createOscillator(), g = ac.createGain();
+          o.type = 'square';
+          o.frequency.setValueAtTime(i % 2 ? 980 : 1220, t + i * 0.055);
+          g.gain.setValueAtTime(0.055, t + i * 0.055);
+          g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.055 + 0.05);
+          o.connect(g); g.connect(ac.destination);
+          o.start(t + i * 0.055); o.stop(t + i * 0.055 + 0.055);
+        }
+      } else if (id === 'boot') {
+        const o = ac.createOscillator(), g = ac.createGain();
+        o.type = 'triangle';
+        o.frequency.setValueAtTime(150, t);
+        o.frequency.exponentialRampToValueAtTime(52, t + 0.17);
+        g.gain.setValueAtTime(0.28, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.19);
+        o.connect(g); g.connect(ac.destination);
+        o.start(t); o.stop(t + 0.2);
+      } else if (id === 'umbrella') {
+        const o = ac.createOscillator(), g = ac.createGain();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(280, t);
+        o.frequency.exponentialRampToValueAtTime(860, t + 0.13);
+        g.gain.setValueAtTime(0.15, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+        o.connect(g); g.connect(ac.destination);
+        o.start(t); o.stop(t + 0.16);
+      } else if (id === 'shower') {
+        const src = ac.createBufferSource();
+        src.buffer = noiseBuffer(0.22);
+        const flt = ac.createBiquadFilter();
+        flt.type = 'bandpass'; flt.frequency.value = 2600;
+        const g = ac.createGain();
+        g.gain.setValueAtTime(0.12, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+        src.connect(flt); flt.connect(g); g.connect(ac.destination);
+        src.start(t);
+        playBubble(1.6);
+      } else { // camera
+        const src = ac.createBufferSource();
+        src.buffer = noiseBuffer(0.06);
+        const g = ac.createGain();
+        g.gain.setValueAtTime(0.22, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.055);
+        src.connect(g); g.connect(ac.destination);
+        src.start(t);
+        const o = ac.createOscillator(), og = ac.createGain();
+        o.type = 'sine'; o.frequency.setValueAtTime(1400, t + 0.05);
+        o.frequency.exponentialRampToValueAtTime(2100, t + 0.14);
+        og.gain.setValueAtTime(0.08, t + 0.05);
+        og.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+        o.connect(og); og.connect(ac.destination);
+        o.start(t + 0.05); o.stop(t + 0.16);
+      }
+    }
+    function playCorrect(step) {
+      if (!ac) return;
+      const t = ac.currentTime;
+      const scale = [523.25, 587.33, 659.25, 783.99, 880, 1046.5];
+      const f = scale[step % scale.length];
+      [f, f * 1.25].forEach((freq, i) => {
+        const o = ac.createOscillator(), g = ac.createGain();
+        o.type = i === 0 ? 'triangle' : 'sine';
+        o.frequency.setValueAtTime(freq, t + i * 0.06);
+        g.gain.setValueAtTime(0.16, t + i * 0.06);
+        g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.06 + 0.28);
+        o.connect(g); g.connect(ac.destination);
+        o.start(t + i * 0.06); o.stop(t + i * 0.06 + 0.3);
+      });
+    }
+    function playRoundClear() {
+      if (!ac) return;
+      const t = ac.currentTime;
+      const notes = [523.25, 659.25, 783.99, 1046.5];
+      notes.forEach((f, i) => {
+        const o = ac.createOscillator(), g = ac.createGain();
+        o.type = 'triangle';
+        o.frequency.setValueAtTime(f, t + i * 0.08);
+        g.gain.setValueAtTime(0.17, t + i * 0.08);
+        g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.08 + 0.35);
+        o.connect(g); g.connect(ac.destination);
+        o.start(t + i * 0.08); o.stop(t + i * 0.08 + 0.36);
+      });
+    }
+    function playWrong() {
+      if (!ac) return;
+      const t = ac.currentTime;
+      // Кумедний «пук-бульк» + слайд-тромбон
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(210, t);
+      o.frequency.linearRampToValueAtTime(140, t + 0.16);
+      o.frequency.linearRampToValueAtTime(92, t + 0.36);
+      const flt = ac.createBiquadFilter();
+      flt.type = 'lowpass'; flt.frequency.value = 620;
+      g.gain.setValueAtTime(0.16, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+      o.connect(flt); flt.connect(g); g.connect(ac.destination);
+      o.start(t); o.stop(t + 0.4);
+    }
+    function playSteamBuild() {
+      if (!ac) return;
+      const t = ac.currentTime;
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(420, t);
+      o.frequency.exponentialRampToValueAtTime(1750, t + 1.35);
+      g.gain.setValueAtTime(0.01, t);
+      g.gain.linearRampToValueAtTime(0.15, t + 1.1);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 1.45);
+      o.connect(g); g.connect(ac.destination);
+      o.start(t); o.stop(t + 1.48);
+    }
+    function playFinaleBoom() {
+      if (!ac) return;
+      const t = ac.currentTime;
+      // Комічний бум
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(160, t);
+      o.frequency.exponentialRampToValueAtTime(34, t + 0.45);
+      g.gain.setValueAtTime(0.42, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+      o.connect(g); g.connect(ac.destination);
+      o.start(t); o.stop(t + 0.52);
+
+      // Шум вибуху попкорну
+      const src = ac.createBufferSource();
+      src.buffer = noiseBuffer(0.6);
+      const flt = ac.createBiquadFilter();
+      flt.type = 'lowpass'; flt.frequency.value = 1400;
+      const ng = ac.createGain();
+      ng.gain.setValueAtTime(0.28, t);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.58);
+      src.connect(flt); flt.connect(ng); ng.connect(ac.destination);
+      src.start(t);
+
+      // Свист польоту кухаря на ополонику!
+      const w = ac.createOscillator(), wg = ac.createGain();
+      w.type = 'sine';
+      w.frequency.setValueAtTime(360, t + 0.08);
+      w.frequency.exponentialRampToValueAtTime(1580, t + 0.85);
+      wg.gain.setValueAtTime(0.14, t + 0.08);
+      wg.gain.exponentialRampToValueAtTime(0.001, t + 0.92);
+      w.connect(wg); wg.connect(ac.destination);
+      w.start(t + 0.08); w.stop(t + 0.95);
+
+      // Каскад попкорну + фанфара
+      for (let i = 0; i < 16; i++) {
+        setTimeout(() => playBubble(0.8 + Math.random() * 1.4), 120 + i * 95);
+      }
+      const fanfare = [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5];
+      const times = [0.35, 0.48, 0.61, 0.76, 0.96, 1.12];
+      fanfare.forEach((f, i) => {
+        const fo = ac.createOscillator(), fg = ac.createGain();
+        fo.type = 'triangle';
+        fo.frequency.setValueAtTime(f, t + times[i]);
+        fg.gain.setValueAtTime(0.18, t + times[i]);
+        fg.gain.exponentialRampToValueAtTime(0.001, t + times[i] + 0.42);
+        fo.connect(fg); fg.connect(ac.destination);
+        fo.start(t + times[i]); fo.stop(t + times[i] + 0.45);
+      });
+    }
+    return {
+      unlock, playClick, playBubble, playSplash, playSpark,
+      playObjectCue, playCorrect, playRoundClear, playWrong,
+      playSteamBuild, playFinaleBoom
+    };
+  })();
+
+  // =========================================================================
+  // КОЛЕКЦІЯ ПРЕДМЕТІВ (8 кумедних реалістичних предметів без тварин/роботів)
+  // =========================================================================
+  const ALL_ITEMS = [
+    { id: 'boot',     color: '#8c502b' },
+    { id: 'umbrella', color: '#395a63' },
+    { id: 'clock',    color: '#e6b240' },
+    { id: 'plunger',  color: '#d45136' },
+    { id: 'phone',    color: '#2c3038' },
+    { id: 'shower',   color: '#f0c737' },
+    { id: 'train',    color: '#d9382e' },
+    { id: 'camera',   color: '#4e8ab8' }
+  ];
+
+  function drawItem(c, id, x, y, scale = 1, rot = 0, highlight = 0) {
+    c.save();
+    c.translate(x, y);
+    c.rotate(rot);
+    c.scale(scale, scale);
+
+    if (highlight > 0.01) {
+      const g = c.createRadialGradient(0, 0, 8, 0, 0, 74);
+      g.addColorStop(0, `rgba(255, 224, 110, ${0.75 * highlight})`);
+      g.addColorStop(0.55, `rgba(255, 165, 40, ${0.35 * highlight})`);
+      g.addColorStop(1, 'rgba(255, 140, 20, 0)');
+      c.fillStyle = g;
+      c.beginPath(); c.arc(0, 0, 74, 0, Math.PI * 2); c.fill();
+    }
+
+    if (id === 'boot') {
+      // Шкіряний чобіт зі шнурівкою
+      const lg = c.createLinearGradient(-34, -46, 36, 40);
+      lg.addColorStop(0, '#7c4829');
+      lg.addColorStop(0.45, '#593019');
+      lg.addColorStop(1, '#30170b');
+      c.fillStyle = lg;
+      c.beginPath();
+      c.moveTo(-30, -44); c.lineTo(6, -44); c.lineTo(12, -2);
+      c.quadraticCurveTo(38, 2, 46, 22);
+      c.quadraticCurveTo(48, 35, 36, 38);
+      c.lineTo(-34, 38); c.quadraticCurveTo(-38, 12, -30, -44);
+      c.closePath(); c.fill();
+      c.strokeStyle = '#241007'; c.lineWidth = 2.4; c.stroke();
+      // Підошва
+      c.fillStyle = '#1f120b';
+      c.beginPath();
+      c.roundRect(-36, 33, 84, 11, 4);
+      c.fill();
+      c.fillStyle = '#9c663b';
+      c.fillRect(-33, 31, 78, 3);
+      // Блік на носку
+      const gloss = c.createRadialGradient(24, 17, 2, 24, 18, 20);
+      gloss.addColorStop(0, 'rgba(255,210,165,0.45)');
+      gloss.addColorStop(1, 'rgba(255,210,165,0)');
+      c.fillStyle = gloss;
+      c.beginPath(); c.ellipse(24, 18, 18, 10, 0.25, 0, Math.PI * 2); c.fill();
+      // Шнурівка та люверси
+      c.strokeStyle = '#d7ab79'; c.lineWidth = 2.6; c.lineCap = 'round';
+      for (let i = 0; i < 4; i++) {
+        const ly = -32 + i * 10;
+        c.beginPath(); c.moveTo(-2, ly); c.lineTo(12, ly + 5); c.stroke();
+        c.beginPath(); c.moveTo(10, ly); c.lineTo(-2, ly + 5); c.stroke();
+        c.fillStyle = '#c99352';
+        c.beginPath(); c.arc(-2, ly + 2, 2.3, 0, Math.PI * 2); c.fill();
+      }
+      // Верхній манжет
+      c.fillStyle = '#472411';
+      c.beginPath(); c.ellipse(-12, -44, 18, 5, 0, 0, Math.PI * 2); c.fill();
+    }
+
+    else if (id === 'umbrella') {
+      // Складена парасолька з дерев'яною ручкою
+      c.save(); c.rotate(-0.42);
+      // Гачок ручки
+      c.strokeStyle = '#9c5a28'; c.lineWidth = 9; c.lineCap = 'round';
+      c.beginPath();
+      c.moveTo(-2, -32); c.lineTo(-2, -48);
+      c.arc(-11, -48, 9, 0, Math.PI, true);
+      c.stroke();
+      c.strokeStyle = '#d48d52'; c.lineWidth = 3;
+      c.beginPath(); c.moveTo(-4, -33); c.lineTo(-4, -47); c.stroke();
+      // Складена тканина парасольки
+      const ug = c.createLinearGradient(-16, -24, 18, 46);
+      ug.addColorStop(0, '#5a7880');
+      ug.addColorStop(0.5, '#314952');
+      ug.addColorStop(1, '#18262c');
+      c.fillStyle = ug;
+      c.beginPath();
+      c.moveTo(-9, -30); c.lineTo(9, -30);
+      c.lineTo(17, 16); c.lineTo(3, 52); c.lineTo(-3, 52); c.lineTo(-17, 16);
+      c.closePath(); c.fill();
+      c.strokeStyle = '#142026'; c.lineWidth = 2; c.stroke();
+      // Складки тканини
+      c.strokeStyle = 'rgba(180,220,235,0.35)'; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-4, -26); c.lineTo(-8, 16); c.lineTo(-1, 46); c.stroke();
+      c.beginPath(); c.moveTo(4, -26); c.lineTo(8, 16); c.lineTo(1, 46); c.stroke();
+      // Латунний наконечник та ремінець
+      c.fillStyle = '#d9a44a';
+      c.fillRect(-13, -4, 26, 5);
+      c.beginPath(); c.moveTo(-3, 51); c.lineTo(3, 51); c.lineTo(0, 63); c.closePath(); c.fill();
+      c.restore();
+    }
+
+    else if (id === 'clock') {
+      // Латунний будильник з двома дзвіночками
+      // Ніжки
+      c.strokeStyle = '#9a681e'; c.lineWidth = 6; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(-22, 26); c.lineTo(-29, 41); c.stroke();
+      c.beginPath(); c.moveTo(22, 26); c.lineTo(29, 41); c.stroke();
+      // Дзвіночки
+      [-23, 23].forEach((bx, idx) => {
+        c.save(); c.translate(bx, -31); c.rotate(idx === 0 ? -0.5 : 0.5);
+        const bg = c.createRadialGradient(-4, -4, 2, 0, 0, 18);
+        bg.addColorStop(0, '#fff2b2'); bg.addColorStop(0.5, '#d49a35'); bg.addColorStop(1, '#7a4b12');
+        c.fillStyle = bg;
+        c.beginPath(); c.arc(0, 0, 15, Math.PI, 0); c.closePath(); c.fill();
+        c.strokeStyle = '#4a2a08'; c.lineWidth = 2; c.stroke();
+        c.restore();
+      });
+      // Молоточок зверху
+      c.strokeStyle = '#c48d30'; c.lineWidth = 4;
+      c.beginPath(); c.moveTo(0, -32); c.lineTo(0, -45); c.stroke();
+      c.fillStyle = '#ffe599';
+      c.beginPath(); c.arc(0, -45, 5, 0, Math.PI * 2); c.fill();
+      // Корпус
+      const cg = c.createRadialGradient(-12, -14, 5, 0, 4, 42);
+      cg.addColorStop(0, '#fff0ad'); cg.addColorStop(0.45, '#d99e36'); cg.addColorStop(1, '#6e400e');
+      c.fillStyle = cg;
+      c.beginPath(); c.arc(0, 4, 36, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = '#4a2909'; c.lineWidth = 2.5; c.stroke();
+      // Циферблат
+      const fg = c.createRadialGradient(-6, -4, 4, 0, 4, 30);
+      fg.addColorStop(0, '#fffef4'); fg.addColorStop(1, '#dfcfad');
+      c.fillStyle = fg;
+      c.beginPath(); c.arc(0, 4, 28, 0, Math.PI * 2); c.fill();
+      // Поділки
+      c.strokeStyle = '#2d1c10'; c.lineWidth = 2;
+      for (let i = 0; i < 12; i++) {
+        const a = i * Math.PI / 6;
+        c.beginPath();
+        c.moveTo(Math.cos(a) * 21, 4 + Math.sin(a) * 21);
+        c.lineTo(Math.cos(a) * 25, 4 + Math.sin(a) * 25);
+        c.stroke();
+      }
+      // Стрілки
+      c.strokeStyle = '#1c120b'; c.lineWidth = 3.2; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(0, 4); c.lineTo(-10, -10); c.stroke();
+      c.lineWidth = 2.2;
+      c.beginPath(); c.moveTo(0, 4); c.lineTo(15, -3); c.stroke();
+      c.fillStyle = '#b8341c';
+      c.beginPath(); c.arc(0, 4, 3.2, 0, Math.PI * 2); c.fill();
+      // Скляний блік
+      c.fillStyle = 'rgba(255,255,255,0.34)';
+      c.beginPath(); c.ellipse(-9, -8, 12, 6, -0.6, 0, Math.PI * 2); c.fill();
+    }
+
+    else if (id === 'plunger') {
+      // Вантуз з дерев'яною ручкою
+      const wg = c.createLinearGradient(-6, -54, 6, 4);
+      wg.addColorStop(0, '#f0c184'); wg.addColorStop(0.5, '#c48649'); wg.addColorStop(1, '#7a4a1d');
+      c.fillStyle = wg;
+      c.beginPath(); c.roundRect(-6, -52, 12, 58, 5); c.fill();
+      c.strokeStyle = '#47280d'; c.lineWidth = 2; c.stroke();
+      // Гумовий ковпак
+      const rg = c.createRadialGradient(-10, 12, 4, 0, 22, 36);
+      rg.addColorStop(0, '#f57c5b'); rg.addColorStop(0.45, '#c7432a'); rg.addColorStop(1, '#661a0e');
+      c.fillStyle = rg;
+      c.beginPath();
+      c.moveTo(-12, 2);
+      c.bezierCurveTo(-28, 6, -34, 24, -36, 38);
+      c.quadraticCurveTo(0, 48, 36, 38);
+      c.bezierCurveTo(34, 24, 28, 6, 12, 2);
+      c.closePath(); c.fill();
+      c.strokeStyle = '#451209'; c.lineWidth = 2.4; c.stroke();
+      // Блік на гумі
+      c.fillStyle = 'rgba(255,210,190,0.4)';
+      c.beginPath(); c.ellipse(-13, 18, 6, 14, 0.3, 0, Math.PI * 2); c.fill();
+      // Нижній обідок
+      c.strokeStyle = '#8c2817'; c.lineWidth = 4;
+      c.beginPath(); c.moveTo(-34, 36); c.quadraticCurveTo(0, 44, 34, 36); c.stroke();
+    }
+
+    else if (id === 'phone') {
+      // Ретро-телефонна трубка з крученим дротом
+      // Дріт
+      c.strokeStyle = '#1b1d22'; c.lineWidth = 3.5; c.lineCap = 'round';
+      c.beginPath();
+      c.moveTo(-30, 22);
+      for (let i = 0; i < 5; i++) {
+        c.bezierCurveTo(-40 + i * 9, 34, -26 + i * 9, 44, -22 + i * 9, 34);
+      }
+      c.stroke();
+      // Корпус трубки
+      c.save(); c.rotate(-0.12);
+      const pg = c.createLinearGradient(-44, -22, 44, 22);
+      pg.addColorStop(0, '#505663'); pg.addColorStop(0.35, '#252930'); pg.addColorStop(1, '#0e1014');
+      c.fillStyle = pg;
+      c.beginPath();
+      c.moveTo(-42, 8);
+      c.quadraticCurveTo(-46, -18, -22, -20);
+      c.quadraticCurveTo(0, -10, 22, -20);
+      c.quadraticCurveTo(46, -18, 42, 8);
+      c.quadraticCurveTo(34, 26, 20, 14);
+      c.quadraticCurveTo(0, 2, -20, 14);
+      c.quadraticCurveTo(-34, 26, -42, 8);
+      c.closePath(); c.fill();
+      c.strokeStyle = '#07080a'; c.lineWidth = 2.4; c.stroke();
+      // Глянцеві бліки
+      c.strokeStyle = 'rgba(255,255,255,0.34)'; c.lineWidth = 3.5;
+      c.beginPath(); c.moveTo(-26, -13); c.quadraticCurveTo(0, -4, 26, -13); c.stroke();
+      // Отвори мікрофона
+      c.fillStyle = '#121417';
+      c.beginPath(); c.ellipse(-30, 10, 11, 7, 0.4, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.ellipse(30, 10, 11, 7, -0.4, 0, Math.PI * 2); c.fill();
+      c.restore();
+    }
+
+    else if (id === 'shower') {
+      // Яскраво-жовта ретро-лійка душу
+      c.save(); c.rotate(0.28);
+      // Ручка
+      const sg = c.createLinearGradient(-14, -40, 22, 42);
+      sg.addColorStop(0, '#fff29c'); sg.addColorStop(0.45, '#e6b822'); sg.addColorStop(1, '#8c6308');
+      c.fillStyle = sg;
+      c.beginPath();
+      c.moveTo(-8, -10);
+      c.quadraticCurveTo(14, -2, 22, 34);
+      c.quadraticCurveTo(22, 46, 10, 45);
+      c.quadraticCurveTo(2, 42, -2, 16);
+      c.quadraticCurveTo(-6, 4, -18, -2);
+      c.closePath(); c.fill();
+      c.strokeStyle = '#5c3f05'; c.lineWidth = 2.4; c.stroke();
+      // Голівка лійки
+      c.beginPath(); c.ellipse(-12, -16, 22, 26, -0.35, 0, Math.PI * 2); c.fill();
+      c.stroke();
+      // Диск з отворами
+      const dg = c.createRadialGradient(-16, -18, 2, -14, -16, 20);
+      dg.addColorStop(0, '#fff7c2'); dg.addColorStop(1, '#b88918');
+      c.fillStyle = dg;
+      c.beginPath(); c.ellipse(-14, -16, 15, 19, -0.35, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#4d3206';
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 7) * Math.PI * 2;
+        c.beginPath(); c.arc(-14 + Math.cos(a) * 8, -16 + Math.sin(a) * 10, 1.9, 0, Math.PI * 2); c.fill();
+      }
+      c.beginPath(); c.arc(-14, -16, 2.2, 0, Math.PI * 2); c.fill();
+      c.restore();
+    }
+
+    else if (id === 'train') {
+      // Дерев'яний барвистий іграшковий паровозик
+      // Кабіна
+      const cab = c.createLinearGradient(-42, -32, -8, 20);
+      cab.addColorStop(0, '#f25544'); cab.addColorStop(1, '#961e15');
+      c.fillStyle = cab;
+      c.beginPath(); c.roundRect(-42, -32, 34, 52, 4); c.fill();
+      c.strokeStyle = '#400e0a'; c.lineWidth = 2.2; c.stroke();
+      // Дах кабіни (зелений)
+      c.fillStyle = '#2d8a4e';
+      c.beginPath(); c.roundRect(-47, -39, 44, 10, 4); c.fill(); c.stroke();
+      // Віконце
+      c.fillStyle = '#cfefff';
+      c.fillRect(-34, -22, 18, 16);
+      c.strokeStyle = '#5c1810'; c.strokeRect(-34, -22, 18, 16);
+      // Котел (синій)
+      const boil = c.createLinearGradient(-8, -14, -8, 20);
+      boil.addColorStop(0, '#4ca3e8'); boil.addColorStop(0.5, '#2561a3'); boil.addColorStop(1, '#12335c');
+      c.fillStyle = boil;
+      c.beginPath(); c.roundRect(-10, -14, 48, 34, 8); c.fill(); c.stroke();
+      // Труба
+      c.fillStyle = '#2e8c4c';
+      c.fillRect(16, -34, 14, 22); c.strokeRect(16, -34, 14, 22);
+      c.fillStyle = '#ebb634';
+      c.beginPath(); c.roundRect(12, -39, 22, 7, 3); c.fill(); c.stroke();
+      // Передній бампер
+      c.fillStyle = '#d93829';
+      c.beginPath(); c.moveTo(38, 4); c.lineTo(50, 22); c.lineTo(38, 22); c.closePath(); c.fill(); c.stroke();
+      // Колеса
+      [-26, 2, 26].forEach((wx, idx) => {
+        const r = idx === 0 ? 15 : 12;
+        c.fillStyle = '#c42b1c';
+        c.beginPath(); c.arc(wx, 24, r, 0, Math.PI * 2); c.fill();
+        c.strokeStyle = '#3b0e0a'; c.lineWidth = 2.2; c.stroke();
+        c.fillStyle = '#f2c144';
+        c.beginPath(); c.arc(wx, 24, r * 0.45, 0, Math.PI * 2); c.fill();
+      });
+    }
+
+    else if (id === 'camera') {
+      // Ретро-фотоапарат зі скляним об'єктивом
+      // Спалах / верхня панель
+      const topG = c.createLinearGradient(-42, -34, 42, -10);
+      topG.addColorStop(0, '#eef3f7'); topG.addColorStop(0.5, '#aab4bd'); topG.addColorStop(1, '#68717a');
+      c.fillStyle = topG;
+      c.beginPath(); c.roundRect(-42, -26, 84, 22, 7); c.fill();
+      c.strokeStyle = '#262b30'; c.lineWidth = 2.2; c.stroke();
+      // Кнопка спуску (червона)
+      c.fillStyle = '#d93829';
+      c.beginPath(); c.roundRect(18, -35, 14, 9, 3); c.fill(); c.stroke();
+      // Видошукач
+      c.fillStyle = '#73828f';
+      c.beginPath(); c.roundRect(-14, -36, 28, 12, 4); c.fill(); c.stroke();
+      // Шкіряний корпус
+      const bodyG = c.createLinearGradient(0, -10, 0, 36);
+      bodyG.addColorStop(0, '#3a3432'); bodyG.addColorStop(1, '#171413');
+      c.fillStyle = bodyG;
+      c.beginPath(); c.roundRect(-42, -10, 84, 46, 8); c.fill(); c.stroke();
+      // Об'єктив (багатошаровий метал + синє скло)
+      const ring = c.createRadialGradient(-4, 8, 4, 0, 12, 26);
+      ring.addColorStop(0, '#ffffff'); ring.addColorStop(0.65, '#8f9aa3'); ring.addColorStop(1, '#32383d');
+      c.fillStyle = ring;
+      c.beginPath(); c.arc(0, 12, 24, 0, Math.PI * 2); c.fill(); c.stroke();
+      const lens = c.createRadialGradient(-5, 7, 2, 0, 12, 17);
+      lens.addColorStop(0, '#78d5ff'); lens.addColorStop(0.45, '#1b4f82'); lens.addColorStop(1, '#081829');
+      c.fillStyle = lens;
+      c.beginPath(); c.arc(0, 12, 16, 0, Math.PI * 2); c.fill();
+      // Бліки на лінзі
+      c.fillStyle = 'rgba(255,255,255,0.75)';
+      c.beginPath(); c.ellipse(-6, 6, 5, 3, -0.6, 0, Math.PI * 2); c.fill();
+      c.fillStyle = 'rgba(130,225,255,0.45)';
+      c.beginPath(); c.arc(6, 17, 2.8, 0, Math.PI * 2); c.fill();
+    }
+
+    c.restore();
+  }
+
+  // =========================================================================
+  // СТАТИЧНИЙ ФОН КУХНІ (малюється один раз в offscreen-canvas для 60 FPS)
+  // =========================================================================
+  function buildKitchenBackground() {
+    const off = document.createElement('canvas');
+    off.width = W; off.height = H;
+    const c = off.getContext('2d');
+
+    // Тепла стіна старої кухні
+    const wall = c.createRadialGradient(780, 380, 90, 800, 440, 1050);
+    wall.addColorStop(0, '#6e472b');
+    wall.addColorStop(0.5, '#462b1a');
+    wall.addColorStop(1, '#22120a');
+    c.fillStyle = wall;
+    c.fillRect(0, 0, W, H);
+
+    // Керамічна плитка на задньому плані (праворуч і ліворуч)
+    c.save();
+    c.globalAlpha = 0.28;
+    for (let tx = 0; tx < W; tx += 74) {
+      for (let ty = 220; ty < 640; ty += 74) {
+        const shade = ((tx + ty) % 148 === 0) ? '#8f6544' : '#7a5234';
+        c.fillStyle = shade;
+        c.fillRect(tx + 2, ty + 2, 70, 70);
+        c.strokeStyle = '#2e190c';
+        c.lineWidth = 2;
+        c.strokeRect(tx + 2, ty + 2, 70, 70);
+      }
+    }
+    c.restore();
+
+    // Металева витяжка зверху по центру
+    const hood = c.createLinearGradient(520, 0, 1080, 0);
+    hood.addColorStop(0, '#363538');
+    hood.addColorStop(0.35, '#727278');
+    hood.addColorStop(0.55, '#999aa1');
+    hood.addColorStop(1, '#2a292d');
+    c.fillStyle = hood;
+    c.beginPath();
+    c.moveTo(640, 0); c.lineTo(960, 0);
+    c.lineTo(1060, 175); c.lineTo(540, 175);
+    c.closePath(); c.fill();
+    c.fillStyle = '#242226';
+    c.fillRect(534, 168, 532, 16);
+    c.strokeStyle = 'rgba(255,235,205,0.22)'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(545, 168); c.lineTo(1055, 168); c.stroke();
+
+    // Дерев'яні полиці (ліворуч і праворуч)
+    function drawShelf(sx, sy, sw) {
+      c.fillStyle = 'rgba(0,0,0,0.42)';
+      c.fillRect(sx + 6, sy + 18, sw, 14);
+      const sg = c.createLinearGradient(sx, sy, sx, sy + 22);
+      sg.addColorStop(0, '#804d29'); sg.addColorStop(0.5, '#593218'); sg.addColorStop(1, '#361c0c');
+      c.fillStyle = sg;
+      c.beginPath(); c.roundRect(sx, sy, sw, 20, 4); c.fill();
+      c.strokeStyle = '#241106'; c.lineWidth = 2; c.stroke();
+      // Кронштейни
+      c.fillStyle = '#291a12';
+      c.fillRect(sx + 26, sy + 20, 12, 34);
+      c.fillRect(sx + sw - 38, sy + 20, 12, 34);
+    }
+
+    function drawJar(jx, jy, jw, jh, fillColor, fillLevel = 0.72) {
+      // Тінь банки
+      c.fillStyle = 'rgba(0,0,0,0.28)';
+      c.beginPath(); c.ellipse(jx + jw / 2, jy + jh + 2, jw * 0.55, 5, 0, 0, Math.PI * 2); c.fill();
+      // Вміст
+      const contentH = jh * fillLevel;
+      const cg = c.createLinearGradient(jx, jy, jx + jw, jy);
+      cg.addColorStop(0, fillColor); cg.addColorStop(1, '#26140a');
+      c.fillStyle = cg;
+      c.beginPath(); c.roundRect(jx + 4, jy + jh - contentH, jw - 8, contentH - 3, 6); c.fill();
+      // Скло
+      c.fillStyle = 'rgba(255, 242, 220, 0.16)';
+      c.strokeStyle = 'rgba(255, 232, 195, 0.42)'; c.lineWidth = 2;
+      c.beginPath(); c.roundRect(jx, jy, jw, jh, 9); c.fill(); c.stroke();
+      // Блік на склі
+      c.fillStyle = 'rgba(255,255,255,0.28)';
+      c.fillRect(jx + 6, jy + 8, 5, jh - 16);
+      // Кришка / корок
+      c.fillStyle = '#9c6c3f';
+      c.beginPath(); c.roundRect(jx + 5, jy - 11, jw - 10, 13, 4); c.fill();
+      c.strokeStyle = '#3d240f'; c.lineWidth = 1.5; c.stroke();
+    }
+
+    // Ліві полиці та банки зі спеціями
+    drawShelf(20, 115, 230);
+    drawJar(45, 36, 48, 78, '#b83c20', 0.8);
+    drawJar(108, 46, 52, 68, '#d99e30', 0.65);
+    drawJar(174, 30, 46, 84, '#5e8232', 0.78);
+
+    drawShelf(15, 265, 245);
+    drawJar(34, 192, 54, 72, '#d46c2a', 0.75);
+    drawJar(102, 180, 56, 84, '#9e532b', 0.6);
+    drawJar(174, 198, 50, 66, '#ccb25e', 0.85);
+
+    // Рейлінг із кухонним приладдям ліворуч
+    c.fillStyle = '#7a4b29';
+    c.fillRect(24, 338, 200, 8);
+    [54, 96, 138, 184].forEach((ux, i) => {
+      c.strokeStyle = '#a89f96'; c.lineWidth = 4;
+      c.beginPath(); c.moveTo(ux, 344); c.lineTo(ux, 430 + (i % 2) * 18); c.stroke();
+      c.fillStyle = i === 0 ? '#78757a' : '#8a522a';
+      c.beginPath();
+      if (i === 0) c.arc(ux, 456, 24, 0, Math.PI * 2);
+      else c.ellipse(ux, 446 + (i % 2) * 18, 10, 18, 0, 0, Math.PI * 2);
+      c.fill();
+    });
+
+    // Обробна дошка на задній стільниці ліворуч
+    const boardG = c.createLinearGradient(255, 340, 360, 520);
+    boardG.addColorStop(0, '#965c30'); boardG.addColorStop(1, '#593216');
+    c.fillStyle = boardG;
+    c.beginPath(); c.roundRect(245, 355, 118, 155, 14); c.fill();
+    c.strokeStyle = '#30190a'; c.lineWidth = 3; c.stroke();
+
+    // Праві полиці
+    drawShelf(1265, 128, 320);
+    drawShelf(1275, 286, 310);
+    drawJar(1352, 206, 56, 78, '#668736', 0.82);
+    drawJar(1426, 214, 52, 70, '#c24327', 0.72);
+    drawJar(1498, 202, 54, 82, '#d49a35', 0.66);
+
+    // Задня стільниця кухні
+    const cntG = c.createLinearGradient(0, 520, 0, 650);
+    cntG.addColorStop(0, '#663c1e'); cntG.addColorStop(0.4, '#472711'); cntG.addColorStop(1, '#261206');
+    c.fillStyle = cntG;
+    c.fillRect(0, 525, W, 175);
+    c.strokeStyle = '#210f05'; c.lineWidth = 4;
+    c.beginPath(); c.moveTo(0, 525); c.lineTo(W, 525); c.stroke();
+
+    // Пучок сушених трав ліворуч від витяжки
+    c.save(); c.translate(345, 20);
+    c.strokeStyle = '#5c4123'; c.lineWidth = 5;
+    c.beginPath(); c.moveTo(0, 0); c.lineTo(0, 48); c.stroke();
+    for (let i = 0; i < 24; i++) {
+      const ang = (i - 12) * 0.065;
+      const len = 75 + (i % 4) * 28;
+      c.fillStyle = i % 2 ? '#4d6e28' : '#37521b';
+      c.beginPath();
+      c.ellipse(Math.sin(ang) * len * 0.55, 55 + Math.cos(ang) * len * 0.75, 11, 28, -ang * 1.4, 0, Math.PI * 2);
+      c.fill();
+    }
+    c.strokeStyle = '#c4985a'; c.lineWidth = 6;
+    c.beginPath(); c.moveTo(-14, 52); c.lineTo(14, 52); c.stroke();
+    c.restore();
+
+    // Теплий віньєт по краях
+    const vig = c.createRadialGradient(W * 0.5, H * 0.45, 350, W * 0.5, H * 0.5, 1020);
+    vig.addColorStop(0, 'rgba(255,190,110,0.06)');
+    vig.addColorStop(1, 'rgba(10,4,1,0.52)');
+    c.fillStyle = vig;
+    c.fillRect(0, 0, W, H);
+
+    bgCache = off;
+  }
+
+  // =========================================================================
+  // ЖИВІ КАСТРУЛЬКИ З ОЧИМА НА ПОЛИЦЯХ
+  // =========================================================================
+  function drawLivingPot(c, x, y, w, h, lookX, lookY, mood, blink, t) {
+    c.save();
+    const hop = mood === 'happy' ? Math.abs(Math.sin(t * 14)) * -12 : (mood === 'shock' ? Math.sin(t * 40) * 3 : 0);
+    c.translate(x, y + hop);
+
+    // Тінь
+    c.fillStyle = 'rgba(0,0,0,0.4)';
+    c.beginPath(); c.ellipse(0, h / 2 + 4, w * 0.55, 8, 0, 0, Math.PI * 2); c.fill();
+
+    // Ручки
+    c.strokeStyle = '#3d3e42'; c.lineWidth = 6;
+    c.beginPath(); c.arc(-w / 2, 0, 12, Math.PI * 0.5, Math.PI * 1.5); c.stroke();
+    c.beginPath(); c.arc(w / 2, 0, 12, -Math.PI * 0.5, Math.PI * 0.5); c.stroke();
+
+    // Металевий корпус
+    const pg = c.createLinearGradient(-w / 2, 0, w / 2, 0);
+    pg.addColorStop(0, '#44464d'); pg.addColorStop(0.28, '#9da0a8');
+    pg.addColorStop(0.55, '#686b73'); pg.addColorStop(1, '#292a2e');
+    c.fillStyle = pg;
+    c.beginPath(); c.roundRect(-w / 2, -h / 2, w, h, 10); c.fill();
+    c.strokeStyle = '#1c1d20'; c.lineWidth = 2.5; c.stroke();
+
+    // Ободок зверху
+    c.fillStyle = '#aeb1ba';
+    c.beginPath(); c.roundRect(-w / 2 - 4, -h / 2 - 4, w + 8, 9, 4); c.fill();
+
+    // Очі, що стежать за дією
+    const dx = lookX - x, dy = lookY - y;
+    const ang = Math.atan2(dy, dx);
+    const dist = Math.min(4.2, Math.hypot(dx, dy) / 90);
+    const ex = Math.cos(ang) * dist, ey = Math.sin(ang) * dist;
+
+    [-w * 0.2, w * 0.2].forEach(ox => {
+      const er = mood === 'shock' ? 12.5 : 10.5;
+      c.fillStyle = '#faf6ed';
+      c.beginPath();
+      if (blink) c.ellipse(ox, -4, er, 2, 0, 0, Math.PI * 2);
+      else c.arc(ox, -4, er, 0, Math.PI * 2);
+      c.fill();
+      c.strokeStyle = '#292726'; c.lineWidth = 2; c.stroke();
+      if (!blink) {
+        c.fillStyle = '#1c1614';
+        c.beginPath(); c.arc(ox + ex, -4 + ey, mood === 'shock' ? 3.8 : 5.2, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#fff';
+        c.beginPath(); c.arc(ox + ex - 1.8, -6 + ey, 2, 0, Math.PI * 2); c.fill();
+      }
+    });
+
+    // Ротик
+    c.strokeStyle = '#262322'; c.lineWidth = 3; c.lineCap = 'round';
+    c.beginPath();
+    if (mood === 'happy') {
+      c.arc(0, 12, 11, 0.15, Math.PI - 0.15);
+    } else if (mood === 'shock') {
+      c.fillStyle = '#261412';
+      c.ellipse(0, 18, 7, 9, 0, 0, Math.PI * 2); c.fill();
+    } else {
+      c.arc(0, 10, 8, 0.3, Math.PI - 0.3);
+    }
+    c.stroke();
+
+    c.restore();
+  }
+
+  // =========================================================================
+  // СТАН ГРИ, ФІЗИКА ЧАСТИНОК ТА АНІМАЦІЯ КУХАРЯ
+  // =========================================================================
+  const CAULDRON = { x: 785, y: 545, mouthY: 422, rx: 220 };
+  const CONVEYOR_Y = 746;
+
+  let cycleStage = 0;       // 0..3 -> на 4-му раунді тиск досягає піку -> ФІНАЛ!
+  let cycleCount = 0;       // Безкінечний генератор циклів
+  let sequence = [];        // Послідовність ID предметів
+  let beltItems = [];       // Об'єкти на конвеєрі { id, x, targetX, baseY, hover, bounce, wrongShake }
+  let inputIndex = 0;       // Поточний крок гравця
+  let state = 'demo';       // 'demo' | 'input' | 'round_win' | 'finale'
+  let stateTimer = 0;
+
+  // Демонстрація кухаря
+  let demoStep = 0;
+  let demoPhase = 'reach';  // 'reach' | 'hold' | 'drop' | 'pause'
+  let demoT = 0;
+  let chefHeldItem = null;
+
+  // Анімація кухаря та казана
+  let chefMood = 'normal';  // 'normal' | 'happy' | 'shock' | 'excited'
+  let chefMoodT = 0;
+  let cauldronShake = 0;
+  let cauldronHeat = 0;     // 0..1 (на фіналі росте до 1!)
+  let pressureNeedle = 0.08;
+  let targetPressure = 0.08;
+  let beltScroll = 0;
+  let mouseX = W * 0.5, mouseY = H * 0.5;
+  let hoveredIdx = -1;
+
+  // Фінальний політ кухаря на ополонику
+  let finalePhase = 0;      // 0: нагрів, 1: ВИБУХ+політ, 2: спуск на парашуті-ковпаку
+  let finaleT = 0;
+  let chefFlyY = 0, chefFlyX = 0, chefFlyRot = 0;
+
+  // Масиви живих частинок
+  const steam = [];
+  const sparks = [];
+  const splashes = [];
+  const bubbles = [];
+  const smokePuffs = [];
+  const flyingItems = [];
+  const popcorn = [];
+  const confetti = [];
+  const soapBubbles = [];
+
+  // Ініціалізація фонової пари
+  for (let i = 0; i < 24; i++) {
+    steam.push({
+      x: CAULDRON.x + (Math.random() - 0.5) * 280,
+      y: CAULDRON.mouthY - Math.random() * 340,
+      r: 26 + Math.random() * 44,
+      vx: (Math.random() - 0.5) * 18,
+      vy: -36 - Math.random() * 32,
+      a: Math.random() * 0.35
+    });
+  }
+
+  function spawnSparks(x, y, count = 16, speedMul = 1, hueShift = 0) {
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = (90 + Math.random() * 260) * speedMul;
+      sparks.push({
+        x, y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 90,
+        life: 0.35 + Math.random() * 0.45,
+        maxLife: 0.8,
+        size: 2.2 + Math.random() * 3.5,
+        color: hueShift ? `hsl(${38 + Math.random() * 25}, 100%, 72%)` : `hsl(${28 + Math.random() * 28}, 100%, 68%)`
+      });
+    }
+  }
+
+  function spawnSplash(x, y, intensity = 1, tint = '#f7e5c3') {
+    for (let i = 0; i < Math.floor(18 * intensity); i++) {
+      const a = -Math.PI * (0.15 + Math.random() * 0.7);
+      const sp = (160 + Math.random() * 260) * intensity;
+      splashes.push({
+        x: x + (Math.random() - 0.5) * 60,
+        y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        r: 4 + Math.random() * 8 * intensity,
+        life: 0.55 + Math.random() * 0.35,
+        color: tint
+      });
+    }
+    for (let i = 0; i < Math.floor(8 * intensity); i++) {
+      bubbles.push({
+        x: CAULDRON.x + (Math.random() - 0.5) * 260,
+        y: CAULDRON.mouthY + (Math.random() - 0.5) * 14,
+        r: 5 + Math.random() * 14,
+        vy: -30 - Math.random() * 55,
+        life: 0.9 + Math.random() * 0.8
+      });
+    }
+  }
+
+  function spawnSmoke(x, y, count = 12, color = '#66755d') {
+    for (let i = 0; i < count; i++) {
+      smokePuffs.push({
+        x: x + (Math.random() - 0.5) * 70,
+        y: y + (Math.random() - 0.5) * 20,
+        vx: (Math.random() - 0.5) * 90,
+        vy: -70 - Math.random() * 80,
+        r: 18 + Math.random() * 28,
+        life: 0.9 + Math.random() * 0.5,
+        maxLife: 1.4,
+        color
+      });
+    }
+  }
+
+  function triggerFinaleExplosion() {
+    Sound.playFinaleBoom();
+    cauldronShake = 28;
+    spawnSparks(CAULDRON.x, CAULDRON.mouthY - 20, 75, 2.2, 1);
+
+    // 110 шматочків попкорну!
+    for (let i = 0; i < 110; i++) {
+      const a = -Math.PI * (0.08 + Math.random() * 0.84);
+      const sp = 280 + Math.random() * 680;
+      popcorn.push({
+        x: CAULDRON.x + (Math.random() - 0.5) * 180,
+        y: CAULDRON.mouthY - 10,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 180,
+        rot: Math.random() * Math.PI * 2,
+        vrot: (Math.random() - 0.5) * 12,
+        s: 0.7 + Math.random() * 0.9,
+        life: 4.5 + Math.random() * 1.5
+      });
+    }
+
+    // 95 різнокольорових конфеті
+    const colors = ['#ff4f5e', '#ffd93d', '#3be8b0', '#4db8ff', '#ff7ae5', '#ff9f43'];
+    for (let i = 0; i < 95; i++) {
+      const a = -Math.PI * (0.05 + Math.random() * 0.9);
+      const sp = 220 + Math.random() * 620;
+      confetti.push({
+        x: CAULDRON.x + (Math.random() - 0.5) * 200,
+        y: CAULDRON.mouthY - 20,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 120,
+        w: 10 + Math.random() * 10,
+        h: 5 + Math.random() * 6,
+        rot: Math.random() * Math.PI * 2,
+        vrot: (Math.random() - 0.5) * 10,
+        color: colors[i % colors.length],
+        life: 4.8 + Math.random() * 1.5
+      });
+    }
+
+    // 42 райдужні мильні бульбашки
+    for (let i = 0; i < 42; i++) {
+      soapBubbles.push({
+        x: CAULDRON.x + (Math.random() - 0.5) * 320,
+        y: CAULDRON.mouthY - Math.random() * 60,
+        vx: (Math.random() - 0.5) * 180,
+        vy: -120 - Math.random() * 240,
+        r: 14 + Math.random() * 28,
+        wobble: Math.random() * Math.PI * 2,
+        life: 4.5 + Math.random() * 1.8
+      });
+    }
+  }
+
+  // =========================================================================
+  // ГЕНЕРАТОР ЗАВДАНЬ (БЕЗКІНЕЧНИЙ, АДАПТОВАНИЙ ДЛЯ 3–4 КЛАСУ)
+  // =========================================================================
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function startNewRound(advanceStage = false) {
+    if (advanceStage) {
+      cycleStage++;
+      if (cycleStage >= 4) {
+        cycleStage = 0;
+        cycleCount++;
+      }
+    }
+
+    // Довжина послідовності: цикл 1 -> 2, 3, 4, 5; наступні цикли -> 3, 4, 5, 5 (весело і підсильно!)
+    const seqLen = cycleCount === 0 ? (2 + cycleStage) : Math.min(6, 3 + cycleStage);
+    const beltCount = Math.min(ALL_ITEMS.length, Math.max(6, seqLen + 2));
+
+    // Вибираємо предмети на конвеєр
+    const chosenPool = shuffle(ALL_ITEMS).slice(0, beltCount);
+
+    // Генеруємо послідовність (можуть повторюватись, але без двох однакових поспіль на початку)
+    sequence = [];
+    for (let i = 0; i < seqLen; i++) {
+      let pick;
+      let guard = 0;
+      do {
+        pick = chosenPool[Math.floor(Math.random() * chosenPool.length)].id;
+        guard++;
+      } while (guard < 8 && i > 0 && sequence[i - 1] === pick && Math.random() < 0.7);
+      sequence.push(pick);
+    }
+
+    // Розміщуємо предмети на конвеєрі (заїжджають зліва з плавним рухом!)
+    const leftPad = 145, rightPad = 240;
+    const span = W - leftPad - rightPad;
+    const stepX = span / Math.max(1, chosenPool.length - 1);
+    beltItems = chosenPool.map((item, idx) => ({
+      id: item.id,
+      color: item.color,
+      targetX: leftPad + idx * stepX,
+      x: leftPad + idx * stepX - 420 - idx * 45,
+      baseY: CONVEYOR_Y - 12,
+      hover: 0,
+      bounce: 0,
+      wrongShake: 0
+    }));
+
+    inputIndex = 0;
+    demoStep = 0;
+    demoPhase = 'reach';
+    demoT = 0;
+    chefHeldItem = null;
+    chefMood = 'normal';
+    state = 'demo';
+    stateTimer = 0;
+    targetPressure = 0.08 + cycleStage * 0.21;
+    cauldronHeat = cycleStage * 0.14;
+    flyingItems.length = 0;
+  }
+
+  function startFinale() {
+    state = 'finale';
+    finalePhase = 0;
+    finaleT = 0;
+    chefHeldItem = null;
+    chefFlyX = 0; chefFlyY = 0; chefFlyRot = 0;
+    targetPressure = 1.0;
+    Sound.playSteamBuild();
+  }
+
+  // Кнопка "ДАЛІ ➔" одразу генерує наступне завдання без проходження!
+  nextBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    Sound.unlock();
+    Sound.playClick();
+    if (state === 'finale') {
+      popcorn.length = 0; confetti.length = 0; soapBubbles.length = 0;
+      cycleStage = 0;
+      cycleCount++;
+      startNewRound(false);
+    } else {
+      startNewRound(true);
+    }
+  });
+
+  // =========================================================================
+  // МАЛЮВАННЯ МІДНОЇ ТРУБИ, КАЗАНА, КУХАРЯ ТА КОНВЕЄРА
+  // =========================================================================
+  function drawCopperPipe(c, t) {
+    c.save();
+    // Тінь труби
+    c.fillStyle = 'rgba(0,0,0,0.32)';
+    c.fillRect(468, 120, 74, 410);
+
+    // Вертикальна мідна труба
+    function pipeSeg(x, y, w, h, horizontal = false) {
+      const g = horizontal
+        ? c.createLinearGradient(x, y, x, y + h)
+        : c.createLinearGradient(x, y, x + w, y);
+      g.addColorStop(0, '#542611');
+      g.addColorStop(0.28, '#cf7d46');
+      g.addColorStop(0.48, '#f5ba84');
+      g.addColorStop(0.75, '#994c23');
+      g.addColorStop(1, '#3b180a');
+      c.fillStyle = g;
+      c.beginPath(); c.roundRect(x, y, w, h, 8); c.fill();
+      c.strokeStyle = '#2b1006'; c.lineWidth = 2.5; c.stroke();
+    }
+
+    // Нижній відвід у казан
+    pipeSeg(486, 488, 130, 56, true);
+    // Головний стояк
+    pipeSeg(454, 112, 74, 428, false);
+    // Верхній гусак, з якого ллється пара/окріп у казан
+    pipeSeg(508, 224, 132, 48, true);
+    pipeSeg(604, 232, 46, 116, false);
+
+    // Фланці з заклепками
+    [[444, 110, 94, 24], [444, 212, 94, 22], [444, 342, 94, 22], [596, 336, 62, 18]].forEach(([fx, fy, fw, fh]) => {
+      pipeSeg(fx, fy, fw, fh, true);
+      c.fillStyle = '#f2c191';
+      for (let rx = fx + 12; rx < fx + fw - 8; rx += 22) {
+        c.beginPath(); c.arc(rx, fy + fh / 2, 3.2, 0, Math.PI * 2); c.fill();
+      }
+    });
+
+    // Струмінь гарячої пінної води з труби в казан
+    const wg = c.createLinearGradient(612, 354, 642, 430);
+    wg.addColorStop(0, 'rgba(235, 244, 250, 0.78)');
+    wg.addColorStop(1, 'rgba(255, 238, 200, 0.25)');
+    c.fillStyle = wg;
+    const wob = Math.sin(t * 14) * 3;
+    c.beginPath();
+    c.moveTo(612, 354); c.lineTo(642, 354);
+    c.lineTo(646 + wob, 435); c.lineTo(608 + wob, 435);
+    c.closePath(); c.fill();
+
+    // Бічний клапан, що іноді пускає іскри
+    c.fillStyle = '#7a3719';
+    c.fillRect(436, 408, 22, 18);
+    c.strokeStyle = '#291006'; c.strokeRect(436, 408, 22, 18);
+
+    c.restore();
+  }
+
+  function drawChef(c, t) {
+    c.save();
+    let cx = 1105 + chefFlyX;
+    let cy = 345 + chefFlyY;
+    const breath = Math.sin(t * 3.1) * 4;
+    const happyBounce = chefMood === 'happy' ? Math.abs(Math.sin(t * 16)) * -18 : 0;
+    const shockRecoil = chefMood === 'shock' ? Math.sin(t * 38) * 7 : 0;
+
+    c.translate(cx + shockRecoil, cy + breath + happyBounce);
+    c.rotate(chefFlyRot);
+
+    // Якщо кухар летить на ополонику у фіналі — малюємо гігантський мідний ополоник!
+    if (state === 'finale' && finalePhase >= 1) {
+      c.save();
+      c.translate(0, 145);
+      c.rotate(-0.22);
+      const lg = c.createLinearGradient(-150, -10, 140, 10);
+      lg.addColorStop(0, '#f2b87e'); lg.addColorStop(0.5, '#a8572a'); lg.addColorStop(1, '#52220d');
+      c.fillStyle = lg;
+      c.beginPath(); c.roundRect(-160, -9, 280, 18, 8); c.fill();
+      c.strokeStyle = '#331407'; c.lineWidth = 3; c.stroke();
+      // Чаша ополоника
+      const cup = c.createRadialGradient(130, -4, 6, 135, 8, 48);
+      cup.addColorStop(0, '#ffd4a3'); cup.addColorStop(0.5, '#bd6431'); cup.addColorStop(1, '#54220b');
+      c.fillStyle = cup;
+      c.beginPath(); c.arc(135, 6, 42, 0, Math.PI); c.closePath(); c.fill(); c.stroke();
+      c.restore();
+    }
+
+    // ---- ТУЛУБ ТА ФАРТУХ ----
+    const torsoG = c.createLinearGradient(-115, 0, 120, 260);
+    torsoG.addColorStop(0, '#ebe0cc'); torsoG.addColorStop(0.6, '#cbbca3'); torsoG.addColorStop(1, '#7d6e58');
+    c.fillStyle = torsoG;
+    c.beginPath();
+    c.moveTo(-115, 35);
+    c.quadraticCurveTo(-135, 130, -118, 255);
+    c.lineTo(118, 255);
+    c.quadraticCurveTo(135, 130, 108, 35);
+    c.quadraticCurveTo(0, 0, -115, 35);
+    c.closePath(); c.fill();
+    c.strokeStyle = '#47392a'; c.lineWidth = 3; c.stroke();
+
+    // Лямки фартуха та плями соусу для живого реалізму
+    c.strokeStyle = '#9e8d75'; c.lineWidth = 5;
+    c.beginPath(); c.moveTo(-58, 30); c.lineTo(-65, 225); c.stroke();
+    c.beginPath(); c.moveTo(58, 30); c.lineTo(65, 225); c.stroke();
+    // Кумедні плями соусу на фартуху
+    c.fillStyle = 'rgba(130, 62, 26, 0.32)';
+    c.beginPath(); c.ellipse(-22, 148, 22, 16, 0.3, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(34, 185, 14, 11, -0.4, 0, Math.PI * 2); c.fill();
+    c.fillStyle = 'rgba(176, 54, 24, 0.24)';
+    c.beginPath(); c.arc(8, 126, 8, 0, Math.PI * 2); c.fill();
+
+    // Ліва рука (жестикулює)
+    c.save();
+    const lArmAng = state === 'finale' && finalePhase >= 1
+      ? -0.9 + Math.sin(t * 18) * 0.45
+      : (chefMood === 'happy' ? -0.55 + Math.sin(t * 16) * 0.25 : 0.12 + Math.sin(t * 2.5) * 0.08);
+    c.translate(92, 65);
+    c.rotate(lArmAng);
+    // Рукав
+    c.fillStyle = '#ddd0ba';
+    c.beginPath(); c.roundRect(-24, -18, 118, 56, 26); c.fill();
+    c.strokeStyle = '#4f4030'; c.lineWidth = 2.8; c.stroke();
+    // Кисть
+    const handG = c.createRadialGradient(108, 6, 4, 110, 10, 32);
+    handG.addColorStop(0, '#ffcfb0'); handG.addColorStop(1, '#c97d55');
+    c.fillStyle = handG;
+    c.beginPath(); c.ellipse(112, 12, 28, 21, 0.15, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#733e24'; c.lineWidth = 2.2; c.stroke();
+    c.restore();
+
+    // ---- ГОЛОВА ----
+    c.save();
+    const headTilt = chefMood === 'shock' ? 0.14 : (chefHeldItem ? -0.14 : Math.sin(t * 1.9) * 0.04);
+    c.translate(0, -68);
+    c.rotate(headTilt);
+
+    // Розпатлане сиве волосся з боків
+    c.fillStyle = '#6b635e';
+    [-76, 76].forEach((hx, idx) => {
+      c.beginPath();
+      c.ellipse(hx, -8, 22, 30, idx === 0 ? -0.3 : 0.3, 0, Math.PI * 2);
+      c.fill();
+    });
+
+    // Вуха
+    c.fillStyle = '#d98f68';
+    c.beginPath(); c.ellipse(-74, 4, 13, 20, -0.1, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(74, 4, 13, 20, 0.1, 0, Math.PI * 2); c.fill();
+
+    // Обличчя
+    const faceG = c.createRadialGradient(-16, -12, 12, 0, 8, 86);
+    faceG.addColorStop(0, '#ffd8bc'); faceG.addColorStop(0.55, '#ebaa83'); faceG.addColorStop(1, '#b56a45');
+    c.fillStyle = faceG;
+    c.beginPath();
+    c.ellipse(0, 6, 72, 78, 0, 0, Math.PI * 2);
+    c.fill();
+    c.strokeStyle = '#6e3b22'; c.lineWidth = 2.8; c.stroke();
+
+    // Рум'яні щоки
+    c.fillStyle = 'rgba(224, 92, 68, 0.34)';
+    c.beginPath(); c.ellipse(-42, 16, 18, 12, 0, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(42, 16, 18, 12, 0, 0, Math.PI * 2); c.fill();
+
+    // Очі (стежать за предметом або мишею)
+    const targetX = chefHeldItem ? chefHeldItem.x : mouseX;
+    const targetY = chefHeldItem ? chefHeldItem.y : mouseY;
+    const lookAng = Math.atan2(targetY - (cy - 68), targetX - cx);
+    const px = Math.cos(lookAng) * 5.2, py = Math.sin(lookAng) * 4.5;
+    const eyeBlink = (Math.sin(t * 0.9) > 0.985) && chefMood === 'normal';
+
+    [-26, 24].forEach((ex, i) => {
+      const er = chefMood === 'shock' ? 18 : 14.5;
+      c.fillStyle = '#fffaf2';
+      c.beginPath();
+      if (eyeBlink) c.ellipse(ex, -14, er, 2.2, 0, 0, Math.PI * 2);
+      else c.ellipse(ex, -14, er, er * 1.06, 0, 0, Math.PI * 2);
+      c.fill();
+      c.strokeStyle = '#5c311c'; c.lineWidth = 2.2; c.stroke();
+      if (!eyeBlink) {
+        c.fillStyle = '#472a18';
+        c.beginPath(); c.arc(ex + px, -14 + py, chefMood === 'shock' ? 5.2 : 7.5, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#120a05';
+        c.beginPath(); c.arc(ex + px, -14 + py, 3.8, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#ffffff';
+        c.beginPath(); c.arc(ex + px - 2.6, -17 + py, 2.6, 0, Math.PI * 2); c.fill();
+      }
+      // Густі кудлаті брови
+      c.save();
+      const browLift = chefMood === 'shock' ? -14 : (chefMood === 'happy' ? -7 : 0);
+      c.translate(ex, -34 + browLift);
+      c.rotate((i === 0 ? -0.18 : 0.18) * (chefMood === 'shock' ? -1.4 : 1));
+      c.fillStyle = '#594a42';
+      c.beginPath(); c.ellipse(0, 0, 21, 7.5, 0, 0, Math.PI * 2); c.fill();
+      c.restore();
+    });
+
+    // Смішний округлий ніс
+    const noseG = c.createRadialGradient(-5, 2, 2, 0, 8, 22);
+    noseG.addColorStop(0, '#ffbfa3'); noseG.addColorStop(0.6, '#db7b58'); noseG.addColorStop(1, '#9e472b');
+    c.fillStyle = noseG;
+    c.beginPath(); c.ellipse(0, 10, 19, 15, 0, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#73341e'; c.lineWidth = 2; c.stroke();
+
+    // Рот (під вусами)
+    c.save();
+    if (chefMood === 'shock') {
+      c.fillStyle = '#3b110d';
+      c.beginPath(); c.ellipse(0, 48, 16, 20, 0, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = '#753924'; c.lineWidth = 2.5; c.stroke();
+    } else {
+      c.fillStyle = '#571812';
+      c.beginPath();
+      c.arc(0, 36, chefMood === 'happy' ? 28 : 22, 0.1, Math.PI - 0.1);
+      c.closePath(); c.fill();
+      // Білі зубки
+      c.fillStyle = '#fff9ed';
+      c.fillRect(-16, 38, 32, 8);
+    }
+    c.restore();
+
+    // РОЗКІШНІ ПРУЖНІ ВУСА
+    const mWig = Math.sin(t * (chefMood === 'happy' ? 22 : 5)) * 0.08;
+    [-1, 1].forEach(dir => {
+      c.save();
+      c.translate(dir * 6, 26);
+      c.rotate(dir * (0.06 + mWig));
+      const mg = c.createLinearGradient(0, -12, dir * 75, 22);
+      mg.addColorStop(0, '#786254'); mg.addColorStop(0.5, '#47362c'); mg.addColorStop(1, '#291e18');
+      c.fillStyle = mg;
+      c.beginPath();
+      c.moveTo(0, -6);
+      c.bezierCurveTo(dir * 26, -18, dir * 64, -6, dir * 82, 8);
+      c.bezierCurveTo(dir * 68, 26, dir * 32, 24, 0, 12);
+      c.closePath(); c.fill();
+      c.strokeStyle = '#241710'; c.lineWidth = 2; c.stroke();
+      c.restore();
+    });
+
+    // ПИШНИЙ КУХАРСЬКИЙ КОВПАК (у фіналі при спуску роздувається як парашут!)
+    const hatScale = (state === 'finale' && finalePhase === 2) ? 1.55 : 1;
+    const hatTilt = chefMood === 'shock' ? 0.22 : Math.sin(t * 2.4) * 0.03;
+    c.save();
+    c.translate(4, -68);
+    c.rotate(hatTilt);
+    c.scale(hatScale, hatScale);
+    const hg = c.createRadialGradient(-25, -75, 16, 0, -52, 115);
+    hg.addColorStop(0, '#ffffff'); hg.addColorStop(0.55, '#ede4d5'); hg.addColorStop(1, '#a89b87');
+    c.fillStyle = hg;
+    // Пишні хмарки ковпака
+    c.beginPath();
+    c.arc(-44, -64, 42, 0, Math.PI * 2);
+    c.arc(46, -60, 42, 0, Math.PI * 2);
+    c.arc(2, -88, 52, 0, Math.PI * 2);
+    c.fill();
+    // Нижній обідок ковпака
+    c.fillStyle = '#dfd4c1';
+    c.beginPath(); c.roundRect(-64, -46, 128, 48, 12); c.fill();
+    c.strokeStyle = '#756857'; c.lineWidth = 2.6; c.stroke();
+    // Складки
+    c.strokeStyle = 'rgba(120,104,86,0.38)'; c.lineWidth = 2.4;
+    [-30, 0, 30].forEach(fx => {
+      c.beginPath(); c.moveTo(fx, -44); c.quadraticCurveTo(fx * 1.15, -78, fx * 0.9, -104); c.stroke();
+    });
+    c.restore();
+
+    c.restore(); // кінець голови
+
+    // ---- ПРАВА РУКА (КИДАЄ ПРЕДМЕТИ В КАЗАН!) ----
+    // Ціль руки в локальних координатах кухаря
+    let targetHandX = -155, targetHandY = 65;
+    if (state === 'demo') {
+      if (demoPhase === 'reach') {
+        const p = Math.min(1, demoT / 0.35);
+        targetHandX = -155 - p * 125;
+        targetHandY = 55 - Math.sin(p * Math.PI) * 140 - p * 95;
+      } else if (demoPhase === 'hold') {
+        const p = Math.min(1, demoT / 0.55);
+        targetHandX = -315 + Math.sin(t * 9) * 8;
+        targetHandY = -58 - Math.sin(p * Math.PI) * 28;
+      } else if (demoPhase === 'drop') {
+        targetHandX = -320;
+        targetHandY = -30 + Math.min(1, demoT / 0.25) * 42;
+      } else {
+        targetHandX = -210;
+        targetHandY = 25;
+      }
+    } else if (state === 'finale' && finalePhase >= 1) {
+      targetHandX = -135;
+      targetHandY = -95 + Math.sin(t * 20) * 35;
+    } else if (chefMood === 'happy') {
+      targetHandX = -175;
+      targetHandY = -30 + Math.sin(t * 16) * 24;
+    }
+
+    // Малюємо руку (плече -> лікоть -> кисть)
+    const shX = -88, shY = 52;
+    const midX = (shX + targetHandX) * 0.52;
+    const midY = (shY + targetHandY) * 0.5 - 38;
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    // Тінь рукава
+    c.strokeStyle = '#5c4c3b'; c.lineWidth = 54;
+    c.beginPath(); c.moveTo(shX, shY); c.quadraticCurveTo(midX, midY, targetHandX + 26, targetHandY); c.stroke();
+    // Світлий рукав
+    c.strokeStyle = '#e6dac5'; c.lineWidth = 46;
+    c.beginPath(); c.moveTo(shX, shY); c.quadraticCurveTo(midX, midY, targetHandX + 26, targetHandY); c.stroke();
+    // Передпліччя (шкіра)
+    c.strokeStyle = '#e39e76'; c.lineWidth = 34;
+    c.beginPath(); c.moveTo(midX - 18, midY + 4); c.lineTo(targetHandX, targetHandY); c.stroke();
+
+    // Кисть, що тримає предмет
+    c.fillStyle = '#f2b188';
+    c.beginPath(); c.ellipse(targetHandX, targetHandY, 26, 20, -0.2, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#733e24'; c.lineWidth = 2.4; c.stroke();
+
+    // Якщо кухар тримає предмет — оновлюємо координату предмета під кистю
+    if (chefHeldItem && (demoPhase === 'reach' || demoPhase === 'hold')) {
+      chefHeldItem.x = cx + shockRecoil + targetHandX - 10;
+      chefHeldItem.y = cy + breath + happyBounce + targetHandY + 46;
+    }
+
+    c.restore();
+  }
+
+  function drawCauldronBack(c, t) {
+    c.save();
+    const sx = (Math.random() - 0.5) * cauldronShake;
+    const sy = (Math.random() - 0.5) * cauldronShake * 0.6;
+    c.translate(CAULDRON.x + sx, CAULDRON.y + sy);
+
+    // Задній обідок горловини
+    c.fillStyle = '#3b1909';
+    c.beginPath();
+    c.ellipse(0, -122, 224, 34, 0, 0, Math.PI * 2);
+    c.fill();
+
+    // КИПЛЯЧИЙ БУЛЬЙОН (хвиляста поверхня!)
+    const brothG = c.createLinearGradient(0, -148, 0, -96);
+    brothG.addColorStop(0, cauldronHeat > 0.65 ? '#ffdf8c' : '#f2e2be');
+    brothG.addColorStop(1, cauldronHeat > 0.65 ? '#e88b3a' : '#c9b084');
+    c.fillStyle = brothG;
+    c.beginPath();
+    const waveAmp = 5 + cauldronHeat * 9;
+    c.moveTo(-210, -118);
+    for (let x = -210; x <= 210; x += 20) {
+      const wy = -124 + Math.sin(x * 0.045 + t * (6 + cauldronHeat * 10)) * waveAmp
+                      + Math.cos(x * 0.09 - t * 9) * (waveAmp * 0.5);
+      c.lineTo(x, wy);
+    }
+    c.lineTo(210, -98); c.lineTo(-210, -98);
+    c.closePath(); c.fill();
+
+    c.restore();
+  }
+
+  function drawCauldronFront(c, t) {
+    c.save();
+    const sx = (Math.random() - 0.5) * cauldronShake;
+    const sy = (Math.random() - 0.5) * cauldronShake * 0.6;
+    const swell = state === 'finale' && finalePhase === 0 ? 1 + Math.sin(t * 28) * 0.03 + finaleT * 0.09 : 1;
+    c.translate(CAULDRON.x + sx, CAULDRON.y + sy);
+    c.scale(swell, swell);
+
+    // Вогняний відблиск знизу
+    const fire = c.createRadialGradient(0, 145, 25, 0, 145, 250);
+    fire.addColorStop(0, `rgba(255, 130, 30, ${0.42 + Math.sin(t * 11) * 0.1 + cauldronHeat * 0.3})`);
+    fire.addColorStop(1, 'rgba(255, 70, 0, 0)');
+    c.fillStyle = fire;
+    c.beginPath(); c.ellipse(0, 145, 255, 68, 0, 0, Math.PI * 2); c.fill();
+
+    // Тіло гігантського мідного казана
+    const bodyG = c.createRadialGradient(-78, -28, 30, 0, 12, 265);
+    bodyG.addColorStop(0, cauldronHeat > 0.7 ? '#ffd299' : '#f2aa6d');
+    bodyG.addColorStop(0.38, cauldronHeat > 0.7 ? '#d95b26' : '#b86231');
+    bodyG.addColorStop(0.75, '#733315');
+    bodyG.addColorStop(1, '#301206');
+    c.fillStyle = bodyG;
+    c.beginPath();
+    c.moveTo(-218, -118);
+    c.bezierCurveTo(-244, 24, -182, 148, 0, 152);
+    c.bezierCurveTo(182, 148, 244, 24, 218, -118);
+    c.quadraticCurveTo(0, -90, -218, -118);
+    c.closePath(); c.fill();
+    c.strokeStyle = '#290e04'; c.lineWidth = 4; c.stroke();
+
+    // Кований металевий блік ліворуч
+    c.fillStyle = 'rgba(255, 220, 175, 0.22)';
+    c.beginPath(); c.ellipse(-102, -16, 46, 84, -0.18, 0, Math.PI * 2); c.fill();
+
+    // Права мідна ручка казана
+    c.strokeStyle = '#6b3116'; c.lineWidth = 18; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(205, -52); c.quadraticCurveTo(268, -42, 200, 18); c.stroke();
+    c.strokeStyle = '#d4844c'; c.lineWidth = 7;
+    c.beginPath(); c.moveTo(206, -54); c.quadraticCurveTo(258, -44, 202, 10); c.stroke();
+
+    // Передній товстий обідок горловини з заклепками
+    const rimG = c.createLinearGradient(-230, -120, 230, -100);
+    rimG.addColorStop(0, '#692f14'); rimG.addColorStop(0.32, '#eba063');
+    rimG.addColorStop(0.55, '#ffd09c'); rimG.addColorStop(0.85, '#994a21'); rimG.addColorStop(1, '#471d0a');
+    c.fillStyle = rimG;
+    c.beginPath();
+    c.moveTo(-232, -124);
+    c.quadraticCurveTo(0, -94, 232, -124);
+    c.lineTo(228, -98);
+    c.quadraticCurveTo(0, -68, -228, -98);
+    c.closePath(); c.fill();
+    c.strokeStyle = '#2b1005'; c.lineWidth = 3; c.stroke();
+
+    // ДІЄГЕТИЧНІ ВОГНИКИ ПРОГРЕСУ ПОТОЧНОЇ ПОСЛІДОВНОСТІ (жодних цифр!)
+    if (sequence.length > 0 && state !== 'finale') {
+      const n = sequence.length;
+      const spread = Math.min(280, n * 52);
+      for (let i = 0; i < n; i++) {
+        const frac = n === 1 ? 0.5 : i / (n - 1);
+        const gx = -spread / 2 + frac * spread;
+        const gy = -94 + Math.cos((frac - 0.5) * Math.PI) * 10;
+        const lit = i < inputIndex || state === 'round_win';
+        // Мідна оправа
+        c.fillStyle = '#3b1908';
+        c.beginPath(); c.arc(gx, gy, 10, 0, Math.PI * 2); c.fill();
+        if (lit) {
+          const glow = c.createRadialGradient(gx, gy, 1, gx, gy, 16);
+          glow.addColorStop(0, '#fff9bd'); glow.addColorStop(0.5, '#ffbb2e'); glow.addColorStop(1, 'rgba(255,150,20,0)');
+          c.fillStyle = glow;
+          c.beginPath(); c.arc(gx, gy, 16, 0, Math.PI * 2); c.fill();
+          c.fillStyle = '#fff08a';
+        } else {
+          c.fillStyle = '#5e321a';
+        }
+        c.beginPath(); c.arc(gx, gy, 6.2, 0, Math.PI * 2); c.fill();
+      }
+    }
+
+    // МАНОМЕТР ТИСКУ НА КАЗАНІ (візуально показує близькість неочікуваного фіналу!)
+    c.save();
+    c.translate(-86, 48);
+    // Латунний корпус манометра
+    const mg = c.createRadialGradient(-10, -10, 4, 0, 0, 42);
+    mg.addColorStop(0, '#ffe3a8'); mg.addColorStop(0.6, '#9c5a27'); mg.addColorStop(1, '#3b1908');
+    c.fillStyle = mg;
+    c.beginPath(); c.arc(0, 0, 39, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#240d04'; c.lineWidth = 3; c.stroke();
+    // Циферблат
+    c.fillStyle = '#f5eedc';
+    c.beginPath(); c.arc(0, 0, 30, 0, Math.PI * 2); c.fill();
+    // Зелена, жовта і ЧЕРВОНА зони тиску
+    c.lineWidth = 6;
+    c.strokeStyle = '#48a842';
+    c.beginPath(); c.arc(0, 0, 22, Math.PI * 0.78, Math.PI * 1.32); c.stroke();
+    c.strokeStyle = '#f0a824';
+    c.beginPath(); c.arc(0, 0, 22, Math.PI * 1.32, Math.PI * 1.82); c.stroke();
+    c.strokeStyle = '#e03124';
+    c.beginPath(); c.arc(0, 0, 22, Math.PI * 1.82, Math.PI * 2.22); c.stroke();
+    // Тремтяча стрілка
+    const jitter = Math.sin(t * (18 + pressureNeedle * 30)) * (0.03 + pressureNeedle * 0.08);
+    const nAng = Math.PI * 0.78 + Math.min(1.04, pressureNeedle + jitter) * (Math.PI * 1.44);
+    c.strokeStyle = '#24140d'; c.lineWidth = 3.6; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(nAng) * 23, Math.sin(nAng) * 23); c.stroke();
+    c.fillStyle = '#b82a1c';
+    c.beginPath(); c.arc(0, 0, 5.2, 0, Math.PI * 2); c.fill();
+    // Блік на склі
+    c.fillStyle = 'rgba(255,255,255,0.35)';
+    c.beginPath(); c.ellipse(-9, -10, 12, 6, -0.5, 0, Math.PI * 2); c.fill();
+    c.restore();
+
+    c.restore();
+  }
+
+  function drawConveyor(c, t) {
+    // Верхня поверхня конвеєра з рухомими металевими ламелями
+    const topY = CONVEYOR_Y - 38;
+    const beltH = 74;
+
+    // Тінь під стрічкою
+    c.fillStyle = 'rgba(0,0,0,0.55)';
+    c.fillRect(0, topY - 12, W, 16);
+
+    // Стрічка конвеєра
+    const bg = c.createLinearGradient(0, topY, 0, topY + beltH);
+    bg.addColorStop(0, '#595350'); bg.addColorStop(0.5, '#8c837c'); bg.addColorStop(1, '#3d3733');
+    c.fillStyle = bg;
+    c.fillRect(0, topY, W, beltH);
+
+    // Металеві ребра стрічки (плавно рухаються!)
+    const slatW = 54;
+    const offset = ((beltScroll % slatW) + slatW) % slatW;
+    for (let sx = -slatW + offset; sx < W + slatW; sx += slatW) {
+      c.fillStyle = 'rgba(255, 240, 220, 0.14)';
+      c.fillRect(sx, topY + 2, 18, beltH - 4);
+      c.strokeStyle = '#292421'; c.lineWidth = 3;
+      c.beginPath();
+      c.moveTo(sx, topY); c.lineTo(sx - 12, topY + beltH);
+      c.stroke();
+    }
+
+    // Дерев'яно-залізна передня балка конвеєра
+    const beamY = topY + beltH;
+    const wg = c.createLinearGradient(0, beamY, 0, H);
+    wg.addColorStop(0, '#784826'); wg.addColorStop(0.28, '#542e15');
+    wg.addColorStop(0.7, '#33190a'); wg.addColorStop(1, '#1c0c04');
+    c.fillStyle = wg;
+    c.fillRect(0, beamY, W, H - beamY);
+
+    // Горизонтальна фактура дерева
+    c.strokeStyle = 'rgba(20, 8, 2, 0.42)'; c.lineWidth = 3;
+    for (let gy = beamY + 18; gy < H; gy += 22) {
+      c.beginPath(); c.moveTo(0, gy); c.lineTo(W, gy); c.stroke();
+    }
+
+    // Ковані сталеві накладки із заклепками
+    c.fillStyle = '#33302f';
+    c.fillRect(0, beamY - 4, W, 14);
+    [130, 560, 1020, 1340].forEach(bx => {
+      c.fillStyle = '#403b39';
+      c.beginPath(); c.roundRect(bx, beamY + 12, 110, 44, 6); c.fill();
+      c.strokeStyle = '#1a1716'; c.lineWidth = 2.5; c.stroke();
+      [bx + 22, bx + 88].forEach(rx => {
+        c.fillStyle = '#99908a';
+        c.beginPath(); c.arc(rx, beamY + 34, 6.5, 0, Math.PI * 2); c.fill();
+        c.strokeStyle = '#24201e'; c.lineWidth = 2; c.stroke();
+      });
+    });
+
+    // Предмети на конвеєрі
+    beltItems.forEach((item, idx) => {
+      const shake = item.wrongShake > 0 ? Math.sin(item.wrongShake * 55) * 12 : 0;
+      const lift = item.hover * -16 - Math.sin(item.bounce * Math.PI) * 18;
+      const sc = 1.06 + item.hover * 0.14;
+      const ix = item.x + shake;
+      const iy = item.baseY + lift;
+
+      // Контактна тінь на стрічці
+      c.fillStyle = `rgba(12, 6, 2, ${0.48 - item.hover * 0.16})`;
+      c.beginPath();
+      c.ellipse(ix, CONVEYOR_Y + 26, 48 - item.hover * 6, 13, 0, 0, Math.PI * 2);
+      c.fill();
+
+      // Промені іскор при наведенні (як на будильнику!)
+      if (item.hover > 0.25 && state === 'input') {
+        c.save();
+        c.translate(ix, iy);
+        c.strokeStyle = `rgba(255, 224, 115, ${item.hover * 0.85})`;
+        c.lineWidth = 3; c.lineCap = 'round';
+        for (let r = 0; r < 10; r++) {
+          const a = (r / 10) * Math.PI * 2 + t * 1.4;
+          const r1 = 54 + Math.sin(t * 10 + r) * 5;
+          const r2 = 72 + Math.cos(t * 12 + r) * 7;
+          c.beginPath();
+          c.moveTo(Math.cos(a) * r1, Math.sin(a) * r1);
+          c.lineTo(Math.cos(a) * r2, Math.sin(a) * r2);
+          c.stroke();
+        }
+        c.restore();
+      }
+
+      drawItem(c, item.id, ix, iy, sc, shake * 0.015, item.hover);
+    });
+  }
+
+  // =========================================================================
+  // ОНОВЛЕННЯ ЛОГІКИ ТА ФІЗИКИ (60 FPS)
+  // =========================================================================
+  let lastTime = performance.now();
+  let pipeSparkTimer = 1.2;
+
+  function update(dt, t) {
+    // Плавний рух стрілки манометра та затухання тряски
+    pressureNeedle += (targetPressure - pressureNeedle) * Math.min(1, dt * 4.5);
+    cauldronShake = Math.max(0, cauldronShake - dt * 32);
+
+    if (chefMoodT > 0) {
+      chefMoodT -= dt;
+      if (chefMoodT <= 0 && state !== 'finale') chefMood = 'normal';
+    }
+
+    // Періодичні реалістичні іскри з клапана мідної труби
+    pipeSparkTimer -= dt;
+    if (pipeSparkTimer <= 0) {
+      pipeSparkTimer = 1.4 + Math.random() * 2.4;
+      for (let i = 0; i < 12; i++) {
+        sparks.push({
+          x: 438, y: 416,
+          vx: -90 - Math.random() * 170,
+          vy: -130 - Math.random() * 140,
+          life: 0.4 + Math.random() * 0.45,
+          maxLife: 0.85,
+          size: 2 + Math.random() * 3,
+          color: `hsl(${30 + Math.random() * 26}, 100%, 72%)`
+        });
+      }
+      if (Math.random() < 0.35) Sound.playSpark();
+    }
+
+    // Плавне під'їжджання предметів на конвеєрі
+    let beltMoving = false;
+    beltItems.forEach((item, idx) => {
+      const diff = item.targetX - item.x;
+      if (Math.abs(diff) > 0.8) {
+        item.x += diff * Math.min(1, dt * 6.5);
+        beltMoving = true;
+      } else {
+        item.x = item.targetX;
+      }
+      const wantHover = (state === 'input' && hoveredIdx === idx) ? 1 : 0;
+      item.hover += (wantHover - item.hover) * Math.min(1, dt * 14);
+      if (item.bounce > 0) item.bounce = Math.max(0, item.bounce - dt * 3.2);
+      if (item.wrongShake > 0) item.wrongShake = Math.max(0, item.wrongShake - dt * 1.9);
+    });
+    beltScroll += dt * (beltMoving ? 150 : 18);
+
+    // ---- МАШИНА СТАНІВ ----
+    if (state === 'demo') {
+      demoT += dt;
+      const speedMul = Math.max(0.68, 1 - cycleStage * 0.08 - cycleCount * 0.05);
+
+      if (demoPhase === 'reach') {
+        if (!chefHeldItem && demoStep < sequence.length) {
+          chefHeldItem = { id: sequence[demoStep], x: 960, y: 310, vy: 0, rot: 0 };
+        }
+        if (demoT >= 0.36 * speedMul) {
+          demoPhase = 'hold';
+          demoT = 0;
+          Sound.playObjectCue(sequence[demoStep]);
+          chefMood = 'excited';
+        }
+      } else if (demoPhase === 'hold') {
+        if (demoT >= 0.62 * speedMul) {
+          demoPhase = 'drop';
+          demoT = 0;
+          if (chefHeldItem) {
+            chefHeldItem.vy = 140;
+          }
+        }
+      } else if (demoPhase === 'drop') {
+        if (chefHeldItem) {
+          chefHeldItem.vy += 1850 * dt;
+          chefHeldItem.y += chefHeldItem.vy * dt;
+          chefHeldItem.rot += 3.5 * dt;
+          if (chefHeldItem.y >= CAULDRON.mouthY + 12) {
+            Sound.playSplash(1.1);
+            spawnSplash(chefHeldItem.x, CAULDRON.mouthY, 1.15);
+            spawnSparks(chefHeldItem.x, CAULDRON.mouthY - 12, 10, 0.8);
+            cauldronShake = 9;
+            chefHeldItem = null;
+            demoPhase = 'pause';
+            demoT = 0;
+          }
+        }
+      } else if (demoPhase === 'pause') {
+        if (demoT >= 0.34 * speedMul) {
+          demoStep++;
+          if (demoStep >= sequence.length) {
+            state = 'input';
+            chefMood = 'normal';
+            demoT = 0;
+          } else {
+            demoPhase = 'reach';
+            demoT = 0;
+          }
+        }
+      }
+    }
+
+    else if (state === 'round_win') {
+      stateTimer += dt;
+      if (stateTimer >= 1.15) {
+        if (cycleStage === 3) {
+          startFinale();
+        } else {
+          startNewRound(true);
+        }
+      }
+    }
+
+    else if (state === 'finale') {
+      finaleT += dt;
+      if (finalePhase === 0) {
+        // Казан роздувається, шипить і трясеться!
+        cauldronHeat = Math.min(1, 0.5 + finaleT * 0.5);
+        cauldronShake = 6 + finaleT * 18;
+        chefMood = 'shock';
+        if (Math.random() < 0.45) {
+          spawnSparks(CAULDRON.x + (Math.random() - 0.5) * 320, CAULDRON.mouthY, 3, 1.3);
+        }
+        if (finaleT >= 1.35) {
+          finalePhase = 1;
+          finaleT = 0;
+          chefMood = 'happy';
+          triggerFinaleExplosion();
+        }
+      } else if (finalePhase === 1) {
+        // Кухар ефектно злітає на гігантському ополонику вгору!
+        const p = Math.min(1, finaleT / 1.8);
+        chefFlyY = -Math.sin(p * Math.PI * 0.5) * 680;
+        chefFlyX = -Math.sin(p * Math.PI) * 260;
+        chefFlyRot = -0.35 + Math.sin(finaleT * 9) * 0.16;
+        if (finaleT >= 2.2) {
+          finalePhase = 2;
+          finaleT = 0;
+        }
+      } else if (finalePhase === 2) {
+        // Плавно спускається на своєму величезному ковпаку-парашуті!
+        const p = Math.min(1, finaleT / 2.2);
+        const ease = 1 - Math.pow(1 - p, 3);
+        chefFlyY = -680 * (1 - ease);
+        chefFlyX = Math.sin(p * Math.PI * 3) * 85 * (1 - p);
+        chefFlyRot = Math.cos(p * Math.PI * 3) * 0.14 * (1 - p);
+        cauldronHeat = Math.max(0, 1 - p * 1.2);
+        targetPressure = Math.max(0.08, 1 - p);
+        if (finaleT >= 2.55) {
+          chefFlyX = 0; chefFlyY = 0; chefFlyRot = 0;
+          Sound.playSplash(0.7);
+          startNewRound(true); // Безкінечний генератор: новий цикл!
+        }
+      }
+    }
+
+    // ---- ЛЕТЯЧІ ПРЕДМЕТИ ВІД ГРАВЦЯ У КАЗАН ----
+    for (let i = flyingItems.length - 1; i >= 0; i--) {
+      const f = flyingItems[i];
+      f.t += dt / f.dur;
+      if (f.t >= 1) {
+        Sound.playSplash(1.15);
+        Sound.playCorrect(f.stepIndex);
+        spawnSplash(CAULDRON.x, CAULDRON.mouthY, 1.25, '#ffe7a8');
+        spawnSparks(CAULDRON.x, CAULDRON.mouthY - 16, 22, 1.2, 1);
+        cauldronShake = 11;
+        chefMood = 'happy';
+        chefMoodT = 0.7;
+        targetPressure = Math.min(0.96, targetPressure + 0.055);
+        flyingItems.splice(i, 1);
+
+        if (f.isLast) {
+          state = 'round_win';
+          stateTimer = 0;
+          Sound.playRoundClear();
+          spawnSparks(CAULDRON.x, CAULDRON.mouthY - 40, 36, 1.5, 1);
+          chefMood = 'happy';
+          chefMoodT = 1.4;
+        }
+      } else {
+        const u = f.t;
+        f.x = f.sx + (CAULDRON.x - f.sx) * u;
+        f.y = f.sy + (CAULDRON.mouthY - f.sy) * u - Math.sin(u * Math.PI) * 290;
+        f.rot += dt * 7;
+        f.scale = 1.05 - u * 0.22;
+      }
+    }
+
+    // ---- ЧАСТИНКИ ----
+    // Пара
+    for (const s of steam) {
+      s.x += s.vx * dt + Math.sin(t * 1.5 + s.y * 0.01) * 14 * dt;
+      s.y += s.vy * dt * (1 + cauldronHeat * 0.8);
+      s.r += 14 * dt;
+      if (s.y < 140) {
+        s.x = CAULDRON.x + (Math.random() - 0.5) * 290;
+        s.y = CAULDRON.mouthY - 10;
+        s.r = 24 + Math.random() * 30;
+      }
+    }
+    // Іскри
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      const p = sparks[i];
+      p.life -= dt;
+      p.vy += 520 * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      if (p.life <= 0) sparks.splice(i, 1);
+    }
+    // Бризки
+    for (let i = splashes.length - 1; i >= 0; i--) {
+      const p = splashes[i];
+      p.life -= dt;
+      p.vy += 880 * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      if (p.life <= 0) splashes.splice(i, 1);
+    }
+    // Бульбашки в казані
+    if (Math.random() < dt * (7 + cauldronHeat * 18)) {
+      bubbles.push({
+        x: CAULDRON.x + (Math.random() - 0.5) * 320,
+        y: CAULDRON.mouthY + (Math.random() - 0.5) * 10,
+        r: 4 + Math.random() * 10,
+        vy: -20 - Math.random() * 40,
+        life: 0.7 + Math.random() * 0.7
+      });
+    }
+    for (let i = bubbles.length - 1; i >= 0; i--) {
+      const b = bubbles[i];
+      b.life -= dt; b.y += b.vy * dt; b.r += 5 * dt;
+      if (b.life <= 0) bubbles.splice(i, 1);
+    }
+    // Дим при помилці
+    for (let i = smokePuffs.length - 1; i >= 0; i--) {
+      const p = smokePuffs[i];
+      p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.r += 26 * dt;
+      if (p.life <= 0) smokePuffs.splice(i, 1);
+    }
+    // Попкорн
+    for (let i = popcorn.length - 1; i >= 0; i--) {
+      const p = popcorn[i];
+      p.life -= dt; p.vy += 680 * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vrot * dt;
+      if (p.y > CONVEYOR_Y + 25 && p.vy > 0) {
+        p.y = CONVEYOR_Y + 25; p.vy *= -0.45; p.vx *= 0.78;
+      }
+      if (p.life <= 0) popcorn.splice(i, 1);
+    }
+    // Конфеті
+    for (let i = confetti.length - 1; i >= 0; i--) {
+      const p = confetti[i];
+      p.life -= dt;
+      p.vy += 240 * dt; p.vx *= 0.985;
+      p.x += p.vx * dt + Math.sin(t * 7 + i) * 32 * dt;
+      p.y += p.vy * dt; p.rot += p.vrot * dt;
+      if (p.life <= 0) confetti.splice(i, 1);
+    }
+    // Мильні бульбашки
+    for (let i = soapBubbles.length - 1; i >= 0; i--) {
+      const b = soapBubbles[i];
+      b.life -= dt;
+      b.wobble += dt * 4;
+      b.x += (b.vx + Math.sin(b.wobble) * 55) * dt;
+      b.y += b.vy * dt;
+      b.vy *= 0.985;
+      if (b.life <= 0 || b.y < -80) soapBubbles.splice(i, 1);
+    }
+  }
+
+  // =========================================================================
+  // РЕНДЕРИНГ СЦЕНИ
+  // =========================================================================
+  function render(t) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#140b06';
+    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+    ctx.save();
+    ctx.translate(viewOffX, viewOffY);
+    ctx.scale(viewScale, viewScale);
+
+    // 1. Статична кухня
+    if (bgCache) ctx.drawImage(bgCache, 0, 0);
+
+    // 2. Живі каструльки з очима на полицях (реагують на події!)
+    const lookX = chefHeldItem ? chefHeldItem.x : (flyingItems[0] ? flyingItems[0].x : mouseX);
+    const lookY = chefHeldItem ? chefHeldItem.y : (flyingItems[0] ? flyingItems[0].y : mouseY);
+    const potMood = (state === 'finale' && finalePhase === 0) ? 'shock' : chefMood;
+    const potBlink = Math.sin(t * 1.15) > 0.985;
+    drawLivingPot(ctx, 1320, 96, 84, 62, lookX, lookY, potMood, potBlink, t);
+    drawLivingPot(ctx, 1445, 514, 118, 76, lookX, lookY, potMood, Math.sin(t * 1.15 + 2) > 0.985, t);
+
+    // 3. Пара, що піднімається у витяжку
+    for (const s of steam) {
+      const alpha = Math.max(0, Math.min(0.26, (s.y - 140) / 360 * 0.24));
+      const sg = ctx.createRadialGradient(s.x, s.y, 4, s.x, s.y, s.r);
+      sg.addColorStop(0, `rgba(255, 244, 228, ${alpha})`);
+      sg.addColorStop(1, 'rgba(255, 240, 220, 0)');
+      ctx.fillStyle = sg;
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // 4. Задня стінка казана та бульйон
+    drawCauldronBack(ctx, t);
+
+    // 5. Кухар (за казаном, а при польоті — поверх усього!)
+    if (!(state === 'finale' && finalePhase >= 1)) {
+      drawChef(ctx, t);
+    }
+
+    // 6. Предмет, який кухар тримає або кидає
+    if (chefHeldItem) {
+      drawItem(ctx, chefHeldItem.id, chefHeldItem.x, chefHeldItem.y, 1.05, chefHeldItem.rot, 0.55);
+    }
+
+    // 7. Предмети, що летять від гравця у казан
+    for (const f of flyingItems) {
+      drawItem(ctx, f.id, f.x, f.y, f.scale, f.rot, 0.75);
+    }
+
+    // 8. Бульбашки та бризки на поверхні бульйону
+    for (const b of bubbles) {
+      ctx.strokeStyle = `rgba(255, 245, 222, ${Math.min(0.8, b.life)})`;
+      ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = `rgba(255,255,255, ${Math.min(0.6, b.life * 0.7)})`;
+      ctx.beginPath(); ctx.arc(b.x - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.25, 0, Math.PI * 2); ctx.fill();
+    }
+    for (const p of splashes) {
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = Math.min(1, p.life * 1.6);
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // 9. Передня частина казана + мідна труба
+    drawCauldronFront(ctx, t);
+    drawCopperPipe(ctx, t);
+
+    // 10. Кумедний дим при помилці
+    for (const p of smokePuffs) {
+      ctx.globalAlpha = Math.max(0, (p.life / p.maxLife) * 0.65);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // 11. Конвеєр із предметами на передньому плані
+    drawConveyor(ctx, t);
+
+    // 12. Іскри (з труби та при успіху)
+    for (const p of sparks) {
+      ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+      ctx.strokeStyle = p.color;
+      ctx.lineWidth = p.size;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x - p.vx * 0.045, p.y - p.vy * 0.045);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    // 13. ФІНАЛЬНИЙ ПОЛІТ КУХАРЯ + ПОПКОРН + КОНФЕТІ + МИЛЬНІ БУЛЬБАШКИ!
+    if (state === 'finale' && finalePhase >= 1) {
+      drawChef(ctx, t);
+    }
+
+    // Попкорн (реалістичні пухкі хмарки)
+    for (const p of popcorn) {
+      ctx.save();
+      ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.scale(p.s, p.s);
+      ctx.globalAlpha = Math.min(1, p.life);
+      ctx.fillStyle = '#fff5d1';
+      ctx.beginPath();
+      ctx.arc(-6, -3, 8, 0, Math.PI * 2);
+      ctx.arc(6, -4, 7.5, 0, Math.PI * 2);
+      ctx.arc(0, 5, 8.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#e09b34';
+      ctx.beginPath(); ctx.arc(0, 0, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+
+    // Конфеті
+    for (const p of confetti) {
+      ctx.save();
+      ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.globalAlpha = Math.min(1, p.life);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h * (0.4 + Math.abs(Math.sin(t * 8 + p.rot)) * 0.6));
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+
+    // Райдужні мильні бульбашки
+    for (const b of soapBubbles) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(0.85, b.life);
+      const bg = ctx.createRadialGradient(b.x - b.r * 0.3, b.y - b.r * 0.3, 2, b.x, b.y, b.r);
+      bg.addColorStop(0, 'rgba(255,255,255,0.65)');
+      bg.addColorStop(0.55, 'rgba(140,220,255,0.18)');
+      bg.addColorStop(0.82, 'rgba(255,140,235,0.34)');
+      bg.addColorStop(1, 'rgba(130,255,220,0.62)');
+      ctx.fillStyle = bg;
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.beginPath(); ctx.ellipse(b.x - b.r * 0.34, b.y - b.r * 0.34, b.r * 0.26, b.r * 0.14, -0.6, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  // =========================================================================
+  // ВЗАЄМОДІЯ (МИША ТА СЕНСОРНИЙ ЕКРАН / ІНТЕРАКТИВНА ДОШКА)
+  // =========================================================================
+  function toWorld(clientX, clientY) {
+    return {
+      x: (clientX - viewOffX) / viewScale,
+      y: (clientY - viewOffY) / viewScale
+    };
+  }
+
+  function findBeltItem(wx, wy) {
+    for (let i = 0; i < beltItems.length; i++) {
+      const it = beltItems[i];
+      if (Math.hypot(wx - it.x, wy - it.baseY) < 76) return i;
+    }
+    return -1;
+  }
+
+  canvas.addEventListener('pointermove', (e) => {
+    const p = toWorld(e.clientX, e.clientY);
+    mouseX = p.x; mouseY = p.y;
+    hoveredIdx = findBeltItem(p.x, p.y);
+    const overChef = state === 'input' && Math.hypot(p.x - 1105, p.y - 310) < 120;
+    canvas.style.cursor = (state === 'input' && (hoveredIdx !== -1 || overChef)) ? 'pointer' : 'default';
+  });
+
+  canvas.addEventListener('pointerdown', (e) => {
+    Sound.unlock();
+    const p = toWorld(e.clientX, e.clientY);
+    mouseX = p.x; mouseY = p.y;
+
+    if (state !== 'input') return;
+
+    // Клік по кухарю — кумедно повторює послідовність, якщо дитина забула!
+    if (Math.hypot(p.x - 1105, p.y - 310) < 125) {
+      Sound.playClick();
+      inputIndex = 0;
+      demoStep = 0;
+      demoPhase = 'reach';
+      demoT = 0;
+      chefHeldItem = null;
+      state = 'demo';
+      return;
+    }
+
+    const idx = findBeltItem(p.x, p.y);
+    if (idx === -1) return;
+
+    const item = beltItems[idx];
+    const expectedId = sequence[inputIndex];
+
+    if (item.id === expectedId) {
+      // ВІРНО! Предмет з іскрами летить у казан!
+      item.bounce = 1;
+      Sound.playObjectCue(item.id);
+      spawnSparks(item.x, item.baseY, 16, 1.1, 1);
+
+      const currentStep = inputIndex;
+      inputIndex++;
+      const isLast = inputIndex >= sequence.length;
+      if (isLast) state = 'input_locked';
+
+      flyingItems.push({
+        id: item.id,
+        sx: item.x, sy: item.baseY - 12,
+        x: item.x, y: item.baseY - 12,
+        rot: 0, scale: 1.05,
+        t: 0, dur: 0.44,
+        stepIndex: currentStep,
+        isLast
+      });
+    } else {
+      // ПОМИЛКА! Кумедний дим, гикавка казана і здивований кухар (без скидання раунду)
+      item.wrongShake = 1;
+      Sound.playWrong();
+      spawnSmoke(item.x, item.baseY - 10, 8, '#756f68');
+      spawnSmoke(CAULDRON.x, CAULDRON.mouthY - 20, 10, '#6a8255');
+      cauldronShake = 14;
+      chefMood = 'shock';
+      chefMoodT = 0.95;
+    }
+  });
+
+  // Адаптація під широкий екран (cover з безпечним масштабуванням ключової зони)
+  function resize() {
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    const vw = window.innerWidth, vh = window.innerHeight;
+    canvas.width = Math.floor(vw * dpr);
+    canvas.height = Math.floor(vh * dpr);
+    // Вміщуємо всю ігрову сцену, максимально заповнюючи широкий екран
+    const sx = vw / W, sy = vh / H;
+    viewScale = Math.min(sx, sy);
+    // Якщо екран майже 16:9 — розтягуємо без полів
+    if (Math.abs(sx - sy) / Math.max(sx, sy) < 0.08) {
+      viewScale = Math.max(sx, sy);
+    }
+    viewOffX = (vw - W * viewScale) * 0.5;
+    viewOffY = (vh - H * viewScale) * 0.5;
+  }
+
+  window.addEventListener('resize', resize);
+  buildKitchenBackground();
+  resize();
+  updateLangUI();
+  startNewRound(false);
+
+  function loop(now) {
+    const dt = Math.min(0.05, (now - lastTime) / 1000);
+    lastTime = now;
+    const t = now / 1000;
+    update(dt, t);
+    render(t);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
