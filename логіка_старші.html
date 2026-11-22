@@ -1,0 +1,2521 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Tech Logic 3-4</title>
+  <style>
+    /* ==========================================================================
+       БАЗОВІ СТИЛІ ТА СЮЖЕТНИЙ ФОН РОБОЧОГО СТОЛУ (ЖОДНИХ БІЛИХ ПРЯМОКУТНИКІВ)
+       ========================================================================== */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      /* Теплий дерев'яний стіл з м'яким освітленням від настільної лампи */
+      background:
+        radial-gradient(circle at 18% 15%, rgba(255, 224, 150, 0.32) 0%, transparent 48%),
+        radial-gradient(circle at 85% 82%, rgba(56, 189, 248, 0.22) 0%, transparent 45%),
+        repeating-linear-gradient(
+          90deg,
+          #4a2f1d 0px,
+          #533522 18px,
+          #462b1a 38px,
+          #5b3a25 65px,
+          #4c301e 90px
+        );
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .desk-bg-svg {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .stage {
+      position: relative;
+      z-index: 2;
+      width: min(96vw, 1080px);
+      height: min(94vh, 720px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ==========================================================================
+       РЕАЛІСТИЧНИЙ КОРПУС ПЛАНШЕТА
+       ========================================================================== */
+    .tablet-wrapper {
+      position: relative;
+      width: min(84vw, 860px);
+      height: min(82vh, 585px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .tablet-body {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border-radius: 36px;
+      background: linear-gradient(145deg, #2d3442 0%, #171c26 48%, #0e121a 100%);
+      padding: 20px 26px 20px 26px;
+      box-shadow:
+        0 30px 65px rgba(0, 0, 0, 0.68),
+        0 10px 22px rgba(0, 0, 0, 0.45),
+        inset 0 2px 3px rgba(255, 255, 255, 0.24),
+        inset 0 -3px 6px rgba(0, 0, 0, 0.7),
+        0 0 0 2px #3b4456;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Бічні фізичні кнопки планшета */
+    .tablet-body::before {
+      content: '';
+      position: absolute;
+      top: 90px;
+      right: -5px;
+      width: 5px;
+      height: 54px;
+      background: linear-gradient(180deg, #525d73, #232a36);
+      border-radius: 0 4px 4px 0;
+      box-shadow: 2px 2px 6px rgba(0,0,0,0.5);
+    }
+    .tablet-body::after {
+      content: '';
+      position: absolute;
+      top: 158px;
+      right: -5px;
+      width: 5px;
+      height: 36px;
+      background: linear-gradient(180deg, #525d73, #232a36);
+      border-radius: 0 4px 4px 0;
+      box-shadow: 2px 2px 6px rgba(0,0,0,0.5);
+    }
+
+    /* Фронтальна камера на рамці */
+    .tablet-camera {
+      position: absolute;
+      top: 7px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #38bdf8 0%, #0f172a 45%, #020617 100%);
+      box-shadow: inset 0 0 2px rgba(255,255,255,0.4), 0 0 0 2px #0b0f17;
+      z-index: 10;
+    }
+
+    /* Скляний екран із живим візерунковим фоном */
+    .tablet-screen {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border-radius: 22px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.24), transparent 52%),
+        radial-gradient(circle at 82% 85%, rgba(244, 114, 182, 0.20), transparent 48%),
+        radial-gradient(circle at 50% 50%, #1c2b4a 0%, #111b33 65%, #0a1021 100%);
+      box-shadow:
+        inset 0 0 24px rgba(0, 0, 0, 0.65),
+        inset 0 1px 1px rgba(255, 255, 255, 0.14);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .screen-wallpaper {
+      position: absolute;
+      inset: 0;
+      opacity: 0.16;
+      pointer-events: none;
+      background-image:
+        radial-gradient(#7dd3fc 1.2px, transparent 1.2px),
+        radial-gradient(#c084fc 1.2px, transparent 1.2px);
+      background-size: 32px 32px;
+      background-position: 0 0, 16px 16px;
+    }
+
+    .screen-glare {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 25;
+      background: linear-gradient(
+        118deg,
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(255, 255, 255, 0.02) 32%,
+        transparent 33%,
+        transparent 100%
+      );
+    }
+
+    .status-bar {
+      position: relative;
+      z-index: 5;
+      height: 26px;
+      padding: 0 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(180deg, rgba(10, 15, 30, 0.55), transparent);
+      flex-shrink: 0;
+    }
+
+    .game-area {
+      position: relative;
+      z-index: 4;
+      flex: 1;
+      width: 100%;
+      height: calc(100% - 26px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 14px 10px 14px;
+    }
+
+    .game-area svg.level-svg {
+      width: 100%;
+      height: 100%;
+      max-width: 780px;
+      max-height: 505px;
+      overflow: visible;
+    }
+
+    /* ==========================================================================
+       ІНФОРМАЦІЙНА КНОПКА (i) ТА МОДАЛЬНЕ ВІКНО З КРУПНИМ ТЕКСТОМ ЗАВДАННЯ
+       ========================================================================== */
+    .info-btn {
+      position: absolute;
+      top: 32px;
+      left: 12px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2.5px solid #38bdf8;
+      background: linear-gradient(145deg, #1d4ed8, #0f172a);
+      box-shadow:
+        0 6px 16px rgba(0, 0, 0, 0.45),
+        0 0 14px rgba(56, 189, 248, 0.4),
+        inset 0 1px 2px rgba(255, 255, 255, 0.35);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 28;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    }
+
+    .info-btn:hover {
+      transform: scale(1.1);
+      border-color: #fde047;
+      box-shadow: 0 0 20px rgba(253, 224, 71, 0.55), 0 8px 18px rgba(0, 0, 0, 0.5);
+    }
+
+    .info-btn:active {
+      transform: scale(0.94);
+    }
+
+    .info-modal-backdrop {
+      position: absolute;
+      inset: 0;
+      z-index: 35;
+      background: rgba(7, 12, 26, 0.84);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease;
+    }
+
+    .info-modal-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .info-modal-card {
+      position: relative;
+      width: min(92%, 640px);
+      padding: 40px 36px 36px 36px;
+      border-radius: 28px;
+      background:
+        radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.25), transparent 55%),
+        linear-gradient(145deg, #1e3a8a 0%, #172554 55%, #0f172a 100%);
+      border: 3px solid #38bdf8;
+      box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.65),
+        inset 0 2px 3px rgba(255, 255, 255, 0.22);
+      text-align: center;
+      transform: scale(0.9);
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .info-modal-backdrop.open .info-modal-card {
+      transform: scale(1);
+    }
+
+    .info-modal-text {
+      font-family: Arial, sans-serif;
+      font-size: clamp(22px, 2.8vw, 30px);
+      font-weight: 700;
+      line-height: 1.4;
+      color: #f8fafc;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+    }
+
+    .info-close-btn {
+      position: absolute;
+      top: -18px;
+      right: -18px;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 3px solid #fda4af;
+      background: linear-gradient(145deg, #f43f5e, #be123c);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.18s ease;
+    }
+
+    .info-close-btn:hover {
+      transform: scale(1.1) rotate(90deg);
+    }
+
+    /* ==========================================================================
+       МІНІМАЛІСТИЧНІ КНОПКИ НАВІГАЦІЇ «НАЗАД» ТА «ДАЛІ»
+       ========================================================================== */
+    .nav-btn {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.22);
+      background: linear-gradient(145deg, rgba(35, 48, 74, 0.92), rgba(15, 23, 42, 0.95));
+      box-shadow:
+        0 10px 25px rgba(0, 0, 0, 0.5),
+        inset 0 1px 2px rgba(255, 255, 255, 0.3);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 30;
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s, border-color 0.2s;
+    }
+
+    .nav-btn:hover {
+      transform: translateY(-50%) scale(1.1);
+      border-color: #38bdf8;
+      box-shadow: 0 0 22px rgba(56, 189, 248, 0.45), 0 12px 24px rgba(0, 0, 0, 0.55);
+    }
+
+    .nav-btn:active {
+      transform: translateY(-50%) scale(0.94);
+    }
+
+    .nav-prev { left: -72px; }
+    .nav-next { right: -72px; }
+
+    @media (max-width: 980px) {
+      .nav-prev { left: -18px; top: auto; bottom: -26px; transform: none; }
+      .nav-next { right: -18px; top: auto; bottom: -26px; transform: none; }
+      .nav-btn:hover { transform: scale(1.1); }
+      .nav-btn:active { transform: scale(0.94); }
+    }
+
+    /* ==========================================================================
+       ЖИВИЙ ПЕРСОНАЖ: РУДИЙ КІТ-ГАДЖЕТОМАН У НАВУШНИКАХ
+       ========================================================================== */
+    .cat-companion {
+      position: absolute;
+      top: -64px;
+      right: 32px;
+      width: 158px;
+      height: 112px;
+      z-index: 20;
+      cursor: pointer;
+      filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.45));
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .cat-companion:hover { transform: translateY(-4px) scale(1.03); }
+    .cat-companion.happy { animation: catJump 0.75s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    .cat-companion.oops { animation: catShake 0.5s ease-in-out; }
+    .cat-companion.purr { animation: catPurr 0.6s ease-in-out; }
+
+    @keyframes catJump {
+      0% { transform: translateY(0) scale(1); }
+      30% { transform: translateY(-22px) scale(1.08) rotate(-4deg); }
+      55% { transform: translateY(-10px) scale(1.05) rotate(5deg); }
+      75% { transform: translateY(-16px) scale(1.06) rotate(-2deg); }
+      100% { transform: translateY(0) scale(1) rotate(0deg); }
+    }
+
+    @keyframes catShake {
+      0%, 100% { transform: translateX(0) rotate(0deg); }
+      20% { transform: translateX(-8px) rotate(-6deg); }
+      45% { transform: translateX(8px) rotate(6deg); }
+      70% { transform: translateX(-5px) rotate(-3deg); }
+    }
+
+    @keyframes catPurr {
+      0%, 100% { transform: scale(1); }
+      25% { transform: scale(1.05, 0.96); }
+      50% { transform: scale(0.98, 1.04); }
+      75% { transform: scale(1.04, 0.97); }
+    }
+
+    .cat-ear-l { transform-origin: 48px 54px; animation: earTwitchL 5s infinite; }
+    .cat-ear-r { transform-origin: 112px 54px; animation: earTwitchR 6.5s infinite; }
+
+    @keyframes earTwitchL {
+      0%, 92%, 100% { transform: rotate(0deg); }
+      95% { transform: rotate(-10deg); }
+      98% { transform: rotate(3deg); }
+    }
+    @keyframes earTwitchR {
+      0%, 88%, 100% { transform: rotate(0deg); }
+      91% { transform: rotate(11deg); }
+      95% { transform: rotate(-2deg); }
+    }
+
+    .steam-path { animation: steamRise 3.2s ease-in-out infinite; }
+    .steam-path.s2 { animation-delay: 1.1s; }
+    .steam-path.s3 { animation-delay: 2.1s; }
+
+    @keyframes steamRise {
+      0% { opacity: 0; transform: translateY(10px) scaleX(0.9); }
+      40% { opacity: 0.55; }
+      100% { opacity: 0; transform: translateY(-22px) scaleX(1.15); }
+    }
+
+    /* ==========================================================================
+       СТАБІЛЬНІ ІНТЕРАКТИВНІ ЕЛЕМЕНТИ (НЕ ВТІКАЮТЬ ВІД КУРСОРА!)
+       ========================================================================== */
+    .clickable {
+      cursor: pointer;
+    }
+
+    .clickable .hit-inner {
+      transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.15s ease;
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+
+    .clickable:hover .hit-inner {
+      filter: brightness(1.15) drop-shadow(0 0 8px rgba(56, 189, 248, 0.55));
+      transform: scale(1.05);
+    }
+
+    .clickable:active .hit-inner {
+      transform: scale(0.95);
+    }
+
+    .shake-el {
+      animation: wrongShake 0.42s ease-in-out;
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+
+    @keyframes wrongShake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      45% { transform: translateX(8px); }
+      70% { transform: translateX(-5px); }
+      85% { transform: translateX(4px); }
+    }
+
+    .pulse-glow {
+      animation: pulseGlow 1.3s ease-in-out infinite;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { filter: drop-shadow(0 0 3px rgba(56, 189, 248, 0.55)); opacity: 0.78; }
+      50% { filter: drop-shadow(0 0 14px rgba(56, 189, 248, 1)); opacity: 1; }
+    }
+
+    #fx-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 40;
+    }
+
+    .screen-win-flash {
+      animation: winFlash 0.85s ease-out;
+    }
+    @keyframes winFlash {
+      0% { box-shadow: inset 0 0 0 0 rgba(74, 222, 128, 0); }
+      30% { box-shadow: inset 0 0 55px 12px rgba(74, 222, 128, 0.65); }
+      65% { box-shadow: inset 0 0 45px 8px rgba(56, 189, 248, 0.55); }
+      100% { box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.65); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ======================================================================
+       СЮЖЕТНИЙ ЖИВИЙ ФОН: РЕАЛІСТИЧНИЙ РОБОЧИЙ СТІЛ З ГАДЖЕТАМИ (SVG)
+       ====================================================================== -->
+  <svg class="desk-bg-svg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="deskLampGlow" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#fde68a" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="#fde68a" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="mugGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#2dd4bf"/>
+        <stop offset="55%" stop-color="#0d9488"/>
+        <stop offset="100%" stop-color="#115e59"/>
+      </linearGradient>
+      <linearGradient id="coffeeGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#451a03"/>
+        <stop offset="100%" stop-color="#1c0a00"/>
+      </linearGradient>
+      <linearGradient id="padGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#1e293b"/>
+        <stop offset="100%" stop-color="#0f172a"/>
+      </linearGradient>
+      <linearGradient id="mouseGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#475569"/>
+        <stop offset="50%" stop-color="#1e293b"/>
+        <stop offset="100%" stop-color="#0f172a"/>
+      </linearGradient>
+      <linearGradient id="cableGrad" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#fb7185"/>
+        <stop offset="50%" stop-color="#f43f5e"/>
+        <stop offset="100%" stop-color="#be123c"/>
+      </linearGradient>
+      <filter id="deskShadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="6" dy="10" stdDeviation="8" flood-color="#000" flood-opacity="0.45"/>
+      </filter>
+    </defs>
+
+    <polygon points="0,0 520,0 760,900 0,680" fill="url(#deskLampGlow)"/>
+
+    <!-- Плетений USB-C кабель -->
+    <path d="M -20,560 C 90,540 120,660 220,610 C 310,565 260,470 360,460"
+          fill="none" stroke="#18080c" stroke-width="14" stroke-linecap="round" opacity="0.4" transform="translate(4,8)"/>
+    <path d="M -20,560 C 90,540 120,660 220,610 C 310,565 260,470 360,460"
+          fill="none" stroke="url(#cableGrad)" stroke-width="11" stroke-linecap="round"/>
+    <path d="M -20,560 C 90,540 120,660 220,610 C 310,565 260,470 360,460"
+          fill="none" stroke="#fda4af" stroke-width="3" stroke-dasharray="6 10" stroke-linecap="round" opacity="0.65"/>
+
+    <!-- Чашка з какао та парою -->
+    <g transform="translate(105, 145)" filter="url(#deskShadow)">
+      <path d="M 48,-12 C 82,-12 82,22 48,22" fill="none" stroke="#0f766e" stroke-width="14" stroke-linecap="round"/>
+      <path d="M 48,-12 C 78,-12 78,22 48,22" fill="none" stroke="#2dd4bf" stroke-width="6" stroke-linecap="round"/>
+      <circle cx="0" cy="0" r="56" fill="url(#mugGrad)"/>
+      <circle cx="0" cy="0" r="46" fill="url(#coffeeGrad)"/>
+      <path d="M -16,6 C -20,-12 0,-22 0,-6 C 0,-22 20,-12 16,6 C 12,18 0,24 0,24 C 0,24 -12,18 -16,6 Z"
+            fill="#d6b491" opacity="0.78"/>
+      <path d="M -42,-28 A 50 50 0 0 1 18,-48" fill="none" stroke="#99f6e4" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
+      <path class="steam-path s1" d="M -18,-10 Q -26,-32 -14,-52" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity="0.45"/>
+      <path class="steam-path s2" d="M 4,-16 Q 16,-38 2,-60" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity="0.45"/>
+      <path class="steam-path s3" d="M 20,-4 Q 28,-26 16,-48" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" opacity="0.4"/>
+    </g>
+
+    <!-- Ігровий килимок і мишка -->
+    <g transform="translate(1240, 620)" filter="url(#deskShadow)">
+      <rect x="-95" y="-125" width="210" height="250" rx="28" fill="url(#padGrad)" stroke="#38bdf8" stroke-width="2.5" stroke-opacity="0.45"/>
+      <path d="M -70,-90 L 85,100 M -40,-105 L 95,55" stroke="#38bdf8" stroke-width="2" opacity="0.14"/>
+      <g transform="translate(12, 5) rotate(-14)">
+        <rect x="-36" y="-62" width="72" height="124" rx="36" fill="url(#mouseGrad)" stroke="#64748b" stroke-width="1.5"/>
+        <line x1="0" y1="-62" x2="0" y2="-12" stroke="#020617" stroke-width="2"/>
+        <path d="M -34,-12 Q 0,-4 34,-12" fill="none" stroke="#020617" stroke-width="2"/>
+        <rect x="-5" y="-44" width="10" height="22" rx="5" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
+        <path d="M -22,42 Q 0,56 22,42" fill="none" stroke="#38bdf8" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+      </g>
+    </g>
+
+    <!-- Блокнот-стікер -->
+    <g transform="translate(110, 740) rotate(-11)" filter="url(#deskShadow)">
+      <rect x="-58" y="-58" width="116" height="116" rx="8" fill="#fbbf24"/>
+      <rect x="-58" y="-58" width="116" height="22" rx="6" fill="#f59e0b"/>
+      <path d="M -34,-12 L -16,-12 L -16,6 L -34,6 Z" fill="none" stroke="#92400e" stroke-width="3" stroke-linejoin="round"/>
+      <circle cx="18" cy="-3" r="10" fill="none" stroke="#92400e" stroke-width="3"/>
+      <path d="M -32,28 Q 0,12 34,30" fill="none" stroke="#92400e" stroke-width="3" stroke-linecap="round"/>
+    </g>
+
+    <!-- Флешка USB -->
+    <g transform="translate(1310, 175) rotate(28)" filter="url(#deskShadow)">
+      <rect x="-18" y="-54" width="36" height="28" rx="3" fill="#cbd5e1" stroke="#64748b" stroke-width="1.5"/>
+      <rect x="-10" y="-46" width="7" height="8" rx="1" fill="#334155"/>
+      <rect x="3" y="-46" width="7" height="8" rx="1" fill="#334155"/>
+      <rect x="-22" y="-28" width="44" height="72" rx="10" fill="#6366f1" stroke="#a5b4fc" stroke-width="2"/>
+      <circle cx="0" cy="24" r="6" fill="#312e81"/>
+      <circle cx="0" cy="-6" r="4" fill="#38bdf8"/>
+    </g>
+  </svg>
+
+  <!-- ======================================================================
+       ОСНОВНА СЦЕНА: ПЛАНШЕТ + ЖИВИЙ КІТ + КНОПКИ НАВІГАЦІЇ
+       ====================================================================== -->
+  <div class="stage">
+    <div class="tablet-wrapper" id="tablet-wrapper">
+
+      <button class="nav-btn nav-prev" id="btn-prev" aria-label="Назад">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+          <path d="M15 5L8 12L15 19" stroke="#e2e8f0" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <button class="nav-btn nav-next" id="btn-next" aria-label="Далі">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+          <path d="M9 5L16 12L9 19" stroke="#e2e8f0" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <!-- ЖИВИЙ ПЕРСОНАЖ: РУДИЙ КІТ-ГАДЖЕТОМАН -->
+      <div class="cat-companion" id="cat-companion">
+        <svg viewBox="0 0 160 115" width="100%" height="100%">
+          <defs>
+            <linearGradient id="catFur" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#fb923c"/>
+              <stop offset="65%" stop-color="#f97316"/>
+              <stop offset="100%" stop-color="#ea580c"/>
+            </linearGradient>
+            <linearGradient id="catBelly" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#ffedd5"/>
+              <stop offset="100%" stop-color="#fed7aa"/>
+            </linearGradient>
+            <linearGradient id="hpBand" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#06b6d4"/>
+              <stop offset="50%" stop-color="#38bdf8"/>
+              <stop offset="100%" stop-color="#0284c7"/>
+            </linearGradient>
+          </defs>
+
+          <path d="M 28,62 C 26,12 134,12 132,62" fill="none" stroke="url(#hpBand)" stroke-width="10" stroke-linecap="round"/>
+          <path d="M 38,34 C 58,18 102,18 122,34" fill="none" stroke="#bae6fd" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
+
+          <g class="cat-ear-l">
+            <path d="M 34,54 L 40,22 L 64,42 Z" fill="url(#catFur)" stroke="#c2410c" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M 40,48 L 43,30 L 56,42 Z" fill="#fda4af"/>
+          </g>
+          <g class="cat-ear-r">
+            <path d="M 126,54 L 120,22 L 96,42 Z" fill="url(#catFur)" stroke="#c2410c" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M 120,48 L 117,30 L 104,42 Z" fill="#fda4af"/>
+          </g>
+
+          <ellipse cx="80" cy="68" rx="44" ry="36" fill="url(#catFur)" stroke="#c2410c" stroke-width="2"/>
+          <path d="M 80,33 L 80,45 M 69,36 L 72,46 M 91,36 L 88,46" stroke="#c2410c" stroke-width="3.5" stroke-linecap="round"/>
+          <ellipse cx="80" cy="79" rx="22" ry="15" fill="url(#catBelly)"/>
+          <ellipse cx="47" cy="76" rx="7" ry="4" fill="#fb7185" opacity="0.45"/>
+          <ellipse cx="113" cy="76" rx="7" ry="4" fill="#fb7185" opacity="0.45"/>
+
+          <rect x="20" y="52" width="16" height="30" rx="8" fill="#0f172a" stroke="#38bdf8" stroke-width="2.5"/>
+          <rect x="24" y="57" width="5" height="20" rx="2.5" fill="#f43f5e"/>
+          <rect x="124" y="52" width="16" height="30" rx="8" fill="#0f172a" stroke="#38bdf8" stroke-width="2.5"/>
+          <rect x="131" y="57" width="5" height="20" rx="2.5" fill="#f43f5e"/>
+
+          <g id="cat-eyes-normal">
+            <circle cx="62" cy="64" r="11" fill="#fff" stroke="#7c2d12" stroke-width="1.5"/>
+            <circle cx="98" cy="64" r="11" fill="#fff" stroke="#7c2d12" stroke-width="1.5"/>
+            <g id="cat-pupils">
+              <circle cx="62" cy="64" r="6" fill="#0f172a"/>
+              <circle cx="60" cy="61" r="2.2" fill="#fff"/>
+              <circle cx="98" cy="64" r="6" fill="#0f172a"/>
+              <circle cx="96" cy="61" r="2.2" fill="#fff"/>
+            </g>
+          </g>
+
+          <g id="cat-eyes-happy" style="display:none;">
+            <path d="M 52,65 Q 62,53 72,65" fill="none" stroke="#0f172a" stroke-width="4" stroke-linecap="round"/>
+            <path d="M 88,65 Q 98,53 108,65" fill="none" stroke="#0f172a" stroke-width="4" stroke-linecap="round"/>
+          </g>
+
+          <g id="cat-eyes-oops" style="display:none;">
+            <circle cx="62" cy="64" r="11" fill="#fff" stroke="#7c2d12" stroke-width="1.5"/>
+            <circle cx="98" cy="64" r="11" fill="#fff" stroke="#7c2d12" stroke-width="1.5"/>
+            <circle cx="62" cy="64" r="3" fill="#0f172a"/>
+            <circle cx="98" cy="64" r="7.5" fill="#0f172a"/>
+            <path d="M 116,44 Q 123,54 116,58 Q 109,54 116,44 Z" fill="#38bdf8"/>
+          </g>
+
+          <g id="cat-glasses">
+            <circle cx="62" cy="64" r="14" fill="rgba(56,189,248,0.12)" stroke="#1e293b" stroke-width="2.6"/>
+            <circle cx="98" cy="64" r="14" fill="rgba(56,189,248,0.12)" stroke="#1e293b" stroke-width="2.6"/>
+            <line x1="76" y1="64" x2="84" y2="64" stroke="#1e293b" stroke-width="2.6"/>
+          </g>
+
+          <path d="M 75,73 L 85,73 L 80,79 Z" fill="#fb7185"/>
+          <path id="cat-mouth" d="M 72,82 Q 76,87 80,81 Q 84,87 88,82" fill="none" stroke="#7c2d12" stroke-width="2.4" stroke-linecap="round"/>
+
+          <ellipse cx="44" cy="100" rx="14" ry="9" fill="url(#catFur)" stroke="#c2410c" stroke-width="2"/>
+          <path d="M 39,96 L 39,104 M 44,95 L 44,105 M 49,96 L 49,104" stroke="#c2410c" stroke-width="1.6" stroke-linecap="round"/>
+          <ellipse cx="116" cy="100" rx="14" ry="9" fill="url(#catFur)" stroke="#c2410c" stroke-width="2"/>
+          <path d="M 111,96 L 111,104 M 116,95 L 116,105 M 121,96 L 121,104" stroke="#c2410c" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </div>
+
+      <!-- КОРПУС ПЛАНШЕТА -->
+      <div class="tablet-body">
+        <div class="tablet-camera"></div>
+        <div class="tablet-screen" id="tablet-screen">
+          <div class="screen-wallpaper"></div>
+          <div class="screen-glare"></div>
+
+          <div class="status-bar">
+            <svg width="44" height="16" viewBox="0 0 44 16">
+              <rect x="2" y="10" width="4" height="5" rx="1" fill="#38bdf8"/>
+              <rect x="8" y="7" width="4" height="8" rx="1" fill="#38bdf8"/>
+              <rect x="14" y="4" width="4" height="11" rx="1" fill="#38bdf8"/>
+              <rect x="20" y="1" width="4" height="14" rx="1" fill="#38bdf8" opacity="0.45"/>
+              <path d="M 30,6 Q 36,1 42,6" fill="none" stroke="#94a3b8" stroke-width="1.8" stroke-linecap="round"/>
+              <path d="M 32.5,9 Q 36,6 39.5,9" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round"/>
+              <circle cx="36" cy="12.5" r="1.6" fill="#38bdf8"/>
+            </svg>
+            <svg width="34" height="16" viewBox="0 0 34 16">
+              <rect x="1" y="3" width="26" height="10" rx="2.5" fill="none" stroke="#94a3b8" stroke-width="1.8"/>
+              <rect x="28" y="6" width="3" height="4" rx="1" fill="#94a3b8"/>
+              <rect x="3.5" y="5.5" width="19" height="5" rx="1.2" fill="#4ade80"/>
+            </svg>
+          </div>
+
+          <!-- ІНФОРМАЦІЙНА КНОПКА (i) -->
+          <button class="info-btn" id="btn-info" aria-label="Інформація про завдання">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="6.5" r="2.1" fill="#f8fafc"/>
+              <rect x="10.2" y="10.5" width="3.6" height="9" rx="1.8" fill="#f8fafc"/>
+            </svg>
+          </button>
+
+          <!-- МОДАЛЬНЕ ВІКНО З КРУПНИМ ТЕКСТОМ ПІДКАЗКИ -->
+          <div class="info-modal-backdrop" id="info-modal">
+            <div class="info-modal-card" id="info-modal-card">
+              <button class="info-close-btn" id="btn-info-close" aria-label="Закрити">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M6 6L18 18M18 6L6 18" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
+                </svg>
+              </button>
+              <div class="info-modal-text" id="info-modal-text"></div>
+            </div>
+          </div>
+
+          <!-- Контейнер поточного завдання -->
+          <div class="game-area" id="game-area"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="fx-canvas"></canvas>
+
+  <script>
+    /* ==========================================================================
+       1. ПІДКАЗКИ ДЛЯ ІНФОРМАЦІЙНОЇ КНОПКИ (РІВЕНЬ 3–4 КЛАСУ, ЛЕГКО РЕДАГУВАТИ)
+       ========================================================================== */
+    const LEVEL_HINTS = [
+      // Рівень 1: Сліпий маршрут
+      'Почни від зеленої клітинки на смартфоні та подумки пройди шлях за стрілками на жовтому стікері. Натисни на клітинку, в якій зупинишся!',
+      // Рівень 2: Магічний квадрат зарядки
+      'Магічний квадрат батареї! Заповни 3 порожні клітинки числами знизу так, щоб сума в кожному рядку та кожному стовпчику дорівнювала 15.',
+      // Рівень 3: Двійковий код
+      'Комп’ютерний шифр! Натискай на перемикачі в кожному рядку, щоб сума чисел над увімкненими лампами (8, 4, 2, 1) дорівнювала числу праворуч.',
+      // Рівень 4: Перемикачі серверної
+      'Увімкни всі 4 сервери (вони мають стати зеленими)! Кожен перемикач знизу змінює стан одразу кількох серверів, до яких ведуть його дроти.',
+      // Рівень 5: Злам PIN-коду
+      'Розгадай 3-значний PIN-код! Зелена крапка — цифра в коді й на своєму місці. Жовта — цифра є в коді, але стоїть не там. Порожньо — жодної з цих цифр немає.',
+      // Рівень 6: Хмарна алгебра
+      'Знайди вагу кожного гаджета за першими трьома рядками та вибери, скільки разом важать ноутбук і планшет.',
+      // Рівень 7: Супер-мережа Wi-Fi 4×4
+      'Повертай плитки на платі, щоб провести сигнал Wi-Fi від роутера зліва ОДРАЗУ до двох гаджетів справа — смартфона й ноутбука!',
+      // Рівень 8: Сортування за колами Венна
+      'Розклади гаджети по зонах: у ліве коло — лише БЛАКИТНІ, у праве — лише СМАРТФОНИ, у середину — БЛАКИТНІ СМАРТФОНИ, а все інше — назовні.',
+      // Рівень 9: Числова послідовність процесора
+      'Знайди приховану закономірність, за якою зростають числа на мікросхемах, і вибери наступне число.',
+      // Рівень 10: Програмування курсора з ключем
+      'Склади маршрут стрілками і натисни «Пуск»: курсор має спершу забрати золотий КЛЮЧ, а потім відкрити ним ПАПКУ, оминаючи червоні хрестики.',
+      // Рівень 11: Повноцінне судоку 4×4
+      'Заповни всі 7 порожніх клітинок так, щоб у кожному рядку, стовпчику та кожному квадраті 2×2 усі 4 іконки були різними.',
+      // Рівень 12: Потрійна матриця Равена
+      'Проаналізуй одразу ТРИ ознаки в кожному рядку й стовпчику: форму, колір і кількість фігур. Вибери плитку, якої не вистачає.',
+      // Рівень 13: Загадка 4 зарядних портів
+      'Розстав 4 гаджети у порти 1–4 за підказками: годинник у порту 4, ноутбук стоїть одразу зліва від планшета, а смартфон точно НЕ в порту 1.',
+      // Рівень 14: Розгортка 3D-кубика
+      'Уяви, що цю схему склали у 3D-кубик. Яка іконка опиниться на ПРОТИЛЕЖНІЙ грані навпроти зеленої батареї?',
+      // Рівень 15: Супер-фінал (порядок дій!)
+      'Знайди значення кожного гаджета та уважно обчисли останній приклад — пам’ятай про знак МНОЖЕННЯ і порядок дій!'
+    ];
+
+    /* ==========================================================================
+       2. ЗВУКОВИЙ РУШІЙ (WEB AUDIO API)
+       ========================================================================== */
+    const SoundFX = (() => {
+      let ctx = null;
+      const getCtx = () => {
+        if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === 'suspended') ctx.resume();
+        return ctx;
+      };
+
+      const playTone = (freq, start, dur, type = 'sine', vol = 0.14, slideTo = null) => {
+        const c = getCtx();
+        const osc = c.createOscillator();
+        const gain = c.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, c.currentTime + start);
+        if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, c.currentTime + start + dur);
+        gain.gain.setValueAtTime(0.001, c.currentTime + start);
+        gain.gain.exponentialRampToValueAtTime(vol, c.currentTime + start + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + start + dur);
+        osc.connect(gain);
+        gain.connect(c.destination);
+        osc.start(c.currentTime + start);
+        osc.stop(c.currentTime + start + dur + 0.02);
+      };
+
+      return {
+        click() { playTone(620, 0, 0.06, 'triangle', 0.11, 860); },
+        rotate() { playTone(440, 0, 0.07, 'sine', 0.1, 660); },
+        step(i = 0) { playTone(360 + i * 45, 0, 0.08, 'triangle', 0.1); },
+        keyPickup() {
+          playTone(784, 0, 0.1, 'sine', 0.13);
+          playTone(1046.5, 0.09, 0.18, 'triangle', 0.14);
+        },
+        purr() {
+          playTone(135, 0, 0.22, 'sawtooth', 0.05, 165);
+          playTone(540, 0.05, 0.14, 'sine', 0.08, 780);
+          playTone(720, 0.18, 0.16, 'sine', 0.08, 960);
+        },
+        wrong() {
+          playTone(260, 0, 0.14, 'sawtooth', 0.09, 170);
+          playTone(190, 0.12, 0.2, 'triangle', 0.11, 110);
+        },
+        win(variant = 0) {
+          const v = variant % 4;
+          if (v === 0) {
+            [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => playTone(f, i * 0.08, 0.26, 'triangle', 0.14));
+          } else if (v === 1) {
+            [587.33, 739.99, 880, 1174.66, 880, 1174.66].forEach((f, i) => playTone(f, i * 0.075, 0.18, 'sine', 0.14));
+          } else if (v === 2) {
+            [440, 554.37, 659.25, 880, 1318.5].forEach((f, i) => playTone(f, i * 0.065, 0.24, 'triangle', 0.13));
+          } else {
+            [523.25, 659.25, 783.99, 987.77, 1046.5].forEach((f, i) => playTone(f, i * 0.085, 0.28, 'sine', 0.15));
+          }
+        }
+      };
+    })();
+
+    /* ==========================================================================
+       3. СИСТЕМА ВІЗУАЛЬНИХ ЕФЕКТІВ (КОНФЕТІ, ЗІРКИ, ІСКРИ НА CANVAS)
+       ========================================================================== */
+    const FX = (() => {
+      const canvas = document.getElementById('fx-canvas');
+      const ctx = canvas.getContext('2d');
+      let particles = [];
+      let animId = null;
+
+      const resize = () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      };
+      window.addEventListener('resize', resize);
+      resize();
+
+      const colors = ['#38bdf8', '#4ade80', '#fbbf24', '#fb7185', '#c084fc', '#2dd4bf'];
+
+      const spawnBurst = (x, y, count = 48, style = 'confetti') => {
+        for (let i = 0; i < count; i++) {
+          const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+          const speed = 3 + Math.random() * 8.5;
+          particles.push({
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 3.5,
+            size: 5 + Math.random() * 7,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            rot: Math.random() * Math.PI * 2,
+            vrot: (Math.random() - 0.5) * 0.25,
+            life: 1,
+            decay: 0.012 + Math.random() * 0.012,
+            shape: style === 'stars' ? 'star' : (i % 3 === 0 ? 'circle' : 'rect')
+          });
+        }
+        if (!animId) loop();
+      };
+
+      const drawStar = (x, y, r, color) => {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+          const a = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+          const px = x + Math.cos(a) * r;
+          const py = y + Math.sin(a) * r;
+          i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+      };
+
+      const loop = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles = particles.filter(p => p.life > 0);
+        for (const p of particles) {
+          p.x += p.vx; p.y += p.vy; p.vy += 0.22; p.vx *= 0.99;
+          p.rot += p.vrot; p.life -= p.decay;
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, p.life);
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+          if (p.shape === 'star') drawStar(0, 0, p.size, p.color);
+          else if (p.shape === 'circle') {
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(0, 0, p.size * 0.55, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            ctx.fillStyle = p.color;
+            ctx.fillRect(-p.size / 2, -p.size * 0.35, p.size, p.size * 0.7);
+          }
+          ctx.restore();
+        }
+        if (particles.length > 0) animId = requestAnimationFrame(loop);
+        else animId = null;
+      };
+
+      return {
+        celebrate(variant = 0) {
+          const cx = window.innerWidth / 2;
+          const cy = window.innerHeight / 2;
+          const style = variant % 2 === 0 ? 'confetti' : 'stars';
+          spawnBurst(cx, cy, 55, style);
+          setTimeout(() => spawnBurst(cx - 180, cy - 60, 26, 'stars'), 140);
+          setTimeout(() => spawnBurst(cx + 180, cy - 60, 26, 'confetti'), 240);
+        },
+        sparkleAt(el) {
+          const r = el.getBoundingClientRect();
+          spawnBurst(r.left + r.width / 2, r.top + r.height / 2, 18, 'stars');
+        }
+      };
+    })();
+
+    /* ==========================================================================
+       4. ПОВЕДІНКА ЖИВОГО ПЕРСОНАЖА (КОТА-ГАДЖЕТОМАНА)
+       ========================================================================== */
+    const Cat = (() => {
+      const wrap = document.getElementById('cat-companion');
+      const pupils = document.getElementById('cat-pupils');
+      const eyesNormal = document.getElementById('cat-eyes-normal');
+      const eyesHappy = document.getElementById('cat-eyes-happy');
+      const eyesOops = document.getElementById('cat-eyes-oops');
+      let moodTimer = null;
+
+      window.addEventListener('pointermove', (e) => {
+        const rect = wrap.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const dx = Math.max(-3.2, Math.min(3.2, (e.clientX - cx) / 90));
+        const dy = Math.max(-2.5, Math.min(2.5, (e.clientY - cy) / 90));
+        pupils.setAttribute('transform', `translate(${dx.toFixed(1)}, ${dy.toFixed(1)})`);
+      });
+
+      const resetMood = () => {
+        wrap.classList.remove('happy', 'oops', 'purr');
+        eyesNormal.style.display = 'inline';
+        eyesHappy.style.display = 'none';
+        eyesOops.style.display = 'none';
+      };
+
+      const setMood = (mood, duration = 1100) => {
+        clearTimeout(moodTimer);
+        resetMood();
+        void wrap.offsetWidth;
+        if (mood === 'happy' || mood === 'purr') {
+          eyesNormal.style.display = 'none';
+          eyesHappy.style.display = 'inline';
+          wrap.classList.add(mood);
+        } else if (mood === 'oops') {
+          eyesNormal.style.display = 'none';
+          eyesOops.style.display = 'inline';
+          wrap.classList.add('oops');
+        }
+        moodTimer = setTimeout(resetMood, duration);
+      };
+
+      wrap.addEventListener('click', () => {
+        SoundFX.purr();
+        setMood('purr', 850);
+        FX.sparkleAt(wrap);
+      });
+
+      return {
+        happy: () => setMood('happy', 1200),
+        oops: () => setMood('oops', 800)
+      };
+    })();
+
+    /* ==========================================================================
+       5. БІБЛІОТЕКА ДЕТАЛІЗОВАНИХ SVG-ІКОНОК ГАДЖЕТІВ ТА СИМВОЛІВ
+       ========================================================================== */
+    const Icons = {
+      phone(color = '#38bdf8', scale = 1) {
+        return `<g transform="scale(${scale})">
+          <rect x="-20" y="-34" width="40" height="68" rx="9" fill="#0f172a" stroke="#64748b" stroke-width="2.2"/>
+          <rect x="-16" y="-28" width="32" height="54" rx="5" fill="${color}"/>
+          <rect x="-6" y="-25" width="12" height="3" rx="1.5" fill="#0f172a"/>
+          <circle cx="0" cy="29.5" r="2.2" fill="#94a3b8"/>
+          <path d="M -14,-24 L 4,-24 L -14,6 Z" fill="#fff" opacity="0.22"/>
+        </g>`;
+      },
+      tablet(color = '#38bdf8', scale = 1) {
+        return `<g transform="scale(${scale})">
+          <rect x="-34" y="-25" width="68" height="50" rx="8" fill="#0f172a" stroke="#64748b" stroke-width="2.2"/>
+          <rect x="-28" y="-20" width="56" height="40" rx="4" fill="${color}"/>
+          <circle cx="-31" cy="0" r="1.8" fill="#38bdf8"/>
+          <path d="M -26,-18 L 6,-18 L -26,14 Z" fill="#fff" opacity="0.22"/>
+        </g>`;
+      },
+      laptop(color = '#38bdf8', scale = 1) {
+        return `<g transform="scale(${scale})">
+          <rect x="-32" y="-28" width="64" height="42" rx="5" fill="#1e293b" stroke="#94a3b8" stroke-width="2"/>
+          <rect x="-27" y="-23" width="54" height="32" rx="2.5" fill="${color}"/>
+          <path d="M -25,-21 L 4,-21 L -25,4 Z" fill="#fff" opacity="0.22"/>
+          <path d="M -40,14 L 40,14 L 34,23 L -34,23 Z" fill="#cbd5e1" stroke="#64748b" stroke-width="1.6"/>
+          <rect x="-10" y="16" width="20" height="3" rx="1.5" fill="#64748b"/>
+        </g>`;
+      },
+      watch(color = '#38bdf8', scale = 1) {
+        return `<g transform="scale(${scale})">
+          <rect x="-11" y="-36" width="22" height="72" rx="6" fill="#334155" stroke="#64748b" stroke-width="1.5"/>
+          <rect x="-19" y="-20" width="38" height="40" rx="10" fill="#0f172a" stroke="#94a3b8" stroke-width="2.2"/>
+          <rect x="-14" y="-15" width="28" height="30" rx="6" fill="${color}"/>
+          <rect x="19" y="-6" width="4" height="12" rx="2" fill="#cbd5e1"/>
+          <path d="M -12,-12 L 4,-12 L -12,6 Z" fill="#fff" opacity="0.25"/>
+        </g>`;
+      },
+      headphones(color = '#fb7185', scale = 1) {
+        return `<g transform="scale(${scale})">
+          <path d="M -24,6 C -24,-24 24,-24 24,6" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round"/>
+          <rect x="-30" y="2" width="12" height="22" rx="6" fill="#1e293b" stroke="${color}" stroke-width="2.5"/>
+          <rect x="18" y="2" width="12" height="22" rx="6" fill="#1e293b" stroke="${color}" stroke-width="2.5"/>
+        </g>`;
+      },
+      bolt(color = '#fb923c', scale = 1) {
+        return `<g transform="scale(${scale})">
+          <polygon points="4,-24 -16,4 -2,4 -6,24 16,-4 2,-4" fill="${color}" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/>
+        </g>`;
+      },
+      wifi(color = '#38bdf8') {
+        return `<g>
+          <path d="M -22,-6 Q 0,-26 22,-6" fill="none" stroke="${color}" stroke-width="5.5" stroke-linecap="round"/>
+          <path d="M -14,4 Q 0,-10 14,4" fill="none" stroke="${color}" stroke-width="5.5" stroke-linecap="round"/>
+          <circle cx="0" cy="15" r="5" fill="${color}"/>
+        </g>`;
+      },
+      battery(color = '#4ade80') {
+        return `<g>
+          <rect x="-24" y="-13" width="42" height="26" rx="5" fill="#0f172a" stroke="${color}" stroke-width="3.2"/>
+          <rect x="19" y="-6" width="6" height="12" rx="2" fill="${color}"/>
+          <rect x="-18" y="-7" width="10" height="14" rx="2" fill="${color}"/>
+          <rect x="-5" y="-7" width="10" height="14" rx="2" fill="${color}"/>
+          <rect x="8" y="-7" width="6" height="14" rx="2" fill="${color}"/>
+        </g>`;
+      },
+      gear(color = '#fbbf24') {
+        return `<g>
+          <circle cx="0" cy="0" r="15" fill="none" stroke="${color}" stroke-width="7" stroke-dasharray="7 5.5"/>
+          <circle cx="0" cy="0" r="11" fill="none" stroke="${color}" stroke-width="4.5"/>
+          <circle cx="0" cy="0" r="5" fill="#0f172a"/>
+        </g>`;
+      },
+      bell(color = '#c084fc') {
+        return `<g>
+          <path d="M 0,-20 C -13,-20 -16,-8 -16,4 L -21,12 L 21,12 L 16,4 C 16,-8 13,-20 0,-20 Z" fill="${color}"/>
+          <circle cx="0" cy="17" r="4.5" fill="#fde047"/>
+        </g>`;
+      },
+      key(color = '#fbbf24') {
+        return `<g>
+          <circle cx="-10" cy="0" r="9" fill="none" stroke="${color}" stroke-width="4.5"/>
+          <line x1="-1" y1="0" x2="20" y2="0" stroke="${color}" stroke-width="4.5" stroke-linecap="round"/>
+          <line x1="12" y1="0" x2="12" y2="8" stroke="${color}" stroke-width="4" stroke-linecap="round"/>
+          <line x1="18" y1="0" x2="18" y2="6" stroke="${color}" stroke-width="4" stroke-linecap="round"/>
+        </g>`;
+      },
+      // Малює 1, 2 або 3 фігури (для матриці Равена)
+      multiShape(kind, color, count) {
+        const one = (k) => {
+          if (k === 'circle') return `<circle cx="0" cy="0" r="12" fill="${color}" stroke="#fff" stroke-width="1.8" stroke-opacity="0.5"/>`;
+          if (k === 'square') return `<rect x="-11" y="-11" width="22" height="22" rx="4" fill="${color}" stroke="#fff" stroke-width="1.8" stroke-opacity="0.5"/>`;
+          return `<polygon points="0,-13 13,11 -13,11" fill="${color}" stroke="#fff" stroke-width="1.8" stroke-opacity="0.5" stroke-linejoin="round"/>`;
+        };
+        const positions = {
+          1: [[0, 0]],
+          2: [[-18, 0], [18, 0]],
+          3: [[0, -14], [-18, 13], [18, 13]]
+        }[count];
+        return positions.map(([px, py]) => `<g transform="translate(${px},${py})">${one(kind)}</g>`).join('');
+      },
+      arrow(dir, color = '#e2e8f0') {
+        const rot = { U: 0, R: 90, D: 180, L: 270 }[dir];
+        return `<g transform="rotate(${rot})"><path d="M 0,-12 L 10,4 L 4,4 L 4,12 L -4,12 L -4,4 L -10,4 Z" fill="${color}"/></g>`;
+      }
+    };
+
+    /* ==========================================================================
+       6. КЕРУВАННЯ ГРОЮ, МОДАЛКОЮ ІНФОРМАЦІЇ ТА ПЕРЕХОДАМИ МІЖ 15 РІВНЯМИ
+       ========================================================================== */
+    const gameArea = document.getElementById('game-area');
+    const tabletScreen = document.getElementById('tablet-screen');
+    const infoModal = document.getElementById('info-modal');
+    const infoModalText = document.getElementById('info-modal-text');
+    let currentLevel = 0;
+    let levelLocked = false;
+    let winCount = 0;
+
+    function openInfoModal() {
+      SoundFX.click();
+      infoModalText.textContent = LEVEL_HINTS[currentLevel];
+      infoModal.classList.add('open');
+    }
+    function closeInfoModal() {
+      infoModal.classList.remove('open');
+    }
+
+    document.getElementById('btn-info').addEventListener('click', openInfoModal);
+    document.getElementById('btn-info-close').addEventListener('click', (e) => {
+      e.stopPropagation(); SoundFX.click(); closeInfoModal();
+    });
+    infoModal.addEventListener('click', (e) => {
+      if (e.target === infoModal) { SoundFX.click(); closeInfoModal(); }
+    });
+
+    function handleWin() {
+      if (levelLocked) return;
+      levelLocked = true;
+      closeInfoModal();
+      winCount++;
+      SoundFX.win(winCount);
+      Cat.happy();
+      FX.celebrate(winCount);
+
+      tabletScreen.classList.remove('screen-win-flash');
+      void tabletScreen.offsetWidth;
+      tabletScreen.classList.add('screen-win-flash');
+
+      setTimeout(() => {
+        currentLevel = (currentLevel + 1) % LEVELS.length;
+        renderLevel();
+      }, 1550);
+    }
+
+    function handleWrong(el) {
+      SoundFX.wrong();
+      Cat.oops();
+      if (el) {
+        const target = el.querySelector ? (el.querySelector('.hit-inner') || el) : el;
+        target.classList.remove('shake-el');
+        void target.offsetWidth;
+        target.classList.add('shake-el');
+      }
+    }
+
+    function createSVG(innerHTML) {
+      return `<svg class="level-svg" viewBox="0 0 760 490">${innerHTML}</svg>`;
+    }
+
+    function tileRect(x, y, w, h, rx = 18, fill = '#1e293b', stroke = '#38bdf8') {
+      return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${fill}" stroke="${stroke}" stroke-width="2.5"/>`;
+    }
+
+    function svgNum(x, y, val, size = 32, col = '#f8fafc') {
+      return `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-family="Arial, sans-serif" font-weight="bold" font-size="${size}" fill="${col}">${val}</text>`;
+    }
+
+    /* ==========================================================================
+       7. 15 СКЛАДНИХ ТА ЦІКАВИХ ЛОГІЧНИХ ЗАВДАНЬ ДЛЯ 3–4 КЛАСУ
+       ========================================================================== */
+    const LEVELS = [
+
+      /* ------------------------------------------------------------------------
+         РІВЕНЬ 1: СЛІПИЙ МАРШРУТ НА СМАРТФОНІ (ПРОСТОРОВЕ МИСЛЕННЯ 4×4)
+         Старт: (0,0). Стрілки: → → ↓ ↓ ← ↓  ==> Фініш: (3,1)
+         ------------------------------------------------------------------------ */
+      function level1() {
+        const steps = ['R', 'R', 'D', 'D', 'L', 'D'];
+        const targetR = 3, targetC = 1;
+        const pathCoords = [[0,0],[0,1],[0,2],[1,2],[2,2],[2,1],[3,1]];
+
+        const cellXY = (r, c) => ({ x: 162 + c * 78, y: 120 + r * 82 });
+
+        gameArea.innerHTML = createSVG(`
+          <!-- Корпус смартфона -->
+          <rect x="104" y="34" width="350" height="422" rx="38" fill="#0f172a" stroke="#64748b" stroke-width="4"/>
+          <rect x="118" y="48" width="322" height="394" rx="28" fill="#172554" stroke="#38bdf8" stroke-width="1.5" stroke-opacity="0.4"/>
+          <rect x="244" y="60" width="70" height="7" rx="3.5" fill="#020617"/>
+
+          <!-- Сітка 4x4 -->
+          ${[0,1,2,3].map(r => [0,1,2,3].map(c => {
+            const { x, y } = cellXY(r, c);
+            const isStart = r === 0 && c === 0;
+            return `
+              <g class="clickable l1-cell" data-r="${r}" data-c="${c}" transform="translate(${x}, ${y})">
+                <g class="hit-inner">
+                  ${tileRect(-33, -34, 66, 68, 16, isStart ? '#064e3b' : '#1e293b', isStart ? '#4ade80' : '#475569')}
+                  ${isStart ? `<circle r="14" fill="#4ade80"/><circle r="6" fill="#dcfce7"/>` : `<circle r="6" fill="#334155"/>`}
+                </g>
+              </g>
+            `;
+          }).join('')).join('')}
+
+          <!-- Прихована лінія маршруту (з'явиться при перемозі) -->
+          <polyline id="l1-win-path" points="" fill="none" stroke="#4ade80" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+
+          <!-- Жовтий стікер із послідовністю кроків справа -->
+          <g transform="translate(595, 245) rotate(3)">
+            <rect x="-105" y="-165" width="210" height="330" rx="18" fill="#fbbf24" stroke="#d97706" stroke-width="3.5"/>
+            <rect x="-32" y="-176" width="64" height="22" rx="5" fill="#38bdf8" opacity="0.8"/>
+            <!-- Старт-мітка -->
+            <circle cx="0" cy="-125" r="14" fill="#16a34a" stroke="#fff" stroke-width="2.5"/>
+            <!-- 6 стрілок у 2 стовпчики по 3 -->
+            ${steps.map((dir, i) => {
+              const col = i % 2;
+              const row = Math.floor(i / 2);
+              const sx = col === 0 ? -42 : 42;
+              const sy = -58 + row * 82;
+              return `
+                <g transform="translate(${sx}, ${sy})">
+                  <rect x="-30" y="-28" width="60" height="56" rx="14" fill="#92400e"/>
+                  <text x="-20" y="-14" font-family="Arial, sans-serif" font-weight="bold" font-size="13" fill="#fde68a">${i + 1}</text>
+                  <g transform="translate(2, 4)">${Icons.arrow(dir, '#fef08a')}</g>
+                </g>
+              `;
+            }).join('')}
+          </g>
+        `);
+
+        gameArea.querySelectorAll('.l1-cell').forEach(cell => {
+          cell.addEventListener('click', () => {
+            if (levelLocked) return;
+            const r = Number(cell.dataset.r), c = Number(cell.dataset.c);
+            if (r === targetR && c === targetC) {
+              const pts = pathCoords.map(([pr, pc]) => {
+                const p = cellXY(pr, pc);
+                return `${p.x},${p.y}`;
+              }).join(' ');
+              gameArea.querySelector('#l1-win-path').setAttribute('points', pts);
+              handleWin();
+            } else {
+              handleWrong(cell);
+            }
+          });
+        });
+      },
+
+      /* ------------------------------------------------------------------------
+         РІВЕНЬ 2: МАГІЧНИЙ КВАДРАТ БАТАРЕЇ (СУМА В КОЖНОМУ РЯДКУ Й СТОВПЧИКУ = 15)
+         ------------------------------------------------------------------------ */
+      function level2() {
+        const solution = [
+          [2, 7, 6],
+          [9, 5, 1],
+          [4, 3, 8]
+        ];
+        const board = [
+          [2, null, 6],
+          [9, null, 1],
+          [4, 3, null]
+        ];
+        let active = [0, 1];
+        const options = [5, 6, 7, 8, 9];
+
+        const renderSquare = () => {
+          gameArea.innerHTML = createSVG(`
+            <!-- Індикатор цільової суми 15 зліва -->
+            <g transform="translate(115, 200)">
+              <rect x="-46" y="-68" width="92" height="136" rx="20" fill="#064e3b" stroke="#4ade80" stroke-width="3.5"/>
+              <rect x="-18" y="-82" width="36" height="14" rx="4" fill="#4ade80"/>
+              <g transform="translate(0, -32)">${Icons.bolt('#fbbf24', 0.85)}</g>
+              ${svgNum(0, 26, '15', 42, '#4ade80')}
+            </g>
+
+            <!-- Сітка 3x3 магічного квадрата -->
+            <rect x="208" y="34" width="344" height="314" rx="26" fill="#0f172a" stroke="#475569" stroke-width="3"/>
+            ${board.map((row, r) => row.map((val, c) => {
+              const x = 276 + c * 104;
+              const y = 94 + r * 96;
+              const isBlank = val === null;
+              const isSel = active && active[0] === r && active[1] === c;
+              return `
+                <g class="${isBlank ? 'clickable l2-cell' : ''}" data-r="${r}" data-c="${c}" transform="translate(${x}, ${y})">
+                  <g class="hit-inner">
+                    ${tileRect(-44, -40, 88, 80, 16, isSel ? '#1d4ed8' : (isBlank ? '#172554' : '#1e293b'), isSel ? '#7dd3fc' : '#475569')}
+                    ${val !== null
+                      ? svgNum(0, 0, val, 36, '#f8fafc')
+                      : `<circle r="14" class="pulse-glow" fill="none" stroke="#38bdf8" stroke-width="3.5" stroke-dasharray="6 5"/>`
+                    }
+                  </g>
+                </g>
+              `;
+            }).join('')).join('')}
+
+            <!-- Суми справа (15) для візуальної зрозумілості -->
+            ${[0,1,2].map(r => `
+              <g transform="translate(610, ${94 + r * 96})">
+                <rect x="-32" y="-22" width="64" height="44" rx="12" fill="#064e3b" stroke="#10b981" stroke-width="2"/>
+                ${svgNum(0, 0, '=15', 22, '#6ee7b7')}
+              </g>
+            `).join('')}
+
+            <!-- Панель вибору чисел знизу -->
+            <rect x="120" y="376" width="520" height="94" rx="24" fill="#0f172a" stroke="#38bdf8" stroke-width="2" stroke-opacity="0.5"/>
+            ${options.map((n, i) => `
+              <g class="clickable l2-pick" data-n="${n}" transform="translate(${184 + i * 98}, 423)">
+                <g class="hit-inner">
+                  ${tileRect(-38, -32, 76, 64, 16, '#1e293b', '#38bdf8')}
+                  ${svgNum(0, 0, n, 32, '#e0f2fe')}
+                </g>
+              </g>
+            `).join('')}
+          `);
+
+          gameArea.querySelectorAll('.l2-cell').forEach(cell => {
+            cell.addEventListener('click', () => {
+              if (levelLocked) return;
+              active = [Number(cell.dataset.r), Number(cell.dataset.c)];
+              SoundFX.click();
+              renderSquare();
+            });
+          });
+
+          gameArea.querySelectorAll('.l2-pick').forEach(btn => {
+            btn.addEventListener('click', () => {
+              if (levelLocked || !active) return;
+              const n = Number(btn.dataset.n);
+              const [r, c] = active;
+              if (n === solution[r][c]) {
+                board[r][c] = n;
+                SoundFX.step(2);
+                active = null;
+                for (let rr = 0; rr < 3; rr++) {
+                  for (let cc = 0; cc < 3; cc++) {
+                    if (board[rr][cc] === null) active = [rr, cc];
+                  }
+                }
+                renderSquare();
+                if (!active) handleWin();
+              } else {
+                handleWrong(btn);
+              }
+            });
+          });
+        };
+        renderSquare();
+      },
+
+      /* ------------------------------------------------------------------------
+         РІВЕНЬ 3: ДВІЙКОВИЙ КОД КОМП'ЮТЕРА (ВАГИ 8 - 4 - 2 - 1)
+         ------------------------------------------------------------------------ */
+      function level3() {
+        const weights = [8, 4, 2, 1];
+        const targets = [5, 11, 14];
+        const bits = [
+          [0, 0, 0, 0],
+          [0, 0, 0, 0],
+          [0, 0, 0, 0]
+        ];
+
+        const rowSum = (r) => bits[r].reduce((acc, b, i) => acc + b * weights[i], 0);
+
+        const renderBinary = () => {
+          const allOk = targets.every((t, r) => rowSum(r) === t);
+
+          gameArea.innerHTML = createSVG(`
+            <!-- Заголовки ваг (8, 4, 2, 1) -->
+            ${weights.map((w, c) => `
+              <g transform="translate(${172 + c * 108}, 64)">
+                <rect x="-36" y="-24" width="72" height="48" rx="14" fill="#172554" stroke="#38bdf8" stroke-width="2.5"/>
+                ${svgNum(0, 0, w, 28, '#7dd3fc')}
+              </g>
+            `).join('')}
+
+            <!-- 3 рядки бінарних перемикачів -->
+            ${targets.map((target, r) => {
+              const y = 166 + r * 116;
+              const sum = rowSum(r);
+              const ok = sum === target;
+              return `
+                <rect x="92" y="${y - 46}" width="596" height="92" rx="22" fill="${ok ? '#064e3b' : '#0f172a'}" stroke="${ok ? '#4ade80' : '#475569'}" stroke-width="2.5"/>
+                ${bits[r].map((b, c) => {
+                  const x = 172 + c * 108;
+                  return `
+                    <g class="clickable l3-bit" data-r="${r}" data-c="${c}" transform="translate(${x}, ${y})">
+                      <g class="hit-inner">
+                        ${tileRect(-38, -32, 76, 64, 16, b ? '#0284c7' : '#1e293b', b ? '#7dd3fc' : '#475569')}
+                        ${svgNum(0, 0, b ? '1' : '0', 30, b ? '#fff' : '#64748b')}
+                      </g>
+                    </g>
+                  `;
+                }).join('')}
+                <!-- Знак = та цільове число -->
+                <g transform="translate(566, ${y})">
+                  <rect x="-12" y="-7" width="24" height="5" rx="2.5" fill="#fbbf24"/>
+                  <rect x="-12" y="2" width="24" height="5" rx="2.5" fill="#fbbf24"/>
+                </g>
+                <g transform="translate(634, ${y})">
+                  <rect x="-36" y="-30" width="72" height="60" rx="16" fill="${ok ? '#15803d' : '#1e293b'}" stroke="${ok ? '#86efac' : '#fbbf24'}" stroke-width="3"/>
+                  ${svgNum(0, 0, target, 32, ok ? '#dcfce7' : '#fde047')}
+                </g>
+              `;
+            }).join('')}
+          `);
+
+          if (allOk) {
+            handleWin();
+            return;
+          }
+
+          gameArea.querySelectorAll('.l3-bit').forEach(btn => {
+            btn.addEventListener('click', () => {
+              if (levelLocked) return;
+              const r = Number(btn.dataset.r), c = Number(btn.dataset.c);
+              bits[r][c] = bits[r][c] ? 0 : 1;
+              SoundFX.rotate();
+              renderBinary();
+            });
+          });
+        };
+        renderBinary();
+      },
+
+      /* ------------------------------------------------------------------------
+         РІВЕНЬ 4: ПЕРЕМИКАЧІ СЕРВЕРНОЇ (ЗАЛЕЖНІ ТУМБЛЕРИ)
+         Старт: [1, 0, 1, 1]. Мета: [1, 1, 1, 1].
+         Рішення: натиснути перемикачі 1, 3 і 4 (S0, S2, S3) у будь-якому порядку!
+         ------------------------------------------------------------------------ */
+      function level4() {
+        const bulbs = [1, 0, 1, 1];
+        const links = [
+          { targets: [0, 1], color: '#38bdf8' },
+          { targets: [1, 2], color: '#c084fc' },
+          { targets: [2, 3], color: '#fbbf24' },
+          { targets: [0, 2, 3], color: '#fb7185' }
+        ];
+        const xs = [165, 308, 452, 595];
+
+        const renderServers = () => {
+          const allGreen = bulbs.every(b => b === 1);
+
+          gameArea.innerHTML = createSVG(`
+            <!-- Кольорові дроти від перемикачів до серверів -->
+            ${links.map((sw, si) => sw.targets.map(bi => {
+              const x1 = xs[si], y1 = 360;
+              const x2 = xs[bi] + (si - 1.5) * 8, y2 = 160;
+              return `<path d="M ${x1},${y1} C ${x1},255 ${x2},265 ${x2},${y2}" fill="none" stroke="${sw.color}" stroke-width="5.5" stroke-linecap="round" opacity="0.78"/>`;
+            }).join('')).join('')}
+
+            <!-- 4 сервери зверху -->
+            ${bulbs.map((on, i) => `
+              <g transform="translate(${xs[i]}, 105)">
+                <rect x="-46" y="-56" width="92" height="112" rx="18" fill="#0f172a" stroke="${on ? '#4ade80' : '#ef4444'}" stroke-width="3.5"/>
+                <rect x="-32" y="-38" width="64" height="14" rx="4" fill="#1e293b"/>
+                <rect x="-32" y="-16" width="64" height="14" rx="4" fill="#1e293b"/>
+                <circle cx="0" cy="24" r="18" fill="${on ? '#22c55e' : '#dc2626'}" stroke="${on ? '#bbf7d0' : '#fca5a5'}" stroke-width="3"/>
+                <circle cx="-5" cy="18" r="5" fill="#fff" opacity="0.4"/>
+              </g>
+            `).join('')}
+
+            <!-- 4 клікабельні перемикачі знизу -->
+            ${links.map((sw, i) => `
+              <g class="clickable l4-sw" data-i="${i}" transform="translate(${xs[i]}, 398)">
+                <g class="hit-inner">
+                  ${tileRect(-44, -40, 88, 80, 20, '#1e293b', sw.color)}
+                  <circle cx="0" cy="0" r="20" fill="${sw.color}" opacity="0.25"/>
+                  <path d="M 0,-12 L 0,2 M -10,-6 A 13 13 0 1 0 10,-6" fill="none" stroke="${sw.color}" stroke-width="4" stroke-linecap="round"/>
+                </g>
+              </g>
+            `).join('')}
+          `);
+
+          if (allGreen) {
+            handleWin();
+            return;
+          }
+
+          gameArea.querySelectorAll('.l4-sw').forEach(btn => {
+            btn.addEventListener('click', () => {
+              if (levelLocked) return;
+              const idx = Number(btn.dataset.i);
+              links[idx].targets.forEach(b => bulbs[b] = bulbs[b] ? 0 : 1);
+              SoundFX.rotate();
+              renderServers();
+            });
+          });
+        };
+        renderServers();
+      },
+
+      /* ------------------------------------------------------------------------
+         РІВЕНЬ 5: ЗЛАМ 3-ЗНАЧНОГО PIN-КОДУ (БИКИ ТА КОРОВИ)
+         Секрет: 1 - 5 - 4 (100% однозначна дедукція з 4 підказок!)
+         ------------------------------------------------------------------------ */
+      function level5() {
+        const secret = '154';
+        let input = [];
+        // Підказки: [цифри, зелені(точне місце), жовті(не на місці)]
+        const clues = [
+          { digits: [7, 5, 8], g: 1, y: 0 },
+          { digits: [6, 8, 4], g: 1, y: 0 },
+          { digits: [8, 1, 2], g: 0, y: 1 },
+          { digits: [2, 6, 8], g: 0, y: 0 }
+        ];
+
+        const renderPin = () => {
+          gameArea.innerHTML = createSVG(`
+            <!-- Панель підказок зліва -->
+            <rect x="64" y="48" width="328" height="394" rx="28" fill="#0f172a" stroke="#475569" stroke-width="3"/>
+            ${clues.map((cl, i) => {
+              const y = 108 + i * 90;
+              const dots = [];
+              for (let k = 0; k < cl.g; k++) dots.push('#4ade80');
+              for (let k = 0; k < cl.y; k++) dots.push('#fbbf24');
+              while (dots.length < 3) dots.push('#1e293b');
+              return `
+                <g transform="translate(86, ${y})">
+                  ${cl.digits.map((d, di) => `
+                    <g transform="translate(${28 + di * 64}, 0)">
+                      ${tileRect(-26, -28, 52, 56, 12, '#1e293b', '#64748b')}
+                      ${svgNum(0, 0, d, 28, '#f8fafc')}
+                    </g>
+                  `).join('')}
+                  <!-- 3 індикатори результату -->
+                  <g transform="translate(235, 0)">
+                    ${dots.map((col, di) => `
+                      <circle cx="${di * 24}" cy="0" r="8.5" fill="${col}" stroke="#475569" stroke-width="2"/>
+                    `).join('')}
+                  </g>
+                </g>
+              `;
+            }).join('')}
+
+            <!-- Смартфон з клавіатурою справа -->
+            <rect x="430" y="34" width="276" height="422" rx="36" fill="#0f172a" stroke="#38bdf8" stroke-width="3.5"/>
+            <!-- 3 слоти вводу PIN -->
+            ${[0, 1, 2].map(i => `
+              <g transform="translate(${492 + i * 76}, 98)">
+                ${tileRect(-28, -32, 56, 64, 14, '#172554', input[i] ? '#4ade80' : '#38bdf8')}
+                ${input[i] ? svgNum(0, 0, input[i], 32, '#4ade80') : `<circle r="6" fill="#38bdf8" opacity="0.4"/>`}
+              </g>
+            `).join('')}
+
+            <!-- Цифрова клавіатура 1–9 -->
+            ${[1,2,3,4,5,6,7,8,9].map((d, idx) => {
+              const r = Math.floor(idx / 3);
+              const c = idx % 3;
+              const x = 492 + c * 76;
+              const y = 190 + r * 74;
+              return `
+                <g class="clickable l5-key" data-d="${d}" transform="translate(${x}, ${y})">
+                  <g class="hit-inner">
+                    ${tileRect(-30, -28, 60, 56, 16, '#1e293b', '#64748b')}
+                    ${svgNum(0, 0, d, 26, '#e2e8f0')}
+                  </g>
+                </g>
+              `;
+            }).join('')}
+
+            <!-- Кнопка стерти -->
+            <g class="clickable" id="l5-del" transform="translate(568, 412)">
+              <g class="hit-inner">
+                ${tileRect(-64, -22, 128, 44, 14, '#450a0a', '#f87171')}
+                <path d="M -14,0 L -4,-10 L 16,-10 L 16,10 L -4,10 Z" fill="none" stroke="#fca5a5" stroke-width="2.5" stroke-linejoin="round"/>
+                <path d="M 2,-5 L 10,5 M 10,-5 L 2,5" stroke="#fca5a5" stroke-width="2.5" stroke-linecap="round"/>
+              </g>
+            </g>
+          `);
+
+          gameArea.querySelectorAll('.l5-key').forEach(btn => {
+            btn.addEventListener('click', () => {
+              if (levelLocked || input.length >= 3) return;
+              input.push(btn.dataset.d);
+              SoundFX.step(input.length);
+              renderPin();
+
+              if (input.length === 3) {
+                if (input.join('') === secret) {
+                  handleWin();
+                } else {
+                  setTimeout(() => {
+                    handleWrong(gameArea);
+                    input = [];
+                    renderPin();
+                  }, 320);
+                }
+              }
+            });
+          });
+
+          gameArea.querySelector('#l5-del').addEventListener('click', () => {
+            if (levelLocked || input.length === 0) return;
+            input.pop();
+            SoundFX.rotate();
+            renderPin();
+          });
+        };
+        renderPin();
+      },
+
+      /* ------------------------------------------------------------------------
+         РІВЕНЬ 6: ХМАРНА АЛГЕБРА (СИСТЕМА З 3 РІВНЯНЬ)
+         Ноут + Ноут + Тел = 17; Ноут + Тел = 10 => Ноут=7, Тел=3.
+         Тел + Планш + Планш = 19 => Планш=8. Ноут + Планш = 15!
+         ------------------------------------------------------------------------ */
+      function level6() {
+        const plus = (x, y) => `<g transform="translate(${x},${y})"><rect x="-10" y="-3" width="20" height="6" rx="3" fill="#94a3b8"/><rect x="-3" y="-10" width="6" height="20" rx="3" fill="#94a3b8"/></g>`;
+        const eq = (x, y) => `<g transform="translate(${x},${y})"><rect x="-11" y="-7" width="22" height="5" rx="2.5" fill="#fbbf24"/><rect x="-11" y="2" width="22" height="5" rx="2.5" fill="#fbbf24"/></g>`;
+
+        gameArea.innerHTML = createSVG(`
+          <!-- Рівняння 1 -->
+          <rect x="82" y="18" width="596" height="76" rx="20" fill="#1e293b" stroke="#475569" stroke-width="2"/>
+          <g transform="translate(155, 56)">${Icons.laptop('#38bdf8', 0.85)}</g>
+          ${plus(220, 56)}
+          <g transform="translate(285, 56)">${Icons.laptop('#38bdf8', 0.85)}</g>
+          ${plus(350, 56)}
+          <g transform="translate(410, 56)">${Icons.phone('#4ade80', 0.8)}</g>
+          ${eq(482, 56)}
+          ${svgNum(565, 56, '17', 34, '#38bdf8')}
+
+          <!-- Рівняння 2 -->
+          <rect x="82" y="106" width="596" height="76" rx="20" fill="#1e293b" stroke="#475569" stroke-width="2"/>
+          <g transform="translate(220, 144)">${Icons.laptop('#38bdf8', 0.85)}</g>
+          ${plus(310, 144)}
+          <g transform="translate(390, 144)">${Icons.phone('#4ade80', 0.8)}</g>
+          ${eq(482, 144)}
+          ${svgNum(565, 144, '10', 34, '#4ade80')}
+
+          <!-- Рівняння 3 -->
+          <rect x="82" y="194" width="596" height="76" rx="20" fill="#1e293b" stroke="#475569" stroke-width="2"/>
+          <g transform="translate(150, 232)">${Icons.phone('#4ade80', 0.8)}</g>
+          ${plus(214, 232)}
+          <g transform="translate(285, 232)">${Icons.tablet('#c084fc', 0.85)}</g>
+          ${plus(356, 232)}
+          <g transform="translate(425, 232)">${Icons.tablet('#c084fc', 0.85)}</g>
+          ${eq(498, 232)}
+          ${svgNum(575, 232, '19', 34, '#c084fc')}
+
+          <!-- Запитання -->
+          <rect x="82" y="284" width="596" height="82" rx="22" fill="#172554" stroke="#38bdf8" stroke-width="3"/>
+          <g transform="translate(225, 325)">${Icons.laptop('#38bdf8', 0.9)}</g>
+          ${plus(315, 325)}
+          <g transform="translate(405, 325)">${Icons.tablet('#c084fc', 0.9)}</g>
+          ${eq(492, 325)}
+          <g id="l6-slot" transform="translate(575, 325)">
+            <circle r="22" class="pulse-glow" fill="none" stroke="#38bdf8" stroke-width="4" stroke-dasharray="7 5"/>
+          </g>
+
+          <!-- Кнопки відповідей -->
+          ${[13, 15, 16, 18].map((val, i) => `
+            <g class="clickable l6-btn" data-val="${val}" transform="translate(${190 + i * 126}, 426)">
+              <g class="hit-inner">
+                ${tileRect(-48, -34, 96, 68, 18, '#0f172a', '#38bdf8')}
+                ${svgNum(0, 0, val, 32, '#e2e8f0')}
+              </g>
+            </g>
+          `).join('')}
+        `);
+
+        gameArea.querySelectorAll('.l6-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            if (levelLocked) return;
+            if (Number(btn.dataset.val) === 15) {
+              gameArea.querySelector('#l6-slot').innerHTML = svgNum(0, 0, '15', 36, '#4ade80');
+              handleWin();
+            } else {
+              handleWrong(btn);
+            }
+          });
+        });
+      },
+
+      /* ------------------------------------------------------------------------
+         РІВЕНЬ 7: СУПЕР-МЕРЕЖА WI-FI 4×4 (РОЗГАЛУЖЕННЯ НА 2 ГАДЖЕТИ!)
+         ------------------------------------------------------------------------ */
+      function level7() {
+        // Типи плиток: S (верх+низ), E (верх+право), T (верх+право+низ)
+        const grid = [
+          [ { type: 'E', rot: 90 },  { type: 'E', rot: 180 }, { type: 'S', rot: 0 },   { type: 'S', rot: 0 } ],
+          [ { type: 'S', rot: 0 },   { type: 'T', rot: 0 },   { type: 'E', rot: 0 },   { type: 'S', rot: 90 } ],
+          [ { type: 'S', rot: 90 },  { type: 'S', rot: 90 },  { type: 'E', rot: 270 }, { type: 'E', rot: 90 } ],
+          [ { type: 'E', rot: 0 },   { type: 'E', rot: 90 },  { type: 'S', rot: 0 },   { type: 'S', rot: 0 } ]
+        ];
+
+        const getPorts = (tile) => {
+          let base = tile.type === 'S' ? [1, 0, 1, 0] : (tile.type === 'E' ? [1, 1, 0, 0] : [1, 1, 1, 0]);
+          const steps = ((tile.rot / 90) % 4 + 4) % 4;
+          for (let s = 0; s < steps; s++) base = [base[3], base[0], base[1], base[2]];
+          return base;
+        };
+
+        const computePowered = () => {
+          const powered = Array.from({ length: 4 }, () => [false, false, false, false]);
+          const q = [];
+          if (getPorts(grid[1][0])[3]) {
+            powered[1][0] = true;
+            q.push([1, 0]);
+          }
+          const dirs = [[-1, 0, 0, 2], [0, 1, 1, 3], [1, 0, 2, 0], [0, -1, 3, 1]];
+          while (q.length) {
+            const [r, c] = q.shift();
+            const p = getPorts(grid[r][c]);
+            for (const [dr, dc, side, opp] of dirs) {
+              const nr = r + dr, nc = c + dc;
+              if (nr >= 0 && nr < 4 && nc >= 0 && nc < 4 && !powered[nr][nc]) {
+                if (p[side] && getPorts(grid[nr][nc])[opp]) {
+                  powered[nr][nc] = true;
+                  q.push([nr, nc]);
+                }
+              }
+            }
+          }
+          const winPhone = powered[0][3] && getPorts(grid[0][3])[1];
+          const winLaptop = powered[3][3] && getPorts(grid[3][3])[1];
+          return { powered, winPhone, winLaptop };
+        };
+
+        const renderBoard = () => {
+          const { powered, winPhone, winLaptop } = computePowered();
+          gameArea.innerHTML = createSVG(`
+            <!-- Плата 4×4 -->
+            <rect x="180" y="28" width="400" height="434" rx="26" fill="#064e3b" stroke="#10b981" stroke-width="3.5"/>
+
+            <!-- Роутер Wi-Fi зліва на рівні рядка 1 -->
+            <g transform="translate(88, 193)">
+              <rect x="-42" y="-42" width="84" height="84" rx="18" fill="#0f172a" stroke="#38bdf8" stroke-width="3"/>
+              ${Icons.wifi('#38bdf8')}
+              <line x1="42" y1="0" x2="104" y2="0" stroke="#38bdf8" stroke-width="11"/>
+            </g>
+
+            <!-- Смартфон справа зверху (рядок 0) -->
+            <g transform="translate(672, 91)">
+              <line x1="-104" y1="0" x2="-30" y2="0" stroke="${winPhone ? '#4ade80' : '#334155'}" stroke-width="11"/>
+              ${Icons.phone(winPhone ? '#4ade80' : '#1e293b', 1.25)}
+            </g>
+
+            <!-- Ноутбук справа знизу (рядок 3) -->
+            <g transform="translate(672, 397)">
+              <line x1="-104" y1="0" x2="-40" y2="0" stroke="${winLaptop ? '#4ade80' : '#334155'}" stroke-width="11"/>
+              ${Icons.laptop(winLaptop ? '#4ade80' : '#1e293b', 1.15)}
+            </g>
+
+            <!-- 16 плиток -->
+            ${grid.map((row, r) => row.map((tile, c) => {
+              const x = 236 + c * 96;
+              const y = 91 + r * 102;
+              const on = powered[r][c];
+              const col = on ? '#38bdf8' : '#64748b';
+              let pipe = '';
+              if (tile.type === 'S') pipe = `<line x1="0" y1="-44" x2="0" y2="44" stroke="${col}" stroke-width="14" stroke-linecap="round"/>`;
+              else if (tile.type === 'E') pipe = `<path d="M 0,-44 L 0,0 L 44,0" fill="none" stroke="${col}" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>`;
+              else pipe = `<path d="M 0,-44 L 0,44 M 0,0 L 44,0" fill="none" stroke="${col}" stroke-width="14" stroke-linecap="round"/>`;
+              return `
+                <g class="clickable l7-tile" data-r="${r}" data-c="${c}" transform="translate(${x}, ${y})">
+                  <g class="hit-inner">
+                    <rect x="-44" y="-45" width="88" height="90" rx="14" fill="#022c22" stroke="${on ? '#38bdf8' : '#059669'}" stroke-width="2.2"/>
+                    <g transform="rotate(${tile.rot})">
+                      ${pipe}
+                      <circle cx="0" cy="0" r="7" fill="${on ? '#e0f2fe' : '#94a3b8'}"/>
+                    </g>
+                  </g>
+                </g>
+              `;
+            }).join('')).join('')}
+          `);
+
+          if (winPhone && winLaptop) {
+            handleWin();
+            return;
+          }
+
+          gameArea.querySelectorAll('.l7-tile').forEach(el => {
+            el.addEventListener('click', () => {
+              if (levelLocked) return;
+              const r = Number(el.dataset.r), c = Number(el.dataset.c);
+              grid[r][c].rot = (grid[r][c].rot + 90) % 360;
+              SoundFX.rotate();
+              renderBoard();
+            });
+          });
+        };
+        renderBoard();
+      },
+
+      /* ------------------------------------------------------------------------
+         РІВЕНЬ 8: ДІАГРАМА ВЕННА (СОРТУВАННЯ ГАДЖЕТІВ ЗА 2 ОЗНАКАМИ)
+         Ліворуч: Блакитні | Праворуч: Смартфони | Центр: Блакитний смартфон | Назовні: Інше
+         ------------------------------------------------------------------------ */
+      function level8() {
+        const items = [
+          { id: 0, html: Icons.laptop('#38bdf8', 0.95), zone: 'left' },
+          { id: 1, html: Icons.phone('#fb7185', 0.95), zone: 'right' },
+          { id: 2, html: Icons.phone('#38bdf8', 0.95), zone: 'mid' },
+          { id: 3, html: Icons.tablet('#4ade80', 0.95), zone: 'out' }
+        ];
+        let step = 0;
+        const placed = { left: null, mid: null, right: null, out: null };
+
+        const renderVenn = () => {
+          const cur = items[step];
+          gameArea.innerHTML = createSVG(`
+            <!-- Ліве коло: ознака БЛАКИТНИЙ КОЛІР -->
+            <circle cx="275" cy="215" r="142" fill="#0284c7" fill-opacity="0.22" stroke="#38bdf8" stroke-width="4"/>
+            <rect x="195" y="42" width="46" height="32" rx="10" fill="#38bdf8" stroke="#fff" stroke-width="2"/>
+
+            <!-- Праве коло: ознака СМАРТФОН -->
+            <circle cx="445" cy="215" r="142" fill="#e11d48" fill-opacity="0.2" stroke="#fb7185" stroke-width="4"/>
+            <g transform="translate(515, 58) scale(0.55)">${Icons.phone('#94a3b8')}</g>
+
+            <!-- 4 чіткі інтерактивні слоти-зони -->
+            ${[
+              { key: 'left',  x: 205, y: 215, stroke: '#38bdf8' },
+              { key: 'mid',   x: 360, y: 215, stroke: '#c084fc' },
+              { key: 'right', x: 515, y: 215, stroke: '#fb7185' },
+              { key: 'out',   x: 668, y: 215, stroke: '#4ade80' }
+            ].map(z => `
+              <g class="clickable l8-zone" data-zone="${z.key}" transform="translate(${z.x}, ${z.y})">
+                <g class="hit-inner">
+                  <rect x="-46" y="-46" width="92" height="92" rx="20"
+                        fill="${placed[z.key] ? '#0f172a' : 'rgba(15,23,42,0.72)'}"
+                        stroke="${z.stroke}" stroke-width="${placed[z.key] ? 3.5 : 2.5}"
+                        stroke-dasharray="${placed[z.key] ? 'none' : '7 5'}"/>
+                  ${placed[z.key] ? placed[z.key] : ''}
+                </g>
+              </g>
+            `).join('')}
+
+            <!-- Активний гаджет знизу, який треба розсортувати -->
+            ${cur ? `
+              <rect x="270" y="376" width="220" height="96" rx="24" fill="#172554" stroke="#fbbf24" stroke-width="3.5"/>
+              <g transform="translate(380, 424)">${cur.html}</g>
+            ` : ''}
+          `);
+
+          gameArea.querySelectorAll('.l8-zone').forEach(zEl => {
+            zEl.addEventListener('click', () => {
+              if (levelLocked || !cur) return;
+              const z = zEl.dataset.zone;
+              if (z === cur.zone) {
+                placed[z] = cur.html;
+                SoundFX.step(step + 1);
+                FX.sparkleAt(zEl);
+                step++;
+                renderVenn();
+                if (step >= items.length) handleWin();
+              } else {
+                handleWrong(zEl);
+              }
+            });
+          });
+        };
+        renderVenn();
+      },
+
+      /* ------------------------------------------------------------------------
+         РІВЕНЬ 9: ЧИСЛОВА ПОСЛІДОВНІСТЬ ПРОЦЕСОРА
+         2 (+2) 4 (+4) 8 (+6) 14 (+8) 22 (+10) -> 32!
+         ------------------------------------------------------------------------ */
+      function level9() {
+        const seq = [2, 4, 8, 14, 22];
+        const choices = [28, 30, 32, 36];
+
+        gameArea.innerHTML = createSVG(`
+          <!-- Материнська шина -->
+          <rect x="52" y="102" width="656" height="164" rx="28" fill="#0f172a" stroke="#38bdf8" stroke-width="3"/>
+          <line x1="90" y1="184" x2="670" y2="184" stroke="#1d4ed8" stroke-width="10"/>
+
+          <!-- 5 мікросхем з числами -->
+          ${seq.map((n, i) => `
+            <g transform="translate(${116 + i * 104}, 184)">
+              <rect x="-38" y="-44" width="76" height="88" rx="16" fill="#1e293b" stroke="#38bdf8" stroke-width="2.5"/>
+              <line x1="-22" y1="-52" x2="-22" y2="-44" stroke="#94a3b8" stroke-width="5"/>
+              <line x1="0" y1="-52" x2="0" y2="-44" stroke="#94a3b8" stroke-width="5"/>
+              <line x1="22" y1="-52" x2="22" y2="-44" stroke="#94a3b8" stroke-width="5"/>
+              <line x1="-22" y1="44" x2="-22" y2="52" stroke="#94a3b8" stroke-width="5"/>
+              <line x1="0" y1="44" x2="0" y2="52" stroke="#94a3b8" stroke-width="5"/>
+              <line x1="22" y1="44" x2="22" y2="52" stroke="#94a3b8" stroke-width="5"/>
+              ${svgNum(0, 0, n, 32, '#7dd3fc')}
+            </g>
+          `).join('')}
+
+          <!-- Порожній слот мікросхеми -->
+          <g id="l9-slot" transform="translate(636, 184)">
+            <rect x="-38" y="-44" width="76" height="88" rx="16" fill="#172554" stroke="#fbbf24" stroke-width="3.5"/>
+            <circle r="16" class="pulse-glow" fill="none" stroke="#fbbf24" stroke-width="4" stroke-dasharray="7 5"/>
+          </g>
+
+          <!-- Варіанти відповідей знизу -->
+          ${choices.map((val, i) => `
+            <g class="clickable l9-btn" data-val="${val}" transform="translate(${175 + i * 136}, 372)">
+              <g class="hit-inner">
+                ${tileRect(-52, -40, 104, 80, 20, '#1e293b', '#64748b')}
+                ${svgNum(0, 0, val, 34, '#f8fafc')}
+              </g>
+            </g>
+          `).join('')}
+        `);
+
+        gameArea.querySelectorAll('.l9-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            if (levelLocked) return;
+            if (Number(btn.dataset.val) === 32) {
+              gameArea.querySelector('#l9-slot').innerHTML = `
+                <rect x="-38" y="-44" width="76" height="88" rx="16" fill="#064e3b" stroke="#4ade80" stroke-width="3.5"/>
+                ${svgNum(0, 0, '32', 34, '#4ade80')}
+              `;
+              handleWin();
+            } else {
+              handleWrong(btn);
+            }
+          });
+        });
+      },
+
+      /* ------------------------------------------------------------------------
+         РІВЕНЬ 10: ПРОГРАМУВАННЯ КУРСОРА 5×5 З КЛЮЧЕМ ТА ЗАКРИТОЮ ПАПКОЮ
+         Старт: (4,0) -> Ключ: (1,1) -> Папка: (0,4)
+         ------------------------------------------------------------------------ */
+      function level10() {
+        const start = { r: 4, c: 0 };
+        const keyPos = { r: 1, c: 1 };
+        const goal = { r: 0, c: 4 };
+        const walls = new Set(['4,1', '2,0', '2,2', '2,3', '0,2']);
+        let cmds = [];
+        let cursor = { ...start };
+        let hasKey = false;
+        let running = false;
+
+        const renderGrid = () => {
+          gameArea.innerHTML = createSVG(`
+            <!-- Сітка 5x5 -->
+            <rect x="195" y="10" width="370" height="320" rx="22" fill="#0f172a" stroke="#475569" stroke-width="3"/>
+            ${[0,1,2,3,4].map(r => [0,1,2,3,4].map(c => {
+              const x = 240 + c * 70;
+              const y = 48 + r * 61;
+              const isWall = walls.has(`${r},${c}`);
+              const isKey = !hasKey && r === keyPos.r && c === keyPos.c;
+              const isGoal = r === goal.r && c === goal.c;
+              const isCur = r === cursor.r && c === cursor.c;
+              return `
+                <g transform="translate(${x}, ${y})">
+                  ${tileRect(-30, -26, 60, 52, 10, isWall ? '#450a0a' : '#1e293b', isWall ? '#ef4444' : '#334155')}
+                  ${isWall ? `<path d="M -11,-11 L 11,11 M 11,-11 L -11,11" stroke="#f87171" stroke-width="5" stroke-linecap="round"/>` : ''}
+                  ${isKey ? `<g transform="scale(0.85)">${Icons.key('#fbbf24')}</g>` : ''}
+                  ${isGoal ? `
+                    <g>
+                      <path d="M -18,-10 L -5,-10 L -2,-5 L 18,-5 L 18,14 L -18,14 Z" fill="${hasKey ? '#fbbf24' : '#64748b'}" stroke="${hasKey ? '#fef08a' : '#94a3b8'}" stroke-width="2"/>
+                      ${!hasKey ? `<rect x="-6" y="-1" width="12" height="10" rx="2" fill="#0f172a"/><path d="M -3,-1 L -3,-5 A 3 3 0 0 1 3,-5 L 3,-1" fill="none" stroke="#0f172a" stroke-width="2"/>` : ''}
+                    </g>
+                  ` : ''}
+                  ${isCur ? `<polygon points="-8,-14 12,2 2,4 7,14 2,16 -3,5 -8,10" fill="${hasKey ? '#4ade80' : '#38bdf8'}" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/>` : ''}
+                </g>
+              `;
+            }).join('')).join('')}
+
+            <!-- Стрічка команд (до 14 кроків) -->
+            <rect x="44" y="342" width="672" height="46" rx="14" fill="#0f172a" stroke="#38bdf8" stroke-width="2" stroke-opacity="0.5"/>
+            ${cmds.map((d, i) => `
+              <g transform="translate(${74 + i * 46}, 365) scale(0.72)">
+                <rect x="-22" y="-22" width="44" height="44" rx="10" fill="#1e3a8a"/>
+                ${Icons.arrow(d, '#7dd3fc')}
+              </g>
+            `).join('')}
+
+            <!-- Кнопки керування -->
+            ${['L', 'U', 'D', 'R'].map((d, i) => `
+              <g class="clickable l10-dir" data-d="${d}" transform="translate(${146 + i * 74}, 436)">
+                <g class="hit-inner">
+                  ${tileRect(-29, -27, 58, 54, 15, '#1e293b', '#38bdf8')}
+                  ${Icons.arrow(d, '#38bdf8')}
+                </g>
+              </g>
+            `).join('')}
+
+            <!-- Видалити останню команду -->
+            <g class="clickable" id="l10-back" transform="translate(462, 436)">
+              <g class="hit-inner">
+                ${tileRect(-29, -27, 58, 54, 15, '#451a03', '#fbbf24')}
+                <path d="M -12,0 L -2,-10 L 14,-10 L 14,10 L -2,10 Z" fill="none" stroke="#fde047" stroke-width="2.5"/>
+              </g>
+            </g>
+
+            <!-- Очистити все -->
+            <g class="clickable" id="l10-clear" transform="translate(536, 436)">
+              <g class="hit-inner">
+                ${tileRect(-29, -27, 58, 54, 15, '#450a0a', '#fb7185')}
+                <path d="M 8,-8 A 11 11 0 1 0 10,6" fill="none" stroke="#fda4af" stroke-width="3.8" stroke-linecap="round"/>
+                <polygon points="11,-13 13,-2 2,-6" fill="#fda4af"/>
+              </g>
+            </g>
+
+            <!-- Пуск -->
+            <g class="clickable" id="l10-play" transform="translate(616, 436)">
+              <g class="hit-inner">
+                ${tileRect(-34, -27, 68, 54, 15, '#064e3b', '#4ade80')}
+                <polygon points="-8,-12 14,0 -8,12" fill="#4ade80"/>
+              </g>
+            </g>
+          `);
+
+          gameArea.querySelectorAll('.l10-dir').forEach(btn => {
+            btn.addEventListener('click', () => {
+              if (running || levelLocked || cmds.length >= 14) return;
+              cmds.push(btn.dataset.d);
+              SoundFX.click();
+              renderGrid();
+            });
+          });
+
+          gameArea.querySelector('#l10-back').addEventListener('click', () => {
+            if (running || levelLocked || cmds.length === 0) return;
+            cmds.pop();
+            SoundFX.rotate();
+            renderGrid();
+          });
+
+          gameArea.querySelector('#l10-clear').addEventListener('click', () => {
+            if (running || levelLocked) return;
+            cmds = []; cursor = { ...start }; hasKey = false;
+            SoundFX.rotate();
+            renderGrid();
+          });
+
+          gameArea.querySelector('#l10-play').addEventListener('click', () => {
+            if (running || levelLocked || cmds.length === 0) return;
+            running = true;
+            cursor = { ...start };
+            hasKey = false;
+            let idx = 0;
+
+            const resetFail = () => {
+              running = false;
+              handleWrong(gameArea);
+              cursor = { ...start };
+              hasKey = false;
+              setTimeout(renderGrid, 450);
+            };
+
+            const tick = () => {
+              if (idx >= cmds.length) {
+                if (hasKey && cursor.r === goal.r && cursor.c === goal.c) {
+                  running = false; handleWin();
+                } else {
+                  resetFail();
+                }
+                return;
+              }
+              const d = cmds[idx++];
+              const nr = cursor.r + (d === 'U' ? -1 : d === 'D' ? 1 : 0);
+              const nc = cursor.c + (d === 'L' ? -1 : d === 'R' ? 1 : 0);
+
+              if (nr < 0 || nr > 4 || nc < 0 || nc > 4 || walls.has(`${nr},${nc}`)) {
+                resetFail(); return;
+              }
+              cursor = { r: nr, c: nc };
+              if (!hasKey && cursor.r === keyPos.r && cursor.c === keyPos.c) {
+                hasKey = true;
+                SoundFX.keyPickup();
+              } else {
+                SoundFX.step(idx);
+              }
+              renderGrid();
+              if (hasKey && cursor.r === goal.r && cursor.c === goal.c) {
+                running = false; handleWin(); return;
+              }
+              setTimeout(tick, 240);
+            };
+            tick();
+          });
+        };
+        renderGrid();
+      },
+
+      /* ------------------------------------------------------------------------
+         РІВЕНЬ 11: ПОВНОЦІННЕ ТЕХНО-СУДОКУ 4×4 (7 ПОРОЖНІХ КЛІТИНОК + БЛОКИ 2×2)
+         ------------------------------------------------------------------------ */
+      function level11() {
+        const solution = [
+          [0, 1, 2, 3],
+          [2, 3, 0, 1],
+          [1, 0, 3, 2],
+          [3, 2, 1, 0]
+        ];
+        const board = [
+          [0, null, 2, null],
+          [null, 3, null, 1],
+          [1, null, 3, null],
+          [null, 2, null, 0]
+        ];
+        let active = [3, 0];
+
+        const drawIcon = (id) => [
+          Icons.wifi('#38bdf8'),
+          Icons.battery('#4ade80'),
+          Icons.gear('#fbbf24'),
+          Icons.bell('#c084fc')
+        ][id];
+
+        const renderSudoku = () => {
+          gameArea.innerHTML = createSVG(`
+            <rect x="192" y="18" width="376" height="346" rx="24" fill="#0f172a" stroke="#475569" stroke-width="3"/>
+            ${board.map((row, r) => row.map((val, c) => {
+              const x = 248 + c * 88;
+              const y = 68 + r * 82;
+              const isBlank = val === null;
+              const isSel = active && active[0] === r && active[1] === c;
+              return `
+                <g class="${isBlank ? 'clickable l11-cell' : ''}" data-r="${r}" data-c="${c}" transform="translate(${x}, ${y})">
+                  <g class="hit-inner">
+                    ${tileRect(-38, -35, 76, 70, 14, isSel ? '#1d4ed8' : (isBlank ? '#172554' : '#1e293b'), isSel ? '#7dd3fc' : '#475569')}
+                    ${val !== null
+                      ? `<g transform="scale(0.86)">${drawIcon(val)}</g>`
+                      : `<circle r="11" class="pulse-glow" fill="none" stroke="#38bdf8" stroke-width="3" stroke-dasharray="5 4"/>`
+                    }
+                  </g>
+                </g>
+              `;
+            }).join('')).join('')}
+
+            <!-- Чіткі лінії, що ділять поле на 4 квадрати 2×2 -->
+            <line x1="380" y1="22" x2="380" y2="360" stroke="#38bdf8" stroke-width="4" opacity="0.65" pointer-events="none"/>
+            <line x1="196" y1="191" x2="564" y2="191" stroke="#38bdf8" stroke-width="4" opacity="0.65" pointer-events="none"/>
+
+            <!-- Панель 4 іконок знизу -->
+            <rect x="150" y="382" width="460" height="92" rx="24" fill="#0f172a" stroke="#38bdf8" stroke-width="2" stroke-opacity="0.5"/>
+            ${[0, 1, 2, 3].map(id => `
+              <g class="clickable l11-pick" data-id="${id}" transform="translate(${224 + id * 104}, 428)">
+                <g class="hit-inner">
+                  ${tileRect(-42, -34, 84, 68, 16, '#1e293b', '#64748b')}
+                  <g transform="scale(0.86)">${drawIcon(id)}</g>
+                </g>
+              </g>
+            `).join('')}
+          `);
+
+          gameArea.querySelectorAll('.l11-cell').forEach(cell => {
+            cell.addEventListener('click', () => {
+              if (levelLocked) return;
+              active = [Number(cell.dataset.r), Number(cell.dataset.c)];
+              SoundFX.click();
+              renderSudoku();
+            });
+          });
+
+          gameArea.querySelectorAll('.l11-pick').forEach(btn => {
+            btn.addEventListener('click', () => {
+              if (levelLocked || !active) return;
+              const id = Number(btn.dataset.id);
+              const [r, c] = active;
+              if (id === solution[r][c]) {
+                board[r][c] = id;
+                SoundFX.step(2);
+                active = null;
+                for (let rr = 0; rr < 4; rr++) {
+                  for (let cc = 0; cc < 4; cc++) {
+                    if (board[rr][cc] === null) active = [rr, cc];
+                  }
+                }
+                renderSudoku();
+                if (!active) handleWin();
+              } else {
+                handleWrong(btn);
+              }
+            });
+          });
+        };
+        renderSudoku();
+      },
+
+      /* ------------------------------------------------------------------------
+         РІВЕНЬ 12: ПОТРІЙНА МАТРИЦЯ РАВЕНА (ФОРМА + КОЛІР + КІЛЬКІСТЬ)
+         Відповідь: 2 рожеві квадрати!
+         ------------------------------------------------------------------------ */
+      function level12() {
+        const P = '#fb7185', B = '#38bdf8', G = '#4ade80';
+        const rows = [
+          [ { k:'circle', c:P, n:1 }, { k:'square', c:B, n:2 }, { k:'tri', c:G, n:3 } ],
+          [ { k:'square', c:G, n:2 }, { k:'tri', c:P, n:3 },    { k:'circle', c:B, n:1 } ],
+          [ { k:'tri', c:B, n:3 },    { k:'circle', c:G, n:1 }, null ]
+        ];
+        const choices = [
+          { k:'square', c:B, n:2, ok: false },
+          { k:'square', c:P, n:3, ok: false },
+          { k:'square', c:P, n:2, ok: true },
+          { k:'tri',    c:P, n:2, ok: false }
+        ];
+
+        gameArea.innerHTML = createSVG(`
+          ${rows.map((r, ri) => r.map((cell, ci) => {
+            const x = 240 + ci * 140;
+            const y = 76 + ri * 98;
+            return `
+              <g transform="translate(${x}, ${y})">
+                ${tileRect(-56, -42, 112, 84, 18, cell ? '#1e293b' : '#172554', cell ? '#475569' : '#38bdf8')}
+                ${cell
+                  ? Icons.multiShape(cell.k, cell.c, cell.n)
+                  : `<g id="l12-slot" class="pulse-glow"><circle r="15" fill="none" stroke="#38bdf8" stroke-width="3.5" stroke-dasharray="6 5"/></g>`
+                }
+              </g>
+            `;
+          }).join('')).join('')}
+
+          <rect x="125" y="362" width="510" height="106" rx="28" fill="#0f172a" stroke="#38bdf8" stroke-width="2" stroke-opacity="0.5"/>
+          ${choices.map((ch, i) => `
+            <g class="clickable l12-pick" data-ok="${ch.ok}" transform="translate(${200 + i * 120}, 415)">
+              <g class="hit-inner">
+                ${tileRect(-48, -38, 96, 76, 18, '#1e293b', '#64748b')}
+                ${Icons.multiShape(ch.k, ch.c, ch.n)}
+              </g>
+            </g>
+          `).join('')}
+        `);
+
+        gameArea.querySelectorAll('.l12-pick').forEach(btn => {
+          btn.addEventListener('click', () => {
+            if (levelLocked) return;
+            if (btn.dataset.ok === 'true') {
+              gameArea.querySelector('#l12-slot').innerHTML = Icons.multiShape('square', P, 2);
+              handleWin();
+            } else {
+              handleWrong(btn);
+            }
+          });
+        });
+      },
+
+      /* ------------------------------------------------------------------------
+         РІВЕНЬ 13: ЗАГАДКА 4 ЗАРЯДНИХ ПОРТІВ (ДЕДУКЦІЯ НА 4 ПОЗИЦІЇ)
+         Підказки: Годинник = 4; [Ноутбук][Планшет] поруч; Смартфон ≠ 1.
+         Рішення: 1:Ноутбук, 2:Планшет, 3:Смартфон, 4:Годинник
+         ------------------------------------------------------------------------ */
+      function level13() {
+        const solution = ['laptop', 'tablet', 'phone', 'watch'];
+        const ports = [null, null, null, null];
+        let activePort = 0;
+
+        const renderIcon = (key, sc = 0.9) => {
+          if (key === 'laptop') return Icons.laptop('#38bdf8', sc);
+          if (key === 'tablet') return Icons.tablet('#c084fc', sc);
+          if (key === 'phone') return Icons.phone('#4ade80', sc);
+          return Icons.watch('#fbbf24', sc);
+        };
+
+        const renderDock = () => {
+          gameArea.innerHTML = createSVG(`
+            <!-- 3 візуальні підказки зверху -->
+            <!-- Підказка 1: Годинник = 4 -->
+            <g transform="translate(155, 74)">
+              ${tileRect(-82, -44, 164, 88, 18, '#1e293b', '#fbbf24')}
+              <g transform="translate(-38, 0)">${Icons.watch('#fbbf24', 0.8)}</g>
+              <rect x="-4" y="-6" width="18" height="4.5" rx="2" fill="#4ade80"/>
+              <rect x="-4" y="3" width="18" height="4.5" rx="2" fill="#4ade80"/>
+              ${svgNum(44, 0, '4', 34, '#fde047')}
+            </g>
+
+            <!-- Підказка 2: [Ноутбук] [Планшет] поруч -->
+            <g transform="translate(380, 74)">
+              ${tileRect(-116, -44, 232, 88, 18, '#1e293b', '#38bdf8')}
+              <rect x="-98" y="-32" width="94" height="64" rx="12" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
+              <rect x="4" y="-32" width="94" height="64" rx="12" fill="#0f172a" stroke="#c084fc" stroke-width="2"/>
+              <g transform="translate(-51, 2)">${Icons.laptop('#38bdf8', 0.78)}</g>
+              <g transform="translate(51, 0)">${Icons.tablet('#c084fc', 0.78)}</g>
+            </g>
+
+            <!-- Підказка 3: Смартфон ≠ 1 -->
+            <g transform="translate(605, 74)">
+              ${tileRect(-82, -44, 164, 88, 18, '#1e293b', '#f87171')}
+              <g transform="translate(-38, 0)">${Icons.phone('#4ade80', 0.8)}</g>
+              <rect x="-4" y="-6" width="18" height="4.5" rx="2" fill="#f87171"/>
+              <rect x="-4" y="3" width="18" height="4.5" rx="2" fill="#f87171"/>
+              <line x1="-2" y1="12" x2="12" y2="-12" stroke="#f87171" stroke-width="4" stroke-linecap="round"/>
+              ${svgNum(44, 0, '1', 34, '#fca5a5')}
+            </g>
+
+            <!-- Зарядна станція з 4 портами по центру -->
+            <rect x="64" y="152" width="632" height="174" rx="28" fill="#0f172a" stroke="#38bdf8" stroke-width="3"/>
+            ${ports.map((val, i) => {
+              const x = 152 + i * 152;
+              const isSel = activePort === i;
+              return `
+                <g class="clickable l13-port" data-i="${i}" transform="translate(${x}, 244)">
+                  <g class="hit-inner">
+                    ${tileRect(-58, -56, 116, 112, 20, isSel ? '#1d4ed8' : '#1e293b', isSel ? '#7dd3fc' : '#475569')}
+                    <circle cx="-38" cy="-38" r="14" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
+                    ${svgNum(-38, -38, i + 1, 16, '#7dd3fc')}
+                    ${val ? `<g transform="translate(4, 6)">${renderIcon(val, 0.92)}</g>` : ''}
+                  </g>
+                </g>
+              `;
+            }).join('')}
+
+            <!-- 4 гаджети знизу для розміщення -->
+            <rect x="108" y="356" width="544" height="106" rx="26" fill="#0f172a" stroke="#64748b" stroke-width="2"/>
+            ${['phone', 'watch', 'laptop', 'tablet'].map((g, i) => `
+              <g class="clickable l13-gadget" data-g="${g}" transform="translate(${194 + i * 124}, 409)">
+                <g class="hit-inner">
+                  ${tileRect(-48, -40, 96, 80, 18, '#1e293b', '#64748b')}
+                  ${renderIcon(g, 0.86)}
+                </g>
+              </g>
+            `).join('')}
+          `);
+
+          gameArea.querySelectorAll('.l13-port').forEach(p => {
+            p.addEventListener('click', () => {
+              if (levelLocked) return;
+              activePort = Number(p.dataset.i);
+              SoundFX.click();
+              renderDock();
+            });
+          });
+
+          gameArea.querySelectorAll('.l13-gadget').forEach(btn => {
+            btn.addEventListener('click', () => {
+              if (levelLocked) return;
+              const g = btn.dataset.g;
+              // Якщо гаджет уже стояв в іншому порту — прибираємо звідти
+              const oldIdx = ports.indexOf(g);
+              if (oldIdx !== -1) ports[oldIdx] = null;
+              ports[activePort] = g;
+              SoundFX.step(2);
+
+              // Переходимо на наступний порожній порт
+              const nextEmpty = ports.indexOf(null);
+              if (nextEmpty !== -1) activePort = nextEmpty;
+
+              renderDock();
+
+              // Коли всі 4 порти заповнені — перевіряємо
+              if (ports.every(v => v !== null)) {
+                const ok = ports.every((v, idx) => v === solution[idx]);
+                if (ok) {
+                  handleWin();
+                } else {
+                  setTimeout(() => {
+                    handleWrong(gameArea);
+                    for (let k = 0; k < 4; k++) {
+                      if (ports[k] !== solution[k]) ports[k] = null;
+                    }
+                    activePort = ports.indexOf(null);
+                    renderDock();
+                  }, 420);
+                }
+              }
+            });
+          });
+        };
+        renderDock();
+      },
+
+      /* ------------------------------------------------------------------------
+         РІВЕНЬ 14: РОЗГОРТКА 3D-КУБИКА (ПРОСТОРОВА УЯВА)
+         Схема: [Батарея] - [Смартфон] - [Шестерня] - [Дзвіночок], зверху Wi-Fi, знизу Блискавка.
+         Навпроти Батареї буде Шестерня!
+         ------------------------------------------------------------------------ */
+      function level14() {
+        const netCells = [
+          { r: 0, c: 1, icon: Icons.wifi('#38bdf8'), bg: '#0c4a6e' },
+          { r: 1, c: 0, icon: Icons.battery('#4ade80'), bg: '#064e3b', highlight: true },
+          { r: 1, c: 1, icon: Icons.phone('#fb7185', 0.8), bg: '#4c0519' },
+          { r: 1, c: 2, icon: Icons.gear('#fbbf24'), bg: '#451a03' },
+          { r: 1, c: 3, icon: Icons.bell('#c084fc'), bg: '#3b0764' },
+          { r: 2, c: 1, icon: Icons.bolt('#fb923c', 0.9), bg: '#431407' }
+        ];
+
+        const choices = [
+          { icon: Icons.phone('#fb7185', 0.85), ok: false },
+          { icon: Icons.gear('#fbbf24'), ok: true },
+          { icon: Icons.bell('#c084fc'), ok: false },
+          { icon: Icons.wifi('#38bdf8'), ok: false }
+        ];
+
+        gameArea.innerHTML = createSVG(`
+          <!-- 2D розгортка кубика зліва -->
+          <g transform="translate(76, 52)">
+            ${netCells.map(cell => `
+              <g transform="translate(${cell.c * 88 + 44}, ${cell.r * 88 + 44})">
+                <rect x="-42" y="-42" width="84" height="84" rx="14" fill="${cell.bg}"
+                      stroke="${cell.highlight ? '#4ade80' : '#94a3b8'}" stroke-width="${cell.highlight ? 4.5 : 2.5}"/>
+                ${cell.icon}
+              </g>
+            `).join('')}
+          </g>
+
+          <!-- 3D-кубик справа: показує Батарею спереду та стрілку на протилежну задню грань -->
+          <g transform="translate(590, 175)">
+            <!-- Задня грань (пунктир) -->
+            <rect x="-20" y="-88" width="104" height="104" rx="10" fill="#172554" fill-opacity="0.7" stroke="#38bdf8" stroke-width="3" stroke-dasharray="7 5"/>
+            <!-- Ребра глибини -->
+            <line x1="-66" y1="-42" x2="-20" y2="-88" stroke="#64748b" stroke-width="3"/>
+            <line x1="38" y1="-42" x2="84" y2="-88" stroke="#64748b" stroke-width="3"/>
+            <line x1="38" y1="62" x2="84" y2="16" stroke="#64748b" stroke-width="3"/>
+            <line x1="-66" y1="62" x2="-20" y2="16" stroke="#475569" stroke-width="2" stroke-dasharray="5 5"/>
+            <!-- Передня грань з Батареєю -->
+            <rect x="-66" y="-42" width="104" height="104" rx="10" fill="#064e3b" fill-opacity="0.88" stroke="#4ade80" stroke-width="3.5"/>
+            <g transform="translate(-14, 10) scale(1.15)">${Icons.battery('#4ade80')}</g>
+            <!-- Знак питання на задній грані -->
+            <g id="l14-back" transform="translate(46, -54)">
+              <circle r="18" class="pulse-glow" fill="#0f172a" stroke="#fbbf24" stroke-width="3"/>
+              ${svgNum(0, 1, '?', 24, '#fde047')}
+            </g>
+          </g>
+
+          <!-- 4 варіанти вибору знизу -->
+          <rect x="125" y="362" width="510" height="106" rx="28" fill="#0f172a" stroke="#38bdf8" stroke-width="2" stroke-opacity="0.5"/>
+          ${choices.map((ch, i) => `
+            <g class="clickable l14-pick" data-ok="${ch.ok}" transform="translate(${200 + i * 120}, 415)">
+              <g class="hit-inner">
+                ${tileRect(-48, -38, 96, 76, 18, '#1e293b', '#64748b')}
+                ${ch.icon}
+              </g>
+            </g>
+          `).join('')}
+        `);
+
+        gameArea.querySelectorAll('.l14-pick').forEach(btn => {
+          btn.addEventListener('click', () => {
+            if (levelLocked) return;
+            if (btn.dataset.ok === 'true') {
+              gameArea.querySelector('#l14-back').innerHTML = Icons.gear('#fbbf24');
+              handleWin();
+            } else {
+              handleWrong(btn);
+            }
+          });
+        });
+      },
+
+      /* ------------------------------------------------------------------------
+         РІВЕНЬ 15: СУПЕР-ФІНАЛ — ПОРЯДОК ДІЙ З МНОЖЕННЯМ!
+         Ноут=8, Тел=5, Навушники=3. Фінал: 8 + 5 × 3 = 8 + 15 = 23!
+         ------------------------------------------------------------------------ */
+      function level15() {
+        const plus = (x, y) => `<g transform="translate(${x},${y})"><rect x="-10" y="-3" width="20" height="6" rx="3" fill="#94a3b8"/><rect x="-3" y="-10" width="6" height="20" rx="3" fill="#94a3b8"/></g>`;
+        const mult = (x, y) => `<g transform="translate(${x},${y})"><path d="M -9,-9 L 9,9 M 9,-9 L -9,9" stroke="#fbbf24" stroke-width="5.5" stroke-linecap="round"/></g>`;
+        const eq = (x, y) => `<g transform="translate(${x},${y})"><rect x="-11" y="-7" width="22" height="5" rx="2.5" fill="#fbbf24"/><rect x="-11" y="2" width="22" height="5" rx="2.5" fill="#fbbf24"/></g>`;
+
+        gameArea.innerHTML = createSVG(`
+          <!-- Рівняння 1: 3 Ноутбуки = 24 -->
+          <rect x="82" y="18" width="596" height="76" rx="20" fill="#1e293b" stroke="#475569" stroke-width="2"/>
+          <g transform="translate(155, 56)">${Icons.laptop('#38bdf8', 0.82)}</g>
+          ${plus(220, 56)}
+          <g transform="translate(285, 56)">${Icons.laptop('#38bdf8', 0.82)}</g>
+          ${plus(350, 56)}
+          <g transform="translate(415, 56)">${Icons.laptop('#38bdf8', 0.82)}</g>
+          ${eq(490, 56)}
+          ${svgNum(575, 56, '24', 34, '#38bdf8')}
+
+          <!-- Рівняння 2: Ноут + Тел + Тел = 18 -->
+          <rect x="82" y="106" width="596" height="76" rx="20" fill="#1e293b" stroke="#475569" stroke-width="2"/>
+          <g transform="translate(155, 144)">${Icons.laptop('#38bdf8', 0.82)}</g>
+          ${plus(225, 144)}
+          <g transform="translate(290, 144)">${Icons.phone('#4ade80', 0.8)}</g>
+          ${plus(355, 144)}
+          <g transform="translate(418, 144)">${Icons.phone('#4ade80', 0.8)}</g>
+          ${eq(490, 144)}
+          ${svgNum(575, 144, '18', 34, '#4ade80')}
+
+          <!-- Рівняння 3: Тел + Навушники + Навушники = 11 -->
+          <rect x="82" y="194" width="596" height="76" rx="20" fill="#1e293b" stroke="#475569" stroke-width="2"/>
+          <g transform="translate(155, 232)">${Icons.phone('#4ade80', 0.8)}</g>
+          ${plus(220, 232)}
+          <g transform="translate(288, 232)">${Icons.headphones('#fb7185', 0.86)}</g>
+          ${plus(355, 232)}
+          <g transform="translate(420, 232)">${Icons.headphones('#fb7185', 0.86)}</g>
+          ${eq(490, 232)}
+          ${svgNum(575, 232, '11', 34, '#fb7185')}
+
+          <!-- Фінал: Ноут + Тел × Навушники = ? -->
+          <rect x="82" y="284" width="596" height="82" rx="22" fill="#172554" stroke="#4ade80" stroke-width="3"/>
+          <g transform="translate(155, 325)">${Icons.laptop('#38bdf8', 0.85)}</g>
+          ${plus(225, 325)}
+          <g transform="translate(290, 325)">${Icons.phone('#4ade80', 0.82)}</g>
+          ${mult(355, 325)}
+          <g transform="translate(420, 325)">${Icons.headphones('#fb7185', 0.88)}</g>
+          ${eq(490, 325)}
+          <g id="l15-slot" transform="translate(575, 325)">
+            <circle r="22" class="pulse-glow" fill="none" stroke="#4ade80" stroke-width="4" stroke-dasharray="7 5"/>
+          </g>
+
+          <!-- Кнопки-відповіді (з підступною пасткою 39 для тих, хто забув порядок дій!) -->
+          ${[16, 23, 26, 39].map((val, i) => `
+            <g class="clickable l15-btn" data-val="${val}" transform="translate(${190 + i * 126}, 426)">
+              <g class="hit-inner">
+                ${tileRect(-48, -34, 96, 68, 18, '#0f172a', '#38bdf8')}
+                ${svgNum(0, 0, val, 32, '#e2e8f0')}
+              </g>
+            </g>
+          `).join('')}
+        `);
+
+        gameArea.querySelectorAll('.l15-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            if (levelLocked) return;
+            if (Number(btn.dataset.val) === 23) {
+              gameArea.querySelector('#l15-slot').innerHTML = svgNum(0, 0, '23', 36, '#4ade80');
+              handleWin();
+            } else {
+              handleWrong(btn);
+            }
+          });
+        });
+      }
+    ];
+
+    /* ==========================================================================
+       8. ЗАПУСК ТА ОБРОБНИКИ КНОПОК «НАЗАД» І «ДАЛІ»
+       ========================================================================== */
+    function renderLevel() {
+      levelLocked = false;
+      closeInfoModal();
+      LEVELS[currentLevel]();
+    }
+
+    document.getElementById('btn-prev').addEventListener('click', () => {
+      SoundFX.click();
+      currentLevel = (currentLevel - 1 + LEVELS.length) % LEVELS.length;
+      renderLevel();
+    });
+
+    document.getElementById('btn-next').addEventListener('click', () => {
+      SoundFX.click();
+      currentLevel = (currentLevel + 1) % LEVELS.length;
+      renderLevel();
+    });
+
+    // Старт першого рівня
+    renderLevel();
+  </script>
+</body>
+</html>
