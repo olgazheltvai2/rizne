@@ -1,0 +1,2023 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SVG Logic Game</title>
+<style>
+  /* ==========================================================================
+     БАЗОВІ НАЛАШТУВАННЯ СЦЕНИ (ЖОДНИХ БІЛИХ ПРЯМОКУТНИКІВ ТА ЗАЙВОГО ТЕКСТУ)
+     ========================================================================== */
+  * {
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #1d3b2a;
+    font-family: sans-serif;
+  }
+
+  /* Головний контейнер гри */
+  #game-stage {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Живий сюжетний SVG-фон */
+  #scene-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  /* Анімації живого фону */
+  @keyframes cloudDrift {
+    0% { transform: translateX(-160px); }
+    100% { transform: translateX(1560px); }
+  }
+  @keyframes sunRotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  @keyframes branchSway {
+    0%, 100% { transform: rotate(-1.5deg); }
+    50% { transform: rotate(2deg); }
+  }
+  @keyframes butterflyFlight {
+    0% { transform: translate(0px, 0px) rotate(5deg); }
+    25% { transform: translate(110px, -45px) rotate(-8deg); }
+    50% { transform: translate(230px, 15px) rotate(10deg); }
+    75% { transform: translate(120px, 50px) rotate(-6deg); }
+    100% { transform: translate(0px, 0px) rotate(5deg); }
+  }
+  @keyframes wingFlap {
+    0%, 100% { transform: scaleY(1); }
+    50% { transform: scaleY(0.25); }
+  }
+  @keyframes pollenFloat {
+    0%, 100% { transform: translateY(0px) translateX(0px); opacity: 0.3; }
+    50% { transform: translateY(-28px) translateX(16px); opacity: 0.9; }
+  }
+
+  .cloud-slow { animation: cloudDrift 68s linear infinite; }
+  .cloud-med  { animation: cloudDrift 48s linear infinite; animation-delay: -22s; }
+  .sun-rays   { transform-origin: 1220px 110px; animation: sunRotate 90s linear infinite; }
+  .branch-l   { transform-origin: 0px 80px; animation: branchSway 6s ease-in-out infinite; }
+  .branch-r   { transform-origin: 1440px 60px; animation: branchSway 7.5s ease-in-out infinite reverse; }
+  .butterfly  { animation: butterflyFlight 16s ease-in-out infinite; }
+  .b-wing     { transform-origin: center; animation: wingFlap 0.24s ease-in-out infinite; }
+  .pollen     { animation: pollenFloat 5s ease-in-out infinite; }
+
+  /* ==========================================================================
+     ІГРОВА ДОШКА (ДУБ ТА ЛАТУНЬ — БЕЗ ЖОДНИХ БІЛИХ ПРЯМОКУТНИКІВ)
+     ========================================================================== */
+  #board-wrapper {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2vh 3vw 6vh 20vw;
+    pointer-events: none;
+  }
+
+  #puzzle-board {
+    position: relative;
+    width: min(74vw, 920px);
+    height: min(84vh, 660px);
+    pointer-events: auto;
+    border-radius: 34px;
+    background:
+      radial-gradient(circle at 20% 15%, rgba(255, 226, 168, 0.22), transparent 55%),
+      repeating-linear-gradient(
+        176deg,
+        rgba(92, 52, 22, 0.14) 0px,
+        rgba(92, 52, 22, 0.14) 3px,
+        transparent 3px,
+        transparent 14px
+      ),
+      linear-gradient(155deg, #b87a44 0%, #8e5628 48%, #6d3d18 100%);
+    border: 8px solid #d9a441;
+    box-shadow:
+      0 22px 45px rgba(18, 12, 6, 0.55),
+      inset 0 4px 12px rgba(255, 232, 180, 0.45),
+      inset 0 -10px 22px rgba(42, 20, 6, 0.65),
+      0 0 0 4px #593212;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 22px 28px;
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
+  }
+
+  /* Декоративні латунні заклепки по кутах дошки */
+  .rivet {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 32% 30%, #fff4c2 0%, #e0aa3e 45%, #7a5210 100%);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.7);
+    z-index: 3;
+  }
+  .rivet.tl { top: 12px; left: 12px; }
+  .rivet.tr { top: 12px; right: 12px; }
+  .rivet.bl { bottom: 12px; left: 12px; }
+  .rivet.br { bottom: 12px; right: 12px; }
+
+  /* Внутрішня область завдання (текстуроване сукно/шкіра) */
+  #task-area {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    border-radius: 22px;
+    background:
+      radial-gradient(circle at 50% 35%, rgba(65, 118, 92, 0.92) 0%, rgba(34, 72, 56, 0.97) 100%);
+    box-shadow:
+      inset 0 8px 22px rgba(10, 26, 18, 0.75),
+      inset 0 -2px 6px rgba(176, 224, 196, 0.18),
+      0 2px 0 rgba(255, 218, 150, 0.28);
+    border: 3px solid #4d2c11;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Декоративна пунктирна строчка по краю ігрового поля */
+  #task-area::after {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    border-radius: 16px;
+    border: 2px dashed rgba(246, 212, 134, 0.28);
+    pointer-events: none;
+  }
+
+  /* Панель варіантів відповіді */
+  #choices-area {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 16px;
+    min-height: 118px;
+    flex-wrap: nowrap;
+  }
+
+  /* Стилізовані плитки вибору (тепла слонова кістка + дуб + латунь) */
+  .choice-tile {
+    position: relative;
+    width: 122px;
+    height: 112px;
+    border-radius: 22px;
+    cursor: pointer;
+    border: 4px solid #c9963b;
+    background:
+      radial-gradient(circle at 30% 20%, #fff0cc 0%, #ecd29b 58%, #cfa863 100%);
+    box-shadow:
+      0 9px 0 #6e4518,
+      0 14px 20px rgba(0, 0, 0, 0.42),
+      inset 0 3px 6px rgba(255, 255, 255, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease, filter 0.2s ease;
+  }
+
+  .choice-tile:hover {
+    transform: translateY(-6px) scale(1.04);
+    box-shadow:
+      0 14px 0 #6e4518,
+      0 20px 26px rgba(0, 0, 0, 0.48),
+      inset 0 3px 8px rgba(255, 255, 255, 0.9),
+      0 0 18px rgba(255, 224, 118, 0.55);
+  }
+
+  .choice-tile:active {
+    transform: translateY(4px) scale(0.97);
+    box-shadow:
+      0 3px 0 #6e4518,
+      0 6px 10px rgba(0, 0, 0, 0.4);
+  }
+
+  .choice-tile.correct-hit {
+    border-color: #76ff03;
+    background: radial-gradient(circle at 35% 25%, #eaffc4 0%, #a5e65a 65%, #558b2f 100%);
+    animation: tileCelebrate 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .choice-tile.wrong-hit {
+    border-color: #ff5252;
+    background: radial-gradient(circle at 35% 25%, #ffd6d6 0%, #ef9a9a 65%, #c62828 100%);
+    animation: tileShake 0.48s ease-in-out;
+  }
+
+  @keyframes tileCelebrate {
+    0%   { transform: scale(1) rotate(0deg); }
+    35%  { transform: scale(1.18) rotate(-5deg); }
+    65%  { transform: scale(1.12) rotate(5deg); }
+    100% { transform: scale(1.06) rotate(0deg); }
+  }
+
+  @keyframes tileShake {
+    0%, 100% { transform: translateX(0) rotate(0deg); }
+    20% { transform: translateX(-11px) rotate(-5deg); }
+    40% { transform: translateX(11px) rotate(5deg); }
+    60% { transform: translateX(-8px) rotate(-3deg); }
+    80% { transform: translateX(8px) rotate(3deg); }
+  }
+
+  /* ==========================================================================
+     СТИЛІ ДЛЯ РІЗНИХ ТИПІВ ЗАВДАНЬ
+     ========================================================================== */
+  /* Матриця 3x3 */
+  .matrix-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    width: min(370px, 100%);
+    aspect-ratio: 1 / 1;
+    max-height: 100%;
+  }
+
+  .matrix-cell {
+    border-radius: 18px;
+    background: radial-gradient(circle at 30% 25%, #f6e1b2 0%, #d8b572 100%);
+    border: 3px solid #8a5a26;
+    box-shadow: inset 0 3px 6px rgba(255, 250, 230, 0.7), 0 4px 8px rgba(0, 0, 0, 0.32);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+  }
+
+  .matrix-cell.missing-slot {
+    background: radial-gradient(circle at 50% 50%, rgba(255, 215, 90, 0.35) 0%, rgba(45, 28, 12, 0.45) 100%);
+    border: 3px dashed #ffd54f;
+    animation: slotPulse 1.6s ease-in-out infinite;
+  }
+
+  @keyframes slotPulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(255, 213, 79, 0.35), inset 0 0 12px rgba(255, 213, 79, 0.25); }
+    50%      { box-shadow: 0 0 22px rgba(255, 213, 79, 0.85), inset 0 0 20px rgba(255, 213, 79, 0.55); }
+  }
+
+  /* Послідовність */
+  .sequence-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px;
+  }
+
+  .seq-slot {
+    width: 104px;
+    height: 104px;
+    border-radius: 20px;
+    background: radial-gradient(circle at 30% 25%, #f8e4b8 0%, #d6b16d 100%);
+    border: 3px solid #7f5120;
+    box-shadow: inset 0 3px 6px rgba(255, 250, 230, 0.65), 0 6px 12px rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    flex-shrink: 0;
+  }
+
+  .seq-slot.missing-slot {
+    background: radial-gradient(circle at 50% 50%, rgba(255, 215, 90, 0.35) 0%, rgba(45, 28, 12, 0.5) 100%);
+    border: 3px dashed #ffd54f;
+    animation: slotPulse 1.6s ease-in-out infinite;
+  }
+
+  .seq-arrow {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    opacity: 0.85;
+  }
+
+  /* Терези */
+  .scales-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-around;
+    gap: 8px;
+  }
+  .scales-top-row {
+    display: flex;
+    width: 100%;
+    justify-content: space-evenly;
+    align-items: center;
+    gap: 14px;
+  }
+  .scale-svg {
+    overflow: visible;
+    filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
+  }
+  .scale-beam-tilt {
+    transform-origin: 140px 44px;
+    transition: transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* Знайди зайвого (4 великі медальйони прямо в task-area) */
+  .odd-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    width: min(460px, 92%);
+    height: min(380px, 94%);
+  }
+  .odd-card {
+    border-radius: 26px;
+    cursor: pointer;
+    border: 5px solid #c9963b;
+    background: radial-gradient(circle at 30% 25%, #fff2d1 0%, #e7c888 62%, #c79d52 100%);
+    box-shadow:
+      0 10px 0 #6e4518,
+      0 15px 24px rgba(0, 0, 0, 0.42),
+      inset 0 4px 8px rgba(255, 255, 255, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+  }
+  .odd-card:hover {
+    transform: translateY(-6px) scale(1.03);
+    box-shadow:
+      0 15px 0 #6e4518,
+      0 22px 28px rgba(0, 0, 0, 0.48),
+      0 0 22px rgba(255, 224, 118, 0.55);
+  }
+  .odd-card.correct-hit {
+    border-color: #76ff03;
+    background: radial-gradient(circle at 35% 25%, #eaffc4 0%, #a5e65a 65%, #558b2f 100%);
+    animation: tileCelebrate 0.65s ease;
+  }
+  .odd-card.wrong-hit {
+    border-color: #ff5252;
+    background: radial-gradient(circle at 35% 25%, #ffd6d6 0%, #ef9a9a 65%, #c62828 100%);
+    animation: tileShake 0.48s ease;
+  }
+
+  /* Детективна дошка підказок (Хто сховався?) */
+  .clues-board {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    width: 100%;
+    height: 100%;
+  }
+  .cork-strip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 18px 28px;
+    border-radius: 24px;
+    background:
+      radial-gradient(circle at 25% 25%, rgba(255, 225, 175, 0.25), transparent 60%),
+      linear-gradient(145deg, #c68d53 0%, #a66c36 100%);
+    border: 4px solid #6b3f19;
+    box-shadow: inset 0 4px 12px rgba(45, 22, 6, 0.55), 0 10px 20px rgba(0, 0, 0, 0.35);
+    flex-wrap: wrap;
+  }
+  .clue-badge {
+    position: relative;
+    width: 106px;
+    height: 106px;
+    border-radius: 20px;
+    background: radial-gradient(circle at 30% 25%, #fbf0d3 0%, #dfc084 100%);
+    border: 3px solid #7d4e1f;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.35), inset 0 2px 4px rgba(255, 255, 255, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    transform: rotate(-1.5deg);
+  }
+  .clue-badge:nth-child(even) { transform: rotate(2deg); }
+  .clue-pin {
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ff8a80 0%, #d32f2f 65%, #7f0000 100%);
+    box-shadow: 0 3px 4px rgba(0, 0, 0, 0.45);
+  }
+  .clue-status {
+    position: absolute;
+    bottom: -10px;
+    right: -10px;
+    width: 38px;
+    height: 38px;
+    filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.4));
+  }
+
+  /* ==========================================================================
+     ЖИВИЙ ПЕРСОНАЖ — ХИТРИЙ ЄНОТ-ДЕТЕКТИВ (ЗЛІВА НА ВЕРСТАКУ)
+     ========================================================================== */
+  #raccoon-container {
+    position: absolute;
+    left: 1.5vw;
+    bottom: 2vh;
+    width: clamp(190px, 19vw, 290px);
+    height: clamp(230px, 28vw, 350px);
+    z-index: 8;
+    cursor: pointer;
+    filter: drop-shadow(0 16px 20px rgba(0, 0, 0, 0.48));
+    transition: transform 0.25s ease;
+  }
+
+  #raccoon-svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  /* Анімації тіла, хвоста та емоцій Єнота */
+  @keyframes raccoonBreathe {
+    0%, 100% { transform: scaleY(1) translateY(0); }
+    50%      { transform: scaleY(1.025) translateY(-3px); }
+  }
+  @keyframes tailWag {
+    0%, 100% { transform: rotate(-6deg); }
+    50%      { transform: rotate(10deg); }
+  }
+  @keyframes raccoonJump {
+    0%, 100% { transform: translateY(0) scale(1); }
+    30%      { transform: translateY(-48px) scale(1.07) rotate(-5deg); }
+    55%      { transform: translateY(-8px) scale(0.95) rotate(4deg); }
+    78%      { transform: translateY(-28px) scale(1.04) rotate(-3deg); }
+  }
+  @keyframes raccoonSpin {
+    0%   { transform: translateY(0) rotate(0deg) scale(1); }
+    40%  { transform: translateY(-36px) rotate(14deg) scale(1.1); }
+    70%  { transform: translateY(-18px) rotate(-14deg) scale(1.08); }
+    100% { transform: translateY(0) rotate(0deg) scale(1); }
+  }
+  @keyframes raccoonOops {
+    0%, 100% { transform: translateX(0) rotate(0deg); }
+    25%      { transform: translateX(-10px) rotate(-7deg); }
+    55%      { transform: translateX(9px) rotate(6deg); }
+    80%      { transform: translateX(-5px) rotate(-3deg); }
+  }
+  @keyframes earTwitch {
+    0%, 90%, 100% { transform: rotate(0deg); }
+    94% { transform: rotate(-12deg); }
+    97% { transform: rotate(6deg); }
+  }
+
+  #raccoon-body-group {
+    transform-origin: 150px 260px;
+    animation: raccoonBreathe 3.2s ease-in-out infinite;
+  }
+  #raccoon-tail {
+    transform-origin: 95px 250px;
+    animation: tailWag 2.6s ease-in-out infinite;
+  }
+  #raccoon-ear-l {
+    transform-origin: 92px 86px;
+    animation: earTwitch 5s ease-in-out infinite;
+  }
+  #raccoon-container.mood-jump #raccoon-body-group {
+    animation: raccoonJump 0.9s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  #raccoon-container.mood-spin #raccoon-body-group {
+    animation: raccoonSpin 0.85s ease-in-out;
+  }
+  #raccoon-container.mood-oops #raccoon-body-group {
+    animation: raccoonOops 0.55s ease-in-out;
+  }
+
+  /* ==========================================================================
+     МІНІМАЛІСТИЧНІ КНОПКИ «НАЗАД» ТА «ДАЛІ» (БЕЗ ТЕКСТУ, ОДРАЗУ ПЕРЕМИКАЮТЬ)
+     ========================================================================== */
+  #nav-controls {
+    position: absolute;
+    right: 22px;
+    bottom: 20px;
+    z-index: 15;
+    display: flex;
+    gap: 12px;
+  }
+
+  .nav-btn {
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    border: 4px solid #e0ad42;
+    background: radial-gradient(circle at 32% 28%, #a66935 0%, #6d3d16 70%, #442209 100%);
+    box-shadow:
+      0 6px 0 #381b07,
+      0 10px 18px rgba(0, 0, 0, 0.48),
+      inset 0 2px 5px rgba(255, 228, 172, 0.45);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.16s ease;
+    padding: 0;
+  }
+
+  .nav-btn:hover {
+    transform: translateY(-3px) scale(1.07);
+    box-shadow:
+      0 9px 0 #381b07,
+      0 14px 22px rgba(0, 0, 0, 0.55),
+      0 0 16px rgba(255, 213, 79, 0.55);
+  }
+
+  .nav-btn:active {
+    transform: translateY(3px) scale(0.95);
+    box-shadow: 0 2px 0 #381b07, 0 4px 8px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Шар для візуальних спецефектів (конфеті, зірки, бульбашки) */
+  #fx-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  /* Адаптація під менші екрани / планшети */
+  @media (max-width: 960px) {
+    #board-wrapper {
+      padding: 2vh 2vw 14vh 2vw;
+    }
+    #puzzle-board {
+      width: 94vw;
+      height: 80vh;
+      padding: 14px 16px;
+    }
+    #raccoon-container {
+      width: 135px;
+      height: 165px;
+      left: 10px;
+      bottom: 6px;
+    }
+    .choice-tile {
+      width: 92px;
+      height: 88px;
+    }
+    .seq-slot {
+      width: 72px;
+      height: 72px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div id="game-stage">
+
+  <!-- ======================================================================
+       СПІЛЬНІ SVG-ГРАДІЄНТИ ТА ФІЛЬТРИ (МАКСИМАЛЬНО РЕАЛІСТИЧНИЙ ОБ'ЄМ)
+       ====================================================================== -->
+  <svg width="0" height="0" style="position:absolute">
+    <defs>
+      <!-- Об'ємні градієнти для предметів -->
+      <radialGradient id="g-red" cx="32%" cy="28%" r="70%">
+        <stop offset="0%" stop-color="#ff8a80"/>
+        <stop offset="45%" stop-color="#e53935"/>
+        <stop offset="100%" stop-color="#7f0000"/>
+      </radialGradient>
+      <radialGradient id="g-gold" cx="32%" cy="28%" r="70%">
+        <stop offset="0%" stop-color="#fff59d"/>
+        <stop offset="48%" stop-color="#ffb300"/>
+        <stop offset="100%" stop-color="#8d5500"/>
+      </radialGradient>
+      <radialGradient id="g-teal" cx="32%" cy="28%" r="70%">
+        <stop offset="0%" stop-color="#80cbc4"/>
+        <stop offset="50%" stop-color="#00897b"/>
+        <stop offset="100%" stop-color="#003d33"/>
+      </radialGradient>
+      <radialGradient id="g-blue" cx="32%" cy="28%" r="70%">
+        <stop offset="0%" stop-color="#90caf9"/>
+        <stop offset="50%" stop-color="#1e88e5"/>
+        <stop offset="100%" stop-color="#0d3c78"/>
+      </radialGradient>
+      <radialGradient id="g-green" cx="32%" cy="28%" r="70%">
+        <stop offset="0%" stop-color="#b9f6ca"/>
+        <stop offset="50%" stop-color="#43a047"/>
+        <stop offset="100%" stop-color="#1b5e20"/>
+      </radialGradient>
+      <radialGradient id="g-purple" cx="32%" cy="28%" r="70%">
+        <stop offset="0%" stop-color="#e1bee7"/>
+        <stop offset="50%" stop-color="#8e24aa"/>
+        <stop offset="100%" stop-color="#4a148c"/>
+      </radialGradient>
+      <radialGradient id="g-orange" cx="32%" cy="28%" r="70%">
+        <stop offset="0%" stop-color="#ffcc80"/>
+        <stop offset="50%" stop-color="#fb8c00"/>
+        <stop offset="100%" stop-color="#a84300"/>
+      </radialGradient>
+      <radialGradient id="g-pink" cx="32%" cy="28%" r="70%">
+        <stop offset="0%" stop-color="#f8bbd0"/>
+        <stop offset="50%" stop-color="#ec407a"/>
+        <stop offset="100%" stop-color="#880e4f"/>
+      </radialGradient>
+      <radialGradient id="g-brown" cx="32%" cy="28%" r="70%">
+        <stop offset="0%" stop-color="#d7a86e"/>
+        <stop offset="50%" stop-color="#8d5524"/>
+        <stop offset="100%" stop-color="#472409"/>
+      </radialGradient>
+      <linearGradient id="g-brass" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#fff4b8"/>
+        <stop offset="40%" stop-color="#e3a938"/>
+        <stop offset="75%" stop-color="#9c6615"/>
+        <stop offset="100%" stop-color="#f5d16e"/>
+      </linearGradient>
+      <linearGradient id="g-glass" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="rgba(225,248,255,0.75)"/>
+        <stop offset="50%" stop-color="rgba(165,220,238,0.28)"/>
+        <stop offset="100%" stop-color="rgba(120,195,225,0.58)"/>
+      </linearGradient>
+      <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#1a0d04" flood-opacity="0.4"/>
+      </filter>
+    </defs>
+  </svg>
+
+  <!-- ======================================================================
+       ЖИВИЙ СЮЖЕТНИЙ ФОН: СОНЯЧНА ЛІСОВА МАЙСТЕРНЯ ЄНОТА
+       ====================================================================== -->
+  <svg id="scene-bg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#48a9e6"/>
+        <stop offset="45%" stop-color="#9ad8f5"/>
+        <stop offset="85%" stop-color="#fce3a4"/>
+        <stop offset="100%" stop-color="#f7c873"/>
+      </linearGradient>
+      <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#fffde7" stop-opacity="1"/>
+        <stop offset="35%" stop-color="#ffe082" stop-opacity="0.8"/>
+        <stop offset="100%" stop-color="#ffca28" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="hillFar" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#5da86e"/>
+        <stop offset="100%" stop-color="#356e4b"/>
+      </linearGradient>
+      <linearGradient id="hillNear" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#6dbb54"/>
+        <stop offset="100%" stop-color="#2c6334"/>
+      </linearGradient>
+      <linearGradient id="benchWood" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#9e6231"/>
+        <stop offset="25%" stop-color="#7c471e"/>
+        <stop offset="100%" stop-color="#4b270d"/>
+      </linearGradient>
+      <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#8bc34a"/>
+        <stop offset="100%" stop-color="#2e7d32"/>
+      </linearGradient>
+    </defs>
+
+    <!-- Небо -->
+    <rect width="1440" height="900" fill="url(#skyGrad)"/>
+
+    <!-- Сонце та промені -->
+    <g class="sun-rays" opacity="0.38">
+      <polygon points="1220,110 1180,-120 1260,-120" fill="#fff8c4"/>
+      <polygon points="1220,110 1440,-40 1480,40" fill="#fff8c4"/>
+      <polygon points="1220,110 1520,180 1460,260" fill="#fff8c4"/>
+      <polygon points="1220,110 1320,420 1230,430" fill="#fff8c4"/>
+      <polygon points="1220,110 1000,360 940,290" fill="#fff8c4"/>
+      <polygon points="1220,110 920,120 940,40" fill="#fff8c4"/>
+      <polygon points="1220,110 1020,-80 1100,-120" fill="#fff8c4"/>
+    </g>
+    <circle cx="1220" cy="110" r="140" fill="url(#sunGlow)"/>
+    <circle cx="1220" cy="110" r="46" fill="#fff9c4"/>
+
+    <!-- Хмари, що пливуть -->
+    <g class="cloud-slow" opacity="0.88">
+      <path d="M40,145 C40,120 68,105 92,115 C104,88 148,88 162,112 C188,105 215,122 212,146 C210,162 45,165 40,145 Z" fill="#fffdf6"/>
+      <path d="M52,148 C82,155 182,155 204,145" stroke="#dcecf5" stroke-width="6" stroke-linecap="round" fill="none"/>
+    </g>
+    <g class="cloud-med" opacity="0.78">
+      <path d="M80,235 C80,215 104,204 122,212 C134,190 168,192 178,210 C198,205 218,218 214,236 Z" fill="#fff9ec"/>
+    </g>
+
+    <!-- Далекі лісові пагорби -->
+    <path d="M0,580 Q280,430 620,540 T1440,510 L1440,900 L0,900 Z" fill="url(#hillFar)"/>
+    <!-- Силуети далеких сосен -->
+    <g fill="#2e6040" opacity="0.72">
+      <polygon points="120,490 155,390 190,490"/>
+      <polygon points="165,500 205,375 245,500"/>
+      <polygon points="1180,500 1215,385 1250,500"/>
+      <polygon points="1230,505 1275,365 1320,505"/>
+      <polygon points="1310,510 1350,400 1390,510"/>
+    </g>
+
+    <!-- Ближній сонячний луг -->
+    <path d="M0,640 Q420,545 860,630 T1440,605 L1440,900 L0,900 Z" fill="url(#hillNear)"/>
+
+    <!-- Польові квіточки на лузі -->
+    <g>
+      <circle cx="290" cy="675" r="7" fill="#fff59d"/><circle cx="290" cy="675" r="3" fill="#f57f17"/>
+      <circle cx="340" cy="705" r="6" fill="#f8bbd0"/><circle cx="340" cy="705" r="2.5" fill="#ffb300"/>
+      <circle cx="1140" cy="670" r="7" fill="#fff59d"/><circle cx="1140" cy="670" r="3" fill="#f57f17"/>
+      <circle cx="1290" cy="695" r="8" fill="#ffe082"/><circle cx="1290" cy="695" r="3" fill="#e65100"/>
+    </g>
+
+    <!-- Гілки дерев зверху з листям, що колишуться -->
+    <g class="branch-l">
+      <path d="M-20,60 Q140,95 270,35" stroke="#5d3a1a" stroke-width="18" stroke-linecap="round" fill="none"/>
+      <path d="M90,78 Q170,130 225,118" stroke="#5d3a1a" stroke-width="10" stroke-linecap="round" fill="none"/>
+      <ellipse cx="85" cy="52" rx="44" ry="22" transform="rotate(-18 85 52)" fill="url(#leafGrad)"/>
+      <ellipse cx="165" cy="64" rx="48" ry="24" transform="rotate(14 165 64)" fill="url(#leafGrad)"/>
+      <ellipse cx="245" cy="40" rx="42" ry="20" transform="rotate(-24 245 40)" fill="url(#leafGrad)"/>
+      <ellipse cx="205" cy="118" rx="38" ry="18" transform="rotate(22 205 118)" fill="#689f38"/>
+    </g>
+
+    <g class="branch-r">
+      <path d="M1460,55 Q1310,105 1190,48" stroke="#5d3a1a" stroke-width="16" stroke-linecap="round" fill="none"/>
+      <ellipse cx="1370" cy="65" rx="46" ry="22" transform="rotate(16 1370 65)" fill="url(#leafGrad)"/>
+      <ellipse cx="1280" cy="78" rx="44" ry="21" transform="rotate(-12 1280 78)" fill="url(#leafGrad)"/>
+      <ellipse cx="1205" cy="48" rx="40" ry="19" transform="rotate(22 1205 48)" fill="#689f38"/>
+    </g>
+
+    <!-- Живий метелик, що літає на фоні -->
+    <g class="butterfly" transform="translate(260, 180)">
+      <g class="b-wing">
+        <ellipse cx="-10" cy="-6" rx="14" ry="10" transform="rotate(-25 -10 -6)" fill="#ffb300"/>
+        <ellipse cx="10" cy="-6" rx="14" ry="10" transform="rotate(25 10 -6)" fill="#ff8f00"/>
+        <ellipse cx="-8" cy="6" rx="9" ry="7" fill="#ffe082"/>
+        <ellipse cx="8" cy="6" rx="9" ry="7" fill="#ffe082"/>
+      </g>
+      <rect x="-2" y="-9" width="4" height="18" rx="2" fill="#4e342e"/>
+    </g>
+
+    <!-- Золоті пилинки у сонячному світлі -->
+    <circle class="pollen" cx="220" cy="360" r="4" fill="#fff9c4" style="animation-delay:0s"/>
+    <circle class="pollen" cx="410" cy="240" r="3" fill="#fff59d" style="animation-delay:1.4s"/>
+    <circle class="pollen" cx="1160" cy="280" r="4.5" fill="#fff9c4" style="animation-delay:0.8s"/>
+    <circle class="pollen" cx="1320" cy="420" r="3.5" fill="#ffe082" style="animation-delay:2.1s"/>
+
+    <!-- Дерев'яний верстак на передньому плані -->
+    <rect x="0" y="750" width="1440" height="150" fill="url(#benchWood)"/>
+    <line x1="0" y1="752" x2="1440" y2="752" stroke="#d9a066" stroke-width="5" opacity="0.65"/>
+    <path d="M0,788 Q360,778 720,792 T1440,785" stroke="#3d1e08" stroke-width="3" opacity="0.45" fill="none"/>
+    <path d="M0,840 Q480,852 960,836 T1440,846" stroke="#3d1e08" stroke-width="3" opacity="0.4" fill="none"/>
+  </svg>
+
+  <!-- ======================================================================
+       ЖИВИЙ ПЕРСОНАЖ: ХИТРИЙ ЄНОТ-ДЕТЕКТИВ (РЕАГУЄ НА МИШУ ТА ВІДПОВІДІ)
+       ====================================================================== -->
+  <div id="raccoon-container">
+    <svg id="raccoon-svg" viewBox="0 0 300 340">
+      <defs>
+        <radialGradient id="furMain" cx="40%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#b8b2a8"/>
+          <stop offset="60%" stop-color="#857f76"/>
+          <stop offset="100%" stop-color="#524d47"/>
+        </radialGradient>
+        <radialGradient id="furLight" cx="50%" cy="35%" r="65%">
+          <stop offset="0%" stop-color="#f7f2e7"/>
+          <stop offset="70%" stop-color="#ded6c8"/>
+          <stop offset="100%" stop-color="#b8afa0"/>
+        </radialGradient>
+        <linearGradient id="scarfRed" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#ff6b57"/>
+          <stop offset="55%" stop-color="#d83428"/>
+          <stop offset="100%" stop-color="#8c1610"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Зона для спливаючих SVG-емоцій над головою (зірочки, крапля поту тощо) -->
+      <g id="raccoon-emote"></g>
+
+      <!-- Смугастий хвіст -->
+      <g id="raccoon-tail">
+        <path d="M98,255 C30,275 8,215 30,175 C46,145 78,155 76,188 C74,212 88,225 106,232 Z" fill="url(#furMain)" stroke="#3e3934" stroke-width="3"/>
+        <path d="M36,232 Q55,222 68,236" stroke="#2d2926" stroke-width="11" stroke-linecap="round" fill="none"/>
+        <path d="M24,200 Q45,192 64,206" stroke="#2d2926" stroke-width="11" stroke-linecap="round" fill="none"/>
+        <path d="M34,172 Q52,168 68,180" stroke="#2d2926" stroke-width="9" stroke-linecap="round" fill="none"/>
+      </g>
+
+      <!-- Основне тіло та голова Єнота -->
+      <g id="raccoon-body-group">
+        <!-- Тулуб -->
+        <ellipse cx="152" cy="245" rx="68" ry="74" fill="url(#furMain)" stroke="#3e3934" stroke-width="3"/>
+        <!-- Пухнастий світлий животик -->
+        <ellipse cx="156" cy="252" rx="44" ry="52" fill="url(#furLight)"/>
+
+        <!-- Червоний детективний шарфик -->
+        <path d="M100,192 Q154,218 206,192 Q212,208 200,218 Q154,240 106,218 Q94,208 100,192 Z" fill="url(#scarfRed)" stroke="#6e100b" stroke-width="2.5"/>
+        <path d="M174,212 L198,260 L174,264 L158,222 Z" fill="url(#scarfRed)" stroke="#6e100b" stroke-width="2.5"/>
+        <line x1="170" y1="242" x2="191" y2="240" stroke="#ffd54f" stroke-width="4"/>
+
+        <!-- Лапки -->
+        <g id="raccoon-paw-l">
+          <ellipse cx="102" cy="255" rx="22" ry="16" transform="rotate(-24 102 255)" fill="#45403b" stroke="#2b2825" stroke-width="2.5"/>
+          <circle cx="90" cy="248" r="4" fill="#d7ccc8"/>
+          <circle cx="96" cy="242" r="4" fill="#d7ccc8"/>
+        </g>
+        <g id="raccoon-paw-r">
+          <ellipse cx="204" cy="252" rx="22" ry="16" transform="rotate(24 204 252)" fill="#45403b" stroke="#2b2825" stroke-width="2.5"/>
+          <circle cx="215" cy="246" r="4" fill="#d7ccc8"/>
+          <circle cx="209" cy="240" r="4" fill="#d7ccc8"/>
+        </g>
+
+        <!-- Вушка -->
+        <g id="raccoon-ear-l">
+          <path d="M84,116 L76,58 Q108,64 126,95 Z" fill="url(#furMain)" stroke="#3e3934" stroke-width="3" stroke-linejoin="round"/>
+          <path d="M90,104 L86,70 Q105,74 116,94 Z" fill="#f0d9c8"/>
+        </g>
+        <g id="raccoon-ear-r">
+          <path d="M220,116 L228,58 Q196,64 178,95 Z" fill="url(#furMain)" stroke="#3e3934" stroke-width="3" stroke-linejoin="round"/>
+          <path d="M214,104 L218,70 Q199,74 188,94 Z" fill="#f0d9c8"/>
+        </g>
+
+        <!-- Голова -->
+        <path d="M74,142 C72,94 114,76 152,76 C190,76 232,94 230,142 C228,186 196,204 152,204 C108,204 76,186 74,142 Z" fill="url(#furMain)" stroke="#3e3934" stroke-width="3"/>
+
+        <!-- Світлі щічки та брови -->
+        <path d="M82,152 Q115,140 152,164 Q189,140 222,152 C220,185 190,202 152,202 C114,202 84,185 82,152 Z" fill="url(#furLight)"/>
+
+        <!-- Темна маска єнота -->
+        <ellipse cx="118" cy="136" rx="28" ry="22" transform="rotate(-12 118 136)" fill="#2d2926"/>
+        <ellipse cx="186" cy="136" rx="28" ry="22" transform="rotate(12 186 136)" fill="#2d2926"/>
+        <!-- Світлі брівки над маскою -->
+        <path d="M98,112 Q118,104 134,113" stroke="#f5efe2" stroke-width="5" stroke-linecap="round" fill="none"/>
+        <path d="M170,113 Q186,104 206,112" stroke="#f5efe2" stroke-width="5" stroke-linecap="round" fill="none"/>
+
+        <!-- Очі (зіниці рухаються за курсором) -->
+        <g id="raccoon-eyes">
+          <circle cx="120" cy="136" r="13.5" fill="#fffdf7"/>
+          <circle cx="184" cy="136" r="13.5" fill="#fffdf7"/>
+          <g id="pupil-l">
+            <circle cx="122" cy="136" r="7.5" fill="#1d1815"/>
+            <circle cx="125" cy="132" r="2.8" fill="#ffffff"/>
+          </g>
+          <g id="pupil-r">
+            <circle cx="186" cy="136" r="7.5" fill="#1d1815"/>
+            <circle cx="189" cy="132" r="2.8" fill="#ffffff"/>
+          </g>
+          <!-- Повіки для моргання -->
+          <rect id="eyelid-l" x="105" y="120" width="30" height="0" rx="8" fill="#2d2926"/>
+          <rect id="eyelid-r" x="169" y="120" width="30" height="0" rx="8" fill="#2d2926"/>
+        </g>
+
+        <!-- Носик та усмішка -->
+        <ellipse cx="152" cy="162" rx="12" ry="8.5" fill="#211d1a"/>
+        <ellipse cx="149" cy="159" rx="4" ry="2.2" fill="#75706b"/>
+        <path id="raccoon-mouth" d="M138,176 Q152,188 166,176" stroke="#2b2623" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+
+        <!-- Маленька детективна кепочка набакир -->
+        <g transform="translate(152, 76) rotate(-7)">
+          <path d="M-42,6 C-38,-22 38,-22 42,6 Z" fill="#6d4c41" stroke="#3e2723" stroke-width="2.5"/>
+          <path d="M-46,6 Q0,14 52,8 Q26,-2 -46,6 Z" fill="#4e342e" stroke="#2d1a14" stroke-width="2"/>
+          <circle cx="0" cy="-16" r="5" fill="#e0ad42"/>
+        </g>
+      </g>
+    </svg>
+  </div>
+
+  <!-- ======================================================================
+       ГОЛОВНА ІГРОВА ДОШКА
+       ====================================================================== -->
+  <div id="board-wrapper">
+    <div id="puzzle-board">
+      <div class="rivet tl"></div>
+      <div class="rivet tr"></div>
+      <div class="rivet bl"></div>
+      <div class="rivet br"></div>
+
+      <!-- Поле з умовою логічного завдання -->
+      <div id="task-area"></div>
+
+      <!-- Поле з варіантами відповідей (приховується в типі «Знайди зайвого») -->
+      <div id="choices-area"></div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       МІНІМАЛІСТИЧНІ КНОПКИ «НАЗАД» ТА «ДАЛІ» (МИТТЄВИЙ ПЕРЕХІД)
+       ====================================================================== -->
+  <div id="nav-controls">
+    <button id="btn-prev" class="nav-btn" aria-label="Previous">
+      <svg width="26" height="26" viewBox="0 0 28 28">
+        <path d="M18 5 L8 14 L18 23" fill="none" stroke="#ffeb99" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    <button id="btn-next" class="nav-btn" aria-label="Next">
+      <svg width="26" height="26" viewBox="0 0 28 28">
+        <path d="M10 5 L20 14 L10 23" fill="none" stroke="#ffeb99" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Шар для активних візуальних фідбеків (конфеті, зірки, бульбашки) -->
+  <div id="fx-layer"></div>
+</div>
+
+<script>
+/* ============================================================================
+   1. ЗВУКОВИЙ РУШІЙ (WEB AUDIO API — БЕЗ ЗОВНІШНІХ ФАЙЛІВ, ЯСКРАВІ ЕФЕКТИ)
+   ============================================================================ */
+const SoundFX = (() => {
+  let ctx = null;
+
+  function ensureCtx() {
+    if (!ctx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      ctx = new AudioCtx();
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+
+  function tone(freq, type, start, dur, vol = 0.16, slideTo = null) {
+    const c = ensureCtx();
+    const osc = c.createOscillator();
+    const gain = c.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, c.currentTime + start);
+    if (slideTo) {
+      osc.frequency.exponentialRampToValueAtTime(slideTo, c.currentTime + start + dur);
+    }
+    gain.gain.setValueAtTime(0.001, c.currentTime + start);
+    gain.gain.linearRampToValueAtTime(vol, c.currentTime + start + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + start + dur);
+    osc.connect(gain);
+    gain.connect(c.destination);
+    osc.start(c.currentTime + start);
+    osc.stop(c.currentTime + start + dur + 0.02);
+  }
+
+  // Кілька різних радісних мелодій для правильних відповідей
+  const winMelodies = [
+    () => { // Марімба-фанфари
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, 'triangle', i * 0.085, 0.28, 0.22));
+    },
+    () => { // Чарівний передзвін
+      [587.33, 739.99, 880, 1174.66, 1479.98].forEach((f, i) => tone(f, 'sine', i * 0.07, 0.34, 0.18));
+    },
+    () => { // Веселий стрибок
+      tone(440, 'triangle', 0, 0.12, 0.18, 660);
+      tone(660, 'triangle', 0.11, 0.14, 0.2, 880);
+      tone(880, 'sine', 0.24, 0.35, 0.22, 1174);
+    }
+  ];
+
+  // Кілька кумедних звуків для помилки (м'які та веселі, без різкого гудка)
+  const wrongSounds = [
+    () => { // Кумедна пружинка «боїнг»
+      tone(290, 'sine', 0, 0.18, 0.2, 165);
+      tone(210, 'triangle', 0.14, 0.22, 0.15, 130);
+    },
+    () => { // Мультяшне «ква-ква»
+      tone(340, 'sawtooth', 0, 0.11, 0.09, 250);
+      tone(260, 'sawtooth', 0.13, 0.16, 0.09, 175);
+    }
+  ];
+
+  let winIdx = 0;
+  let wrongIdx = 0;
+
+  return {
+    playWin() {
+      winMelodies[winIdx % winMelodies.length]();
+      winIdx++;
+    },
+    playWrong() {
+      wrongSounds[wrongIdx % wrongSounds.length]();
+      wrongIdx++;
+    },
+    playWoodTap() {
+      tone(320, 'triangle', 0, 0.06, 0.14, 180);
+    },
+    playGiggle() {
+      [620, 780, 700, 920].forEach((f, i) => tone(f, 'sine', i * 0.055, 0.09, 0.12, f * 1.15));
+    }
+  };
+})();
+
+
+/* ============================================================================
+   2. БІБЛІОТЕКА ДЕТАЛЬНИХ SVG-ОБ'ЄКТІВ (ЖОДНИХ ЕМОДЗІ ТА ЗОВНІШНІХ КАРТИНОК)
+   ============================================================================ */
+const COL_MAP = {
+  red: 'url(#g-red)',
+  gold: 'url(#g-gold)',
+  teal: 'url(#g-teal)',
+  blue: 'url(#g-blue)',
+  green: 'url(#g-green)',
+  purple: 'url(#g-purple)',
+  orange: 'url(#g-orange)',
+  pink: 'url(#g-pink)',
+  brown: 'url(#g-brown)'
+};
+
+const SVGDraw = {
+  // Яблуко з листочком та відблиском
+  apple(color = 'red') {
+    const fill = COL_MAP[color] || COL_MAP.red;
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%" filter="url(#soft-shadow)">
+      <path d="M50,24 C48,14 54,10 60,9" stroke="#5d3a1a" stroke-width="5" stroke-linecap="round" fill="none"/>
+      <path d="M54,18 C66,8 78,12 75,24 C66,26 58,24 54,18 Z" fill="url(#g-green)" stroke="#1b5e20" stroke-width="1.5"/>
+      <path d="M50,26 C30,18 14,34 17,58 C20,82 36,92 50,86 C64,92 80,82 83,58 C86,34 70,18 50,26 Z" fill="${fill}" stroke="#3e1d10" stroke-width="2"/>
+      <ellipse cx="34" cy="43" rx="7" ry="13" transform="rotate(-18 34 43)" fill="rgba(255,255,255,0.42)"/>
+    </svg>`;
+  },
+
+  // Лісовий грибок з цяточками
+  mushroom(color = 'red') {
+    const fill = COL_MAP[color] || COL_MAP.red;
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%" filter="url(#soft-shadow)">
+      <path d="M38,54 C36,72 34,88 50,89 C66,88 64,72 62,54 Z" fill="#f3e2c3" stroke="#7d5c38" stroke-width="2.5"/>
+      <path d="M12,56 C14,22 34,14 50,14 C66,14 86,22 88,56 C70,63 30,63 12,56 Z" fill="${fill}" stroke="#3e1d10" stroke-width="2.2"/>
+      <circle cx="34" cy="36" r="6.5" fill="#fff8e1" opacity="0.92"/>
+      <circle cx="58" cy="28" r="5" fill="#fff8e1" opacity="0.92"/>
+      <circle cx="69" cy="44" r="6" fill="#fff8e1" opacity="0.92"/>
+      <circle cx="46" cy="46" r="4" fill="#fff8e1" opacity="0.88"/>
+    </svg>`;
+  },
+
+  // Жолудь з рельєфною шапочкою
+  acorn(color = 'brown') {
+    const fill = COL_MAP[color] || COL_MAP.brown;
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%" filter="url(#soft-shadow)">
+      <path d="M50,18 L52,9" stroke="#4e2e10" stroke-width="5.5" stroke-linecap="round"/>
+      <path d="M24,42 C24,74 39,86 50,91 C61,86 76,74 76,42 Z" fill="${fill}" stroke="#3d210b" stroke-width="2.2"/>
+      <ellipse cx="38" cy="60" rx="5" ry="12" transform="rotate(-12 38 60)" fill="rgba(255,255,255,0.34)"/>
+      <path d="M18,44 C18,22 36,16 50,16 C64,16 82,22 82,44 C68,50 32,50 18,44 Z" fill="#6d4320" stroke="#3b2009" stroke-width="2.2"/>
+      <path d="M26,38 L38,24 M40,42 L54,20 M56,42 L68,24 M30,26 L44,42 M48,22 L62,42" stroke="#45260d" stroke-width="2" opacity="0.65"/>
+    </svg>`;
+  },
+
+  // Соковита ягідка (суничка / ожина)
+  berry(color = 'purple') {
+    const fill = COL_MAP[color] || COL_MAP.purple;
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%" filter="url(#soft-shadow)">
+      <path d="M50,24 C30,24 22,42 28,62 C33,78 44,89 50,90 C56,89 67,78 72,62 C78,42 70,24 50,24 Z" fill="${fill}" stroke="#3a1230" stroke-width="2.2"/>
+      <path d="M32,26 L45,32 L50,16 L55,32 L68,26 L56,36 L44,36 Z" fill="url(#g-green)" stroke="#1b5e20" stroke-width="1.5"/>
+      <circle cx="40" cy="48" r="2.5" fill="#fff59d"/>
+      <circle cx="56" cy="46" r="2.5" fill="#fff59d"/>
+      <circle cx="48" cy="62" r="2.5" fill="#fff59d"/>
+      <circle cx="38" cy="68" r="2.2" fill="#fff59d"/>
+      <circle cx="60" cy="66" r="2.2" fill="#fff59d"/>
+    </svg>`;
+  },
+
+  // Кленовий/дубовий листочок
+  leaf(color = 'green') {
+    const fill = COL_MAP[color] || COL_MAP.green;
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%" filter="url(#soft-shadow)">
+      <path d="M18,84 C34,68 48,54 78,22" stroke="#4e342e" stroke-width="4" stroke-linecap="round"/>
+      <path d="M24,74 C18,44 38,20 82,18 C80,62 56,82 24,74 Z" fill="${fill}" stroke="#1b4d20" stroke-width="2.2"/>
+      <path d="M26,72 L76,24 M44,54 L42,36 M58,42 L72,44 M48,52 L60,64" stroke="rgba(255,255,220,0.55)" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>`;
+  },
+
+  // Гарбузик (для терезів)
+  pumpkin() {
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%" filter="url(#soft-shadow)">
+      <path d="M50,24 C50,12 58,9 64,13" stroke="#2e7d32" stroke-width="6" stroke-linecap="round" fill="none"/>
+      <ellipse cx="32" cy="57" rx="20" ry="29" fill="url(#g-orange)" stroke="#8c3b00" stroke-width="2"/>
+      <ellipse cx="68" cy="57" rx="20" ry="29" fill="url(#g-orange)" stroke="#8c3b00" stroke-width="2"/>
+      <ellipse cx="50" cy="57" rx="22" ry="32" fill="url(#g-orange)" stroke="#8c3b00" stroke-width="2"/>
+      <ellipse cx="42" cy="46" rx="5" ry="12" fill="rgba(255,255,255,0.32)"/>
+    </svg>`;
+  },
+
+  // Шматочок сиру (для терезів)
+  cheese() {
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%" filter="url(#soft-shadow)">
+      <polygon points="14,68 86,68 86,38 28,24" fill="url(#g-gold)" stroke="#8a5a00" stroke-width="2.5" stroke-linejoin="round"/>
+      <polygon points="14,68 86,68 86,80 14,80" fill="#e09100" stroke="#8a5a00" stroke-width="2.5" stroke-linejoin="round"/>
+      <circle cx="42" cy="52" r="7" fill="#c77800"/>
+      <circle cx="68" cy="48" r="5" fill="#c77800"/>
+      <circle cx="58" cy="60" r="4" fill="#c77800"/>
+    </svg>`;
+  },
+
+  // Рум'яний пиріг (для терезів)
+  pie() {
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%" filter="url(#soft-shadow)">
+      <path d="M14,54 L24,80 L76,80 L86,54 Z" fill="#b0bec5" stroke="#455a64" stroke-width="2.5"/>
+      <path d="M12,54 C16,28 84,28 88,54 Z" fill="url(#g-brown)" stroke="#5c3010" stroke-width="2.5"/>
+      <path d="M26,48 Q50,34 74,48 M34,38 Q50,52 66,38" stroke="#f5d393" stroke-width="4" stroke-linecap="round" fill="none"/>
+      <circle cx="50" cy="36" r="5" fill="url(#g-red)"/>
+    </svg>`;
+  },
+
+  // Старовинний ключик з обертанням (0, 90, 180, 270 градусів)
+  key(color = 'gold', rot = 0) {
+    const fill = COL_MAP[color] || COL_MAP.gold;
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%" filter="url(#soft-shadow)">
+      <g transform="rotate(${rot} 50 50)">
+        <circle cx="28" cy="50" r="18" fill="${fill}" stroke="#3e2408" stroke-width="2.5"/>
+        <circle cx="28" cy="50" r="7" fill="#e6c785" stroke="#3e2408" stroke-width="2"/>
+        <rect x="44" y="45" width="44" height="10" rx="4" fill="${fill}" stroke="#3e2408" stroke-width="2.2"/>
+        <rect x="66" y="55" width="7" height="14" rx="2" fill="${fill}" stroke="#3e2408" stroke-width="2"/>
+        <rect x="78" y="55" width="7" height="10" rx="2" fill="${fill}" stroke="#3e2408" stroke-width="2"/>
+      </g>
+    </svg>`;
+  },
+
+  // Група з N предметів (1, 2, 3, 4 або 5)
+  multi(type, count, color) {
+    const positions = {
+      1: [[50, 50, 74]],
+      2: [[28, 50, 50], [72, 50, 50]],
+      3: [[50, 27, 44], [27, 68, 44], [73, 68, 44]],
+      4: [[28, 28, 42], [72, 28, 42], [28, 72, 42], [72, 72, 42]],
+      5: [[26, 26, 36], [74, 26, 36], [50, 50, 36], [26, 74, 36], [74, 74, 36]]
+    }[count] || [[50, 50, 70]];
+
+    const inner = positions.map(([x, y, s]) => {
+      const itemSvg = this[type](color).replace('<svg viewBox="0 0 100 100" width="100%" height="100%" filter="url(#soft-shadow)">', '').replace('</svg>', '');
+      const scale = s / 100;
+      const tx = x - s / 2;
+      const ty = y - s / 2;
+      return `<g transform="translate(${tx},${ty}) scale(${scale})">${itemSvg}</g>`;
+    }).join('');
+
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%" filter="url(#soft-shadow)">${inner}</svg>`;
+  },
+
+  // Дерев'яна плитка з сонечком у кутку (для логіки руху по колу)
+  cornerBug(corner, ribbonColor) {
+    // corner: 0=TL, 1=TR, 2=BR, 3=BL
+    const coords = [[28, 28], [72, 28], [72, 72], [28, 72]][corner];
+    const rFill = COL_MAP[ribbonColor] || COL_MAP.teal;
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%">
+      <rect x="8" y="8" width="84" height="84" rx="16" fill="#f3dfb6" stroke="${rFill}" stroke-width="8"/>
+      <line x1="50" y1="14" x2="50" y2="86" stroke="#b5945c" stroke-width="2" stroke-dasharray="4 4"/>
+      <line x1="14" y1="50" x2="86" y2="50" stroke="#b5945c" stroke-width="2" stroke-dasharray="4 4"/>
+      <g transform="translate(${coords[0]}, ${coords[1]})">
+        <circle r="13" fill="url(#g-red)" stroke="#3e1111" stroke-width="2"/>
+        <circle cy="-11" r="6" fill="#212121"/>
+        <line x1="0" y1="-11" x2="0" y2="12" stroke="#212121" stroke-width="2"/>
+        <circle cx="-5" cy="-1" r="2.2" fill="#212121"/>
+        <circle cx="5" cy="-1" r="2.2" fill="#212121"/>
+        <circle cx="-4" cy="6" r="2" fill="#212121"/>
+        <circle cx="4" cy="6" r="2" fill="#212121"/>
+      </g>
+    </svg>`;
+  },
+
+  // Дерев'яна пірамідка з 3 кольорових кілець (знизу вгору: [c0, c1, c2])
+  ringStack(colors) {
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%" filter="url(#soft-shadow)">
+      <rect x="44" y="14" width="12" height="72" rx="6" fill="#795548" stroke="#3e2723" stroke-width="2"/>
+      <rect x="14" y="80" width="72" height="12" rx="6" fill="#5d4037" stroke="#3e2723" stroke-width="2"/>
+      <rect x="16" y="62" width="68" height="17" rx="8.5" fill="${COL_MAP[colors[0]]}" stroke="#2b1b12" stroke-width="2"/>
+      <rect x="21" y="43" width="58" height="17" rx="8.5" fill="${COL_MAP[colors[1]]}" stroke="#2b1b12" stroke-width="2"/>
+      <rect x="26" y="24" width="48" height="17" rx="8.5" fill="${COL_MAP[colors[2]]}" stroke="#2b1b12" stroke-width="2"/>
+    </svg>`;
+  },
+
+  // Детальне сонечко для завдання «Знайди зайвого (симетрія)»
+  ladybug(leftSpots, rightSpots) {
+    const drawSide = (count, dir) => {
+      const pts = {
+        1: [[15 * dir, 4]],
+        2: [[14 * dir, -6], [14 * dir, 12]],
+        3: [[13 * dir, -10], [18 * dir, 4], [11 * dir, 17]]
+      }[count] || [];
+      return pts.map(([x, y]) => `<circle cx="${50 + x}" cy="${56 + y}" r="5.2" fill="#1e1b18"/>`).join('');
+    };
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%" filter="url(#soft-shadow)">
+      <!-- Лапки -->
+      <path d="M22,40 L10,32 M18,56 L7,56 M22,72 L10,80 M78,40 L90,32 M82,56 L93,56 M78,72 L90,80" stroke="#26211d" stroke-width="4" stroke-linecap="round"/>
+      <!-- Вусики -->
+      <path d="M42,20 Q34,10 28,12 M58,20 Q66,10 72,12" stroke="#26211d" stroke-width="3" stroke-linecap="round" fill="none"/>
+      <!-- Голова -->
+      <circle cx="50" cy="27" r="15" fill="#26211d"/>
+      <circle cx="44" cy="24" r="3" fill="#fff"/>
+      <circle cx="56" cy="24" r="3" fill="#fff"/>
+      <!-- Панцир -->
+      <ellipse cx="50" cy="57" rx="31" ry="32" fill="url(#g-red)" stroke="#3d0b0b" stroke-width="2.5"/>
+      <line x1="50" y1="26" x2="50" y2="89" stroke="#26211d" stroke-width="3.5"/>
+      <ellipse cx="38" cy="40" rx="6" ry="12" transform="rotate(-20 38 40)" fill="rgba(255,255,255,0.28)"/>
+      ${drawSide(leftSpots, -1)}
+      ${drawSide(rightSpots, 1)}
+    </svg>`;
+  },
+
+  // Скляна банка зі світлячками (для рахунку у «Знайди зайвого»)
+  fireflyJar(count, seed = 0) {
+    const patterns = [
+      [[34,46],[64,44],[48,58],[34,74],[66,72],[50,82]],
+      [[38,42],[60,50],[36,64],[64,68],[48,78],[50,40]],
+      [[35,48],[65,48],[50,62],[36,78],[64,78]], // 5 світлячків
+      [[34,42],[50,48],[66,42],[36,68],[52,76],[66,68]]
+    ];
+    const pts = (patterns[seed] || patterns[0]).slice(0, count);
+    const flies = pts.map(([x, y]) => `
+      <circle cx="${x}" cy="${y}" r="8" fill="#fff59d" opacity="0.45"/>
+      <circle cx="${x}" cy="${y}" r="4" fill="#ffee58"/>
+      <circle cx="${x}" cy="${y}" r="1.8" fill="#ffffff"/>
+    `).join('');
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%" filter="url(#soft-shadow)">
+      <!-- Корок -->
+      <rect x="34" y="10" width="32" height="14" rx="4" fill="#a1693a" stroke="#543215" stroke-width="2"/>
+      <!-- Банка -->
+      <path d="M32,24 L68,24 L76,36 L76,84 C76,90 70,92 64,92 L36,92 C30,92 24,90 24,84 L24,36 Z" fill="#173840" stroke="#80deea" stroke-width="2.5"/>
+      ${flies}
+      <path d="M32,24 L68,24 L76,36 L76,84 C76,90 70,92 64,92 L36,92 C30,92 24,90 24,84 L24,36 Z" fill="url(#g-glass)"/>
+      <path d="M32,38 L32,80" stroke="rgba(255,255,255,0.55)" stroke-width="4" stroke-linecap="round"/>
+    </svg>`;
+  },
+
+  // Кишеньковий латунний годинник (hour: 1-12, minute: 0 або 30)
+  clock(hour, minute) {
+    const minAng = minute * 6;
+    const hrAng = (hour % 12) * 30 + minute * 0.5;
+    let ticks = '';
+    for (let i = 0; i < 12; i++) {
+      const a = i * 30;
+      ticks += `<line x1="50" y1="22" x2="50" y2="${i % 3 === 0 ? 28 : 25}" stroke="#5d4037" stroke-width="${i % 3 === 0 ? 3 : 1.8}" transform="rotate(${a} 50 56)"/>`;
+    }
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%" filter="url(#soft-shadow)">
+      <circle cx="50" cy="14" r="7" fill="none" stroke="url(#g-brass)" stroke-width="3.5"/>
+      <rect x="45" y="16" width="10" height="8" rx="2" fill="url(#g-brass)"/>
+      <circle cx="50" cy="56" r="38" fill="url(#g-brass)" stroke="#5c3a0a" stroke-width="2.5"/>
+      <circle cx="50" cy="56" r="31" fill="#fff8e1" stroke="#8d6e63" stroke-width="2"/>
+      ${ticks}
+      <line x1="50" y1="56" x2="50" y2="36" stroke="#212121" stroke-width="4.5" stroke-linecap="round" transform="rotate(${hrAng} 50 56)"/>
+      <line x1="50" y1="56" x2="50" y2="27" stroke="#c62828" stroke-width="3" stroke-linecap="round" transform="rotate(${minAng} 50 56)"/>
+      <circle cx="50" cy="56" r="4" fill="#e65100"/>
+    </svg>`;
+  },
+
+  // Кумедна жабка для детективних підказок (Рівень 13)
+  frog({ hat = 'none', glasses = false }) {
+    const crownSvg = hat === 'crown' ? `
+      <polygon points="34,26 38,8 50,18 62,8 66,26" fill="url(#g-gold)" stroke="#7a4e00" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="50" cy="19" r="3" fill="#e53935"/>
+    ` : hat === 'tophat' ? `
+      <rect x="30" y="21" width="40" height="6" rx="3" fill="#37474f" stroke="#1c2529" stroke-width="1.8"/>
+      <rect x="37" y="5" width="26" height="17" rx="3" fill="#455a64" stroke="#1c2529" stroke-width="1.8"/>
+      <rect x="37" y="16" width="26" height="4" fill="#e53935"/>
+    ` : '';
+
+    const glassesSvg = glasses ? `
+      <circle cx="36" cy="40" r="11" fill="rgba(180,235,255,0.4)" stroke="#4e342e" stroke-width="3"/>
+      <circle cx="64" cy="40" r="11" fill="rgba(180,235,255,0.4)" stroke="#4e342e" stroke-width="3"/>
+      <line x1="47" y1="40" x2="53" y2="40" stroke="#4e342e" stroke-width="3"/>
+    ` : '';
+
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%" filter="url(#soft-shadow)">
+      <ellipse cx="50" cy="64" rx="34" ry="26" fill="url(#g-green)" stroke="#1b5e20" stroke-width="2.5"/>
+      <ellipse cx="50" cy="72" rx="22" ry="14" fill="#dcedc8"/>
+      <circle cx="36" cy="40" r="12" fill="url(#g-green)" stroke="#1b5e20" stroke-width="2"/>
+      <circle cx="64" cy="40" r="12" fill="url(#g-green)" stroke="#1b5e20" stroke-width="2"/>
+      <circle cx="36" cy="40" r="7.5" fill="#fffde7"/>
+      <circle cx="64" cy="40" r="7.5" fill="#fffde7"/>
+      <circle cx="37" cy="40" r="4" fill="#1b1b1b"/>
+      <circle cx="65" cy="40" r="4" fill="#1b1b1b"/>
+      <path d="M32,62 Q50,74 68,62" stroke="#1b5e20" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+      <circle cx="28" cy="58" r="4.5" fill="#ff8a80" opacity="0.65"/>
+      <circle cx="72" cy="58" r="4.5" fill="#ff8a80" opacity="0.65"/>
+      ${glassesSvg}
+      ${crownSvg}
+    </svg>`;
+  },
+
+  // Кумедна сова для детективних підказок (Рівень 14)
+  owl({ color = 'brown', scarf = 'red', hold = 'leaf' }) {
+    const bodyFill = COL_MAP[color] || COL_MAP.brown;
+    const scarfFill = COL_MAP[scarf] || COL_MAP.red;
+    const itemSvg = hold === 'acorn'
+      ? `<g transform="translate(58,52) scale(0.38)">${this.acorn('brown').replace(/<\/?svg[^>]*>/g,'')}</g>`
+      : `<g transform="translate(58,52) scale(0.38)">${this.leaf('green').replace(/<\/?svg[^>]*>/g,'')}</g>`;
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%" filter="url(#soft-shadow)">
+      <!-- Вушка-пір'їнки -->
+      <polygon points="24,30 22,12 40,22" fill="${bodyFill}" stroke="#2e1b0e" stroke-width="2"/>
+      <polygon points="76,30 78,12 60,22" fill="${bodyFill}" stroke="#2e1b0e" stroke-width="2"/>
+      <!-- Тіло -->
+      <ellipse cx="50" cy="54" rx="31" ry="34" fill="${bodyFill}" stroke="#2e1b0e" stroke-width="2.5"/>
+      <ellipse cx="50" cy="64" rx="19" ry="20" fill="#f3e5cb"/>
+      <!-- Очі та дзьоб -->
+      <circle cx="38" cy="40" r="11" fill="#fffde7" stroke="#2e1b0e" stroke-width="2"/>
+      <circle cx="62" cy="40" r="11" fill="#fffde7" stroke="#2e1b0e" stroke-width="2"/>
+      <circle cx="39" cy="40" r="5" fill="#1a1a1a"/>
+      <circle cx="61" cy="40" r="5" fill="#1a1a1a"/>
+      <polygon points="45,47 55,47 50,56" fill="url(#g-gold)" stroke="#6d4c00" stroke-width="1.5"/>
+      <!-- Шарф -->
+      <rect x="24" y="54" width="52" height="10" rx="5" fill="${scarfFill}" stroke="#3e1111" stroke-width="1.8"/>
+      <rect x="30" y="60" width="10" height="18" rx="3" fill="${scarfFill}" stroke="#3e1111" stroke-width="1.8"/>
+      ${itemSvg}
+    </svg>`;
+  },
+
+  // Апетитний кекс/тортик для гранд-фіналу (Рівень 15)
+  cupcake({ frosting = 'brown', cherry = true, cup = 'striped', candle = false }) {
+    const fFill = COL_MAP[frosting] || COL_MAP.brown;
+    const cupPattern = cup === 'striped'
+      ? `<line x1="34" y1="58" x2="38" y2="88" stroke="#8d5524" stroke-width="4"/>
+         <line x1="50" y1="58" x2="50" y2="88" stroke="#8d5524" stroke-width="4"/>
+         <line x1="66" y1="58" x2="62" y2="88" stroke="#8d5524" stroke-width="4"/>`
+      : `<circle cx="37" cy="70" r="4" fill="#d84315"/>
+         <circle cx="50" cy="78" r="4" fill="#d84315"/>
+         <circle cx="63" cy="70" r="4" fill="#d84315"/>`;
+    const cherrySvg = cherry
+      ? `<circle cx="50" cy="24" r="9" fill="url(#g-red)" stroke="#5c0808" stroke-width="1.8"/>
+         <path d="M50,15 Q56,8 63,11" stroke="#2e7d32" stroke-width="2.5" fill="none" stroke-linecap="round"/>`
+      : '';
+    const candleSvg = candle
+      ? `<rect x="62" y="16" width="7" height="20" rx="2" fill="#29b6f6" stroke="#01579b" stroke-width="1.5"/>
+         <path d="M65.5,6 C69,11 69,16 65.5,16 C62,16 62,11 65.5,6 Z" fill="#ffca28"/>`
+      : '';
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%" filter="url(#soft-shadow)">
+      <!-- Формочка -->
+      <polygon points="22,56 78,56 70,89 30,89" fill="#ffe082" stroke="#8a5a10" stroke-width="2.5" stroke-linejoin="round"/>
+      ${cupPattern}
+      <!-- Крем -->
+      <path d="M18,56 C16,40 30,36 34,36 C36,24 64,24 66,36 C70,36 84,40 82,56 Z" fill="${fFill}" stroke="#3e1f10" stroke-width="2.2"/>
+      ${cherrySvg}
+      ${candleSvg}
+    </svg>`;
+  },
+
+  // Іконки для карток підказок на корковій дошці
+  clueIcon(name) {
+    const map = {
+      crown: `<svg viewBox="0 0 100 100" width="100%" height="100%"><polygon points="16,74 22,26 50,50 78,26 84,74" fill="url(#g-gold)" stroke="#7a4e00" stroke-width="3.5" stroke-linejoin="round"/><circle cx="50" cy="56" r="6" fill="#e53935"/></svg>`,
+      glasses: `<svg viewBox="0 0 100 100" width="100%" height="100%"><circle cx="30" cy="52" r="18" fill="rgba(160,230,255,0.5)" stroke="#3e2723" stroke-width="5"/><circle cx="70" cy="52" r="18" fill="rgba(160,230,255,0.5)" stroke="#3e2723" stroke-width="5"/><line x1="48" y1="52" x2="52" y2="52" stroke="#3e2723" stroke-width="5"/></svg>`,
+      blueSplash: `<svg viewBox="0 0 100 100" width="100%" height="100%"><path d="M50,18 C68,20 82,34 80,52 C78,74 62,84 44,80 C24,76 16,58 22,40 C26,26 36,16 50,18 Z" fill="url(#g-blue)" stroke="#0d3c78" stroke-width="3"/></svg>`,
+      pinkSplash: `<svg viewBox="0 0 100 100" width="100%" height="100%"><path d="M50,18 C68,20 82,34 80,52 C78,74 62,84 44,80 C24,76 16,58 22,40 C26,26 36,16 50,18 Z" fill="url(#g-pink)" stroke="#880e4f" stroke-width="3"/></svg>`,
+      redScarf: `<svg viewBox="0 0 100 100" width="100%" height="100%"><rect x="14" y="34" width="72" height="20" rx="8" fill="url(#g-red)" stroke="#6e100b" stroke-width="3"/><rect x="26" y="48" width="20" height="36" rx="6" fill="url(#g-red)" stroke="#6e100b" stroke-width="3"/></svg>`,
+      acorn: this.acorn('brown'),
+      cherry: `<svg viewBox="0 0 100 100" width="100%" height="100%"><path d="M50,48 Q58,20 76,24" stroke="#2e7d32" stroke-width="5" fill="none" stroke-linecap="round"/><circle cx="46" cy="64" r="22" fill="url(#g-red)" stroke="#5c0808" stroke-width="3"/></svg>`,
+      stripes: `<svg viewBox="0 0 100 100" width="100%" height="100%"><polygon points="18,24 82,24 72,82 28,82" fill="#ffe082" stroke="#8a5a10" stroke-width="3"/><line x1="34" y1="26" x2="39" y2="80" stroke="#8d5524" stroke-width="6"/><line x1="50" y1="26" x2="50" y2="80" stroke="#8d5524" stroke-width="6"/><line x1="66" y1="26" x2="61" y2="80" stroke="#8d5524" stroke-width="6"/></svg>`,
+      candle: `<svg viewBox="0 0 100 100" width="100%" height="100%"><rect x="40" y="36" width="20" height="50" rx="4" fill="#29b6f6" stroke="#01579b" stroke-width="3"/><path d="M50,10 C60,22 60,36 50,36 C40,36 40,22 50,10 Z" fill="#ffca28" stroke="#e65100" stroke-width="2"/></svg>`
+    };
+    return map[name] || '';
+  },
+
+  // Зелена галочка або червоний хрестик для підказок
+  statusBadge(isYes) {
+    if (isYes) {
+      return `<svg viewBox="0 0 40 40" width="100%" height="100%">
+        <circle cx="20" cy="20" r="18" fill="#43a047" stroke="#ffffff" stroke-width="3"/>
+        <path d="M11,20 L17,26 L29,14" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>`;
+    }
+    return `<svg viewBox="0 0 40 40" width="100%" height="100%">
+      <circle cx="20" cy="20" r="18" fill="#e53935" stroke="#ffffff" stroke-width="3"/>
+      <path d="M13,13 L27,27 M27,13 L13,27" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
+    </svg>`;
+  }
+};
+
+
+/* ============================================================================
+   3. БАЗА 15 РІЗНОМАНІТНИХ ЛОГІЧНИХ ЗАВДАНЬ ДЛЯ 3–4 КЛАСУ (БЕЗ ТЕКСТУ)
+   ============================================================================ */
+const LEVELS = [
+  // --- РІВЕНЬ 1: Матриця 3x3 (Предмет по рядках × Колір по стовпцях) ---
+  {
+    type: 'matrix',
+    cells: [
+      () => SVGDraw.apple('red'),    () => SVGDraw.apple('gold'),    () => SVGDraw.apple('teal'),
+      () => SVGDraw.mushroom('red'), () => SVGDraw.mushroom('gold'), () => SVGDraw.mushroom('teal'),
+      () => SVGDraw.acorn('red'),    () => SVGDraw.acorn('gold'),    null
+    ],
+    choices: [
+      { svg: () => SVGDraw.acorn('teal'), correct: true },
+      { svg: () => SVGDraw.acorn('red'), correct: false },
+      { svg: () => SVGDraw.mushroom('teal'), correct: false },
+      { svg: () => SVGDraw.apple('teal'), correct: false }
+    ]
+  },
+
+  // --- РІВЕНЬ 2: Терези (Пряма підстановка: 1 Гарбуз = 2 Яблука, 1 Яблуко = 2 Ягоди → 4 Ягоди) ---
+  {
+    type: 'scales',
+    clues: [
+      { left: [{ t: 'pumpkin', n: 1 }], right: [{ t: 'apple', n: 2, c: 'red' }] },
+      { left: [{ t: 'apple', n: 1, c: 'red' }], right: [{ t: 'berry', n: 2, c: 'purple' }] }
+    ],
+    questionLeft: [{ t: 'pumpkin', n: 1 }],
+    choices: [
+      { svg: () => SVGDraw.multi('berry', 4, 'purple'), correct: true },
+      { svg: () => SVGDraw.multi('berry', 2, 'purple'), correct: false },
+      { svg: () => SVGDraw.multi('berry', 3, 'purple'), correct: false },
+      { svg: () => SVGDraw.multi('berry', 5, 'purple'), correct: false }
+    ]
+  },
+
+  // --- РІВЕНЬ 3: Послідовність (Зростання та чергування: 1Л, 1Я, 2Л, 2Я, 3Л → 3Я) ---
+  {
+    type: 'sequence',
+    items: [
+      () => SVGDraw.multi('leaf', 1, 'green'),
+      () => SVGDraw.multi('berry', 1, 'purple'),
+      () => SVGDraw.multi('leaf', 2, 'green'),
+      () => SVGDraw.multi('berry', 2, 'purple'),
+      () => SVGDraw.multi('leaf', 3, 'green')
+    ],
+    choices: [
+      { svg: () => SVGDraw.multi('berry', 3, 'purple'), correct: true },
+      { svg: () => SVGDraw.multi('leaf', 4, 'green'), correct: false },
+      { svg: () => SVGDraw.multi('berry', 2, 'purple'), correct: false },
+      { svg: () => SVGDraw.multi('berry', 4, 'purple'), correct: false }
+    ]
+  },
+
+  // --- РІВЕНЬ 4: Знайди зайвого (Симетрія цяток на сонечках) ---
+  {
+    type: 'odd',
+    options: [
+      { svg: () => SVGDraw.ladybug(2, 2), correct: false },
+      { svg: () => SVGDraw.ladybug(3, 3), correct: false },
+      { svg: () => SVGDraw.ladybug(3, 1), correct: true }, // Асиметричне!
+      { svg: () => SVGDraw.ladybug(1, 1), correct: false }
+    ]
+  },
+
+  // --- РІВЕНЬ 5: Детектив Єнот — Хто сховався? (Жабки: корона + без окулярів) ---
+  {
+    type: 'detective',
+    clues: [
+      { icon: 'crown', yes: true },
+      { icon: 'glasses', yes: false }
+    ],
+    choices: [
+      { svg: () => SVGDraw.frog({ hat: 'crown', glasses: false }), correct: true },
+      { svg: () => SVGDraw.frog({ hat: 'crown', glasses: true }), correct: false },
+      { svg: () => SVGDraw.frog({ hat: 'tophat', glasses: false }), correct: false },
+      { svg: () => SVGDraw.frog({ hat: 'tophat', glasses: true }), correct: false }
+    ]
+  },
+
+  // --- РІВЕНЬ 6: Матриця 3x3 (Обертання ключика 0° → 90° → 180° + Колір) ---
+  {
+    type: 'matrix',
+    cells: [
+      () => SVGDraw.key('gold', 0), () => SVGDraw.key('gold', 90), () => SVGDraw.key('gold', 180),
+      () => SVGDraw.key('blue', 0), () => SVGDraw.key('blue', 90), () => SVGDraw.key('blue', 180),
+      () => SVGDraw.key('red', 0),  () => SVGDraw.key('red', 90),  null
+    ],
+    choices: [
+      { svg: () => SVGDraw.key('red', 180), correct: true },
+      { svg: () => SVGDraw.key('red', 0), correct: false },
+      { svg: () => SVGDraw.key('red', 90), correct: false },
+      { svg: () => SVGDraw.key('blue', 180), correct: false }
+    ]
+  },
+
+  // --- РІВЕНЬ 7: Терези (Віднімання: Сир + Гриб = Пиріг; Пиріг = 3 Гриби → Сир = 2 Гриби) ---
+  {
+    type: 'scales',
+    clues: [
+      { left: [{ t: 'cheese', n: 1 }, { t: 'mushroom', n: 1, c: 'red' }], right: [{ t: 'pie', n: 1 }] },
+      { left: [{ t: 'pie', n: 1 }], right: [{ t: 'mushroom', n: 3, c: 'red' }] }
+    ],
+    questionLeft: [{ t: 'cheese', n: 1 }],
+    choices: [
+      { svg: () => SVGDraw.multi('mushroom', 2, 'red'), correct: true },
+      { svg: () => SVGDraw.multi('mushroom', 1, 'red'), correct: false },
+      { svg: () => SVGDraw.multi('mushroom', 3, 'red'), correct: false },
+      { svg: () => SVGDraw.multi('mushroom', 4, 'red'), correct: false }
+    ]
+  },
+
+  // --- РІВЕНЬ 8: Послідовність (Рух жучка за годинниковою стрілкою + чергування рамки) ---
+  {
+    type: 'sequence',
+    items: [
+      () => SVGDraw.cornerBug(0, 'teal'),
+      () => SVGDraw.cornerBug(1, 'red'),
+      () => SVGDraw.cornerBug(2, 'teal'),
+      () => SVGDraw.cornerBug(3, 'red'),
+      () => SVGDraw.cornerBug(0, 'teal')
+    ],
+    choices: [
+      { svg: () => SVGDraw.cornerBug(1, 'red'), correct: true },
+      { svg: () => SVGDraw.cornerBug(1, 'teal'), correct: false },
+      { svg: () => SVGDraw.cornerBug(2, 'red'), correct: false },
+      { svg: () => SVGDraw.cornerBug(3, 'red'), correct: false }
+    ]
+  },
+
+  // --- РІВЕНЬ 9: Знайди зайвого (Кількість світлячків у банках: 6, 6, 5, 6) ---
+  {
+    type: 'odd',
+    options: [
+      { svg: () => SVGDraw.fireflyJar(6, 0), correct: false },
+      { svg: () => SVGDraw.fireflyJar(5, 2), correct: true }, // 5 замість 6!
+      { svg: () => SVGDraw.fireflyJar(6, 1), correct: false },
+      { svg: () => SVGDraw.fireflyJar(6, 3), correct: false }
+    ]
+  },
+
+  // --- РІВЕНЬ 10: Детектив Єнот — Хто сховався? (Сови: не синя, червоний шарф, без жолудя) ---
+  {
+    type: 'detective',
+    clues: [
+      { icon: 'blueSplash', yes: false },
+      { icon: 'redScarf', yes: true },
+      { icon: 'acorn', yes: false }
+    ],
+    choices: [
+      { svg: () => SVGDraw.owl({ color: 'brown', scarf: 'red', hold: 'leaf' }), correct: true },
+      { svg: () => SVGDraw.owl({ color: 'blue', scarf: 'red', hold: 'leaf' }), correct: false },
+      { svg: () => SVGDraw.owl({ color: 'brown', scarf: 'red', hold: 'acorn' }), correct: false },
+      { svg: () => SVGDraw.owl({ color: 'brown', scarf: 'green', hold: 'leaf' }), correct: false }
+    ]
+  },
+
+  // --- РІВЕНЬ 11: Матриця 3x3 (Латинський квадрат + кількість 1, 2, 3 без повторів) ---
+  {
+    type: 'matrix',
+    cells: [
+      () => SVGDraw.multi('berry', 1, 'purple'),   () => SVGDraw.multi('acorn', 2, 'brown'),  () => SVGDraw.multi('mushroom', 3, 'red'),
+      () => SVGDraw.multi('mushroom', 2, 'red'),   () => SVGDraw.multi('berry', 3, 'purple'), () => SVGDraw.multi('acorn', 1, 'brown'),
+      () => SVGDraw.multi('acorn', 3, 'brown'),    () => SVGDraw.multi('mushroom', 1, 'red'), null
+    ],
+    choices: [
+      { svg: () => SVGDraw.multi('berry', 2, 'purple'), correct: true },
+      { svg: () => SVGDraw.multi('berry', 3, 'purple'), correct: false },
+      { svg: () => SVGDraw.multi('acorn', 2, 'brown'), correct: false },
+      { svg: () => SVGDraw.multi('berry', 1, 'purple'), correct: false }
+    ]
+  },
+
+  // --- РІВЕНЬ 12: Послідовність (Циклічний зсув кілець пірамідки знизу вгору) ---
+  {
+    type: 'sequence',
+    items: [
+      () => SVGDraw.ringStack(['red', 'gold', 'blue']),
+      () => SVGDraw.ringStack(['gold', 'blue', 'red']),
+      () => SVGDraw.ringStack(['blue', 'red', 'gold']),
+      () => SVGDraw.ringStack(['red', 'gold', 'blue']),
+      () => SVGDraw.ringStack(['gold', 'blue', 'red'])
+    ],
+    choices: [
+      { svg: () => SVGDraw.ringStack(['blue', 'red', 'gold']), correct: true },
+      { svg: () => SVGDraw.ringStack(['red', 'blue', 'gold']), correct: false },
+      { svg: () => SVGDraw.ringStack(['gold', 'red', 'blue']), correct: false },
+      { svg: () => SVGDraw.ringStack(['red', 'gold', 'blue']), correct: false }
+    ]
+  },
+
+  // --- РІВЕНЬ 13: Знайди зайвого (Годинники: три показують рівну годину, один — пів на п'яту) ---
+  {
+    type: 'odd',
+    options: [
+      { svg: () => SVGDraw.clock(2, 0), correct: false },
+      { svg: () => SVGDraw.clock(5, 0), correct: false },
+      { svg: () => SVGDraw.clock(9, 0), correct: false },
+      { svg: () => SVGDraw.clock(4, 30), correct: true } // Хвилинна стрілка на 6!
+    ]
+  },
+
+  // --- РІВЕНЬ 14: Терези (Подвійна логіка: 2 Жолуді = 1 Яблуко + 1 Ягода; 1 Яблуко = 3 Ягоди → 1 Жолудь = 2 Ягоди) ---
+  {
+    type: 'scales',
+    clues: [
+      { left: [{ t: 'acorn', n: 2, c: 'brown' }], right: [{ t: 'apple', n: 1, c: 'red' }, { t: 'berry', n: 1, c: 'purple' }] },
+      { left: [{ t: 'apple', n: 1, c: 'red' }], right: [{ t: 'berry', n: 3, c: 'purple' }] }
+    ],
+    questionLeft: [{ t: 'acorn', n: 1, c: 'brown' }],
+    choices: [
+      { svg: () => SVGDraw.multi('berry', 2, 'purple'), correct: true },
+      { svg: () => SVGDraw.multi('berry', 1, 'purple'), correct: false },
+      { svg: () => SVGDraw.multi('berry', 3, 'purple'), correct: false },
+      { svg: () => SVGDraw.multi('berry', 4, 'purple'), correct: false }
+    ]
+  },
+
+  // --- РІВЕНЬ 15: Гранд-фінал Детектива (Тортик: вишня, НЕ рожевий, смугастий, БЕЗ свічки) ---
+  {
+    type: 'detective',
+    clues: [
+      { icon: 'cherry', yes: true },
+      { icon: 'pinkSplash', yes: false },
+      { icon: 'stripes', yes: true },
+      { icon: 'candle', yes: false }
+    ],
+    choices: [
+      { svg: () => SVGDraw.cupcake({ frosting: 'brown', cherry: true, cup: 'striped', candle: false }), correct: true },
+      { svg: () => SVGDraw.cupcake({ frosting: 'brown', cherry: true, cup: 'striped', candle: true }), correct: false },
+      { svg: () => SVGDraw.cupcake({ frosting: 'pink', cherry: true, cup: 'striped', candle: false }), correct: false },
+      { svg: () => SVGDraw.cupcake({ frosting: 'brown', cherry: true, cup: 'dotted', candle: false }), correct: false }
+    ]
+  }
+];
+
+
+/* ============================================================================
+   4. РЕНДЕРИНГ ТЕРЕЗІВ ТА ПЕРЕМІШУВАННЯ ВАРІАНТІВ
+   ============================================================================ */
+function shuffle(arr) {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+// Малювання реалістичних латунних терезів
+function renderScaleSVG(leftItems, rightItems, isQuestion = false) {
+  const drawGroup = (items, centerX, baseY) => {
+    // Розгортаємо предмети в плаский список для охайного розміщення на чаші
+    const flat = [];
+    items.forEach(it => {
+      for (let i = 0; i < it.n; i++) flat.push({ t: it.t, c: it.c });
+    });
+    const size = flat.length >= 3 ? 28 : 34;
+    const spacing = size * 0.88;
+    const startX = centerX - ((flat.length - 1) * spacing) / 2;
+    return flat.map((it, idx) => {
+      const raw = SVGDraw[it.t](it.c).replace(/<\/?svg[^>]*>/g, '');
+      const x = startX + idx * spacing - size / 2;
+      const y = baseY - size;
+      return `<g transform="translate(${x},${y}) scale(${size / 100})">${raw}</g>`;
+    }).join('');
+  };
+
+  const rightContent = isQuestion
+    ? `<circle cx="215" cy="70" r="18" fill="rgba(255,213,79,0.28)" stroke="#ffd54f" stroke-width="3" stroke-dasharray="5 4"/>`
+    : drawGroup(rightItems, 215, 86);
+
+  const tilt = isQuestion ? -8 : 0;
+
+  return `<svg class="scale-svg" width="${isQuestion ? 290 : 255}" height="${isQuestion ? 130 : 112}" viewBox="0 0 280 124">
+    <!-- Основа терезів -->
+    <path d="M106,118 L174,118 L164,104 L116,104 Z" fill="url(#g-brass)" stroke="#5c3a0a" stroke-width="2"/>
+    <rect x="135" y="38" width="10" height="68" rx="4" fill="url(#g-brass)" stroke="#5c3a0a" stroke-width="2"/>
+    <circle cx="140" cy="38" r="8" fill="url(#g-brass)" stroke="#5c3a0a" stroke-width="2"/>
+    <!-- Коромисло з чашами -->
+    <g class="${isQuestion ? 'scale-beam-tilt' : ''}" id="${isQuestion ? 'question-beam' : ''}" style="transform: rotate(${tilt}deg)">
+      <rect x="55" y="40" width="170" height="8" rx="4" fill="url(#g-brass)" stroke="#5c3a0a" stroke-width="2"/>
+      <!-- Ланцюжки лівої чаші -->
+      <line x1="65" y1="48" x2="40" y2="86" stroke="#d9a441" stroke-width="2"/>
+      <line x1="65" y1="48" x2="90" y2="86" stroke="#d9a441" stroke-width="2"/>
+      <!-- Ланцюжки правої чаші -->
+      <line x1="215" y1="48" x2="190" y2="86" stroke="#d9a441" stroke-width="2"/>
+      <line x1="215" y1="48" x2="240" y2="86" stroke="#d9a441" stroke-width="2"/>
+      <!-- Предмети на чашах -->
+      ${drawGroup(leftItems, 65, 86)}
+      <g id="${isQuestion ? 'question-right-pan' : ''}">${rightContent}</g>
+      <!-- Чаші -->
+      <path d="M32,86 Q65,104 98,86 Z" fill="url(#g-brass)" stroke="#5c3a0a" stroke-width="2"/>
+      <path d="M182,86 Q215,104 248,86 Z" fill="url(#g-brass)" stroke="#5c3a0a" stroke-width="2"/>
+    </g>
+  </svg>`;
+}
+
+
+/* ============================================================================
+   5. АНІМАЦІЇ ЄНОТА, СЛІДКУВАННЯ ОЧИМА ТА ВІЗУАЛЬНІ СПЕЦЕФЕКТИ (ФІДБЕКИ)
+   ============================================================================ */
+const raccoonEl = document.getElementById('raccoon-container');
+const raccoonMouth = document.getElementById('raccoon-mouth');
+const raccoonEmote = document.getElementById('raccoon-emote');
+const pupilL = document.getElementById('pupil-l');
+const pupilR = document.getElementById('pupil-r');
+const eyelidL = document.getElementById('eyelid-l');
+const eyelidR = document.getElementById('eyelid-r');
+const fxLayer = document.getElementById('fx-layer');
+
+// Очі Єнота плавно слідкують за курсором
+document.addEventListener('mousemove', (e) => {
+  const rect = raccoonEl.getBoundingClientRect();
+  const cx = rect.left + rect.width * 0.5;
+  const cy = rect.top + rect.height * 0.4;
+  const angle = Math.atan2(e.clientY - cy, e.clientX - cx);
+  const dist = Math.min(4.2, Math.hypot(e.clientX - cx, e.clientY - cy) / 55);
+  const dx = Math.cos(angle) * dist;
+  const dy = Math.sin(angle) * dist;
+  pupilL.setAttribute('transform', `translate(${dx}, ${dy})`);
+  pupilR.setAttribute('transform', `translate(${dx}, ${dy})`);
+});
+
+// Випадкове реалістичне моргання
+setInterval(() => {
+  eyelidL.setAttribute('height', '30');
+  eyelidR.setAttribute('height', '30');
+  setTimeout(() => {
+    eyelidL.setAttribute('height', '0');
+    eyelidR.setAttribute('height', '0');
+  }, 130);
+}, 3800);
+
+// Якщо дитина лоскоче/натискає на Єнота — він сміється і підстрибує
+raccoonEl.addEventListener('click', () => {
+  SoundFX.playGiggle();
+  triggerRaccoonMood('jump', 'heart');
+});
+
+function triggerRaccoonMood(mood, emoteType) {
+  raccoonEl.classList.remove('mood-jump', 'mood-spin', 'mood-oops');
+  void raccoonEl.offsetWidth; // скидання анімації
+
+  if (mood === 'jump' || mood === 'spin') {
+    raccoonEl.classList.add(mood === 'jump' ? 'mood-jump' : 'mood-spin');
+    raccoonMouth.setAttribute('d', 'M134,173 Q152,196 170,173'); // широка усмішка
+  } else if (mood === 'oops') {
+    raccoonEl.classList.add('mood-oops');
+    raccoonMouth.setAttribute('d', 'M140,183 Q152,174 164,183'); // здивований ротик
+  }
+
+  // Малюємо кумедну SVG-емоцію над головою Єнота
+  const emotes = {
+    stars: `<g transform="translate(150, 26)">
+      <polygon points="0,-16 4,-5 16,-4 7,4 10,16 0,9 -10,16 -7,4 -16,-4 -4,-5" fill="#ffd54f" stroke="#e65100" stroke-width="1.5"/>
+      <polygon points="34,-4 37,3 44,4 38,9 40,16 34,12 28,16 30,9 24,4 31,3" fill="#fff176"/>
+      <polygon points="-32,-2 -29,4 -23,5 -28,9 -26,15 -32,12 -38,15 -36,9 -41,5 -35,4" fill="#ffca28"/>
+    </g>`,
+    heart: `<path transform="translate(150, 24)" d="M0,12 C-16,-2 -24,-14 -12,-22 C-4,-27 0,-18 0,-15 C0,-18 4,-27 12,-22 C24,-14 16,-2 0,12 Z" fill="#ff5252" stroke="#b71c1c" stroke-width="2"/>`,
+    sweat: `<g transform="translate(216, 84)">
+      <path d="M0,-14 C8,-2 10,6 0,12 C-10,6 -8,-2 0,-14 Z" fill="#4fc3f7" stroke="#0277bd" stroke-width="2"/>
+      <circle cx="-2" cy="1" r="2.2" fill="#ffffff"/>
+    </g>`
+  };
+  raccoonEmote.innerHTML = emotes[emoteType] || '';
+
+  setTimeout(() => {
+    raccoonMouth.setAttribute('d', 'M138,176 Q152,188 166,176');
+    raccoonEmote.innerHTML = '';
+  }, 950);
+}
+
+// Різноманітні активні візуальні фідбеки (конфеті, фонтан зірок, райдужні бульбашки)
+let fxStyleIndex = 0;
+function launchCelebrationFX(originX, originY) {
+  const mode = fxStyleIndex % 3;
+  fxStyleIndex++;
+
+  const colors = ['#ff5252', '#ffd740', '#69f0ae', '#40c4ff', '#ea80fc', '#ffab40'];
+  const count = mode === 2 ? 22 : 34;
+
+  for (let i = 0; i < count; i++) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    const size = mode === 2 ? 20 + Math.random() * 24 : 14 + Math.random() * 16;
+    el.setAttribute('width', size);
+    el.setAttribute('height', size);
+    el.setAttribute('viewBox', '0 0 24 24');
+    el.style.position = 'absolute';
+    el.style.left = `${originX}px`;
+    el.style.top = `${originY}px`;
+    el.style.pointerEvents = 'none';
+
+    const col = colors[i % colors.length];
+    if (mode === 0) {
+      // Золоті та кольорові зірки
+      el.innerHTML = `<polygon points="12,1 15,9 23,9 17,14 19,22 12,17 5,22 7,14 1,9 9,9" fill="${col}"/>`;
+    } else if (mode === 1) {
+      // Різнокольорові листочки-конфеті
+      el.innerHTML = `<rect x="4" y="6" width="16" height="10" rx="4" fill="${col}"/>`;
+    } else {
+      // Мильні бульбашки з відблиском
+      el.innerHTML = `<circle cx="12" cy="12" r="10" fill="${col}" fill-opacity="0.38" stroke="#ffffff" stroke-width="1.8"/><circle cx="8" cy="8" r="2.5" fill="#ffffff"/>`;
+    }
+
+    fxLayer.appendChild(el);
+
+    const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+    const speed = 110 + Math.random() * 260;
+    const tx = Math.cos(angle) * speed;
+    const ty = Math.sin(angle) * speed - (mode === 2 ? 180 : 90);
+    const rot = (Math.random() - 0.5) * 720;
+
+    el.animate([
+      { transform: 'translate(-50%, -50%) scale(0.3) rotate(0deg)', opacity: 1 },
+      { transform: `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) scale(1.1) rotate(${rot}deg)`, opacity: 0 }
+    ], {
+      duration: 850 + Math.random() * 450,
+      easing: 'cubic-bezier(0.16, 1, 0.3, 1)'
+    }).onfinish = () => el.remove();
+  }
+}
+
+
+/* ============================================================================
+   6. ГОЛОВНИЙ КОНТРОЛЕР ГРИ ТА КНОПКИ НАВІГАЦІЇ
+   ============================================================================ */
+let currentLevel = 0;
+let transitionTimer = null;
+let isLocked = false;
+
+const taskArea = document.getElementById('task-area');
+const choicesArea = document.getElementById('choices-area');
+const puzzleBoard = document.getElementById('puzzle-board');
+
+function loadLevel(index) {
+  // Скасовуємо відкладений автоперехід, якщо користувач натиснув «Далі» чи «Назад»
+  if (transitionTimer) {
+    clearTimeout(transitionTimer);
+    transitionTimer = null;
+  }
+  isLocked = false;
+
+  currentLevel = (index + LEVELS.length) % LEVELS.length;
+  const lvl = LEVELS[currentLevel];
+
+  // Легка жива анімація оновлення дошки
+  puzzleBoard.style.transform = 'scale(0.96)';
+  puzzleBoard.style.opacity = '0.65';
+  requestAnimationFrame(() => {
+    puzzleBoard.style.transform = 'scale(1)';
+    puzzleBoard.style.opacity = '1';
+  });
+
+  taskArea.innerHTML = '';
+  choicesArea.innerHTML = '';
+  choicesArea.style.display = lvl.type === 'odd' ? 'none' : 'flex';
+
+  // 1) МАТРИЦЯ 3x3
+  if (lvl.type === 'matrix') {
+    const grid = document.createElement('div');
+    grid.className = 'matrix-grid';
+    lvl.cells.forEach((cellFn) => {
+      const cell = document.createElement('div');
+      cell.className = 'matrix-cell' + (cellFn ? '' : ' missing-slot');
+      if (cellFn) cell.innerHTML = cellFn();
+      else cell.id = 'target-slot';
+      grid.appendChild(cell);
+    });
+    taskArea.appendChild(grid);
+    renderChoices(lvl.choices, (choice) => {
+      const slot = document.getElementById('target-slot');
+      if (slot) {
+        slot.classList.remove('missing-slot');
+        slot.innerHTML = choice.svg();
+      }
+    });
+  }
+
+  // 2) ТЕРЕЗИ-ВАГИ
+  else if (lvl.type === 'scales') {
+    const wrap = document.createElement('div');
+    wrap.className = 'scales-container';
+    wrap.innerHTML = `
+      <div class="scales-top-row">
+        ${lvl.clues.map(c => renderScaleSVG(c.left, c.right, false)).join('')}
+      </div>
+      <div>${renderScaleSVG(lvl.questionLeft, [], true)}</div>
+    `;
+    taskArea.appendChild(wrap);
+    renderChoices(lvl.choices, () => {
+      // Вирівнюємо терези при правильній відповіді!
+      const beam = document.getElementById('question-beam');
+      if (beam) beam.style.transform = 'rotate(0deg)';
+    });
+  }
+
+  // 3) ПОСЛІДОВНІСТЬ
+  else if (lvl.type === 'sequence') {
+    const row = document.createElement('div');
+    row.className = 'sequence-row';
+    lvl.items.forEach((itemFn) => {
+      const slot = document.createElement('div');
+      slot.className = 'seq-slot';
+      slot.innerHTML = itemFn();
+      row.appendChild(slot);
+
+      const arrow = document.createElement('div');
+      arrow.className = 'seq-arrow';
+      arrow.innerHTML = `<svg viewBox="0 0 24 24" width="100%" height="100%"><path d="M5,12 L18,12 M13,6 L19,12 L13,18" fill="none" stroke="#ffd54f" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      row.appendChild(arrow);
+    });
+    const missing = document.createElement('div');
+    missing.className = 'seq-slot missing-slot';
+    missing.id = 'target-slot';
+    row.appendChild(missing);
+    taskArea.appendChild(row);
+
+    renderChoices(lvl.choices, (choice) => {
+      const slot = document.getElementById('target-slot');
+      if (slot) {
+        slot.classList.remove('missing-slot');
+        slot.innerHTML = choice.svg();
+      }
+    });
+  }
+
+  // 4) ЗНАЙДИ ЗАЙВОГО
+  else if (lvl.type === 'odd') {
+    const grid = document.createElement('div');
+    grid.className = 'odd-grid';
+    shuffle(lvl.options).forEach((opt) => {
+      const card = document.createElement('div');
+      card.className = 'odd-card';
+      card.innerHTML = opt.svg();
+      card.addEventListener('click', (e) => handleAnswer(opt, card, e));
+      grid.appendChild(card);
+    });
+    taskArea.appendChild(grid);
+  }
+
+  // 5) ДЕТЕКТИВ ЄНОТ (ВІЗУАЛЬНІ ПІДКАЗКИ)
+  else if (lvl.type === 'detective') {
+    const board = document.createElement('div');
+    board.className = 'clues-board';
+    const strip = document.createElement('div');
+    strip.className = 'cork-strip';
+    lvl.clues.forEach((clue) => {
+      const badge = document.createElement('div');
+      badge.className = 'clue-badge';
+      badge.innerHTML = `
+        <div class="clue-pin"></div>
+        ${SVGDraw.clueIcon(clue.icon)}
+        <div class="clue-status">${SVGDraw.statusBadge(clue.yes)}</div>
+      `;
+      strip.appendChild(badge);
+    });
+    board.appendChild(strip);
+    taskArea.appendChild(board);
+    renderChoices(lvl.choices);
+  }
+}
+
+function renderChoices(choices, onWinVisual) {
+  shuffle(choices).forEach((ch) => {
+    const tile = document.createElement('div');
+    tile.className = 'choice-tile';
+    tile.innerHTML = ch.svg();
+    tile.addEventListener('click', (e) => handleAnswer(ch, tile, e, onWinVisual));
+    choicesArea.appendChild(tile);
+  });
+}
+
+function handleAnswer(choice, element, event, onWinVisual) {
+  if (isLocked) return;
+
+  const rect = element.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+
+  if (choice.correct) {
+    isLocked = true;
+    element.classList.add('correct-hit');
+    if (onWinVisual) onWinVisual(choice);
+
+    SoundFX.playWin();
+    launchCelebrationFX(cx, cy);
+    triggerRaccoonMood(currentLevel % 2 === 0 ? 'jump' : 'spin', 'stars');
+
+    // Плавний автоматичний перехід на наступний рівень після святкування
+    transitionTimer = setTimeout(() => {
+      loadLevel(currentLevel + 1);
+    }, 1250);
+  } else {
+    element.classList.remove('wrong-hit');
+    void element.offsetWidth;
+    element.classList.add('wrong-hit');
+
+    SoundFX.playWrong();
+    triggerRaccoonMood('oops', 'sweat');
+
+    setTimeout(() => element.classList.remove('wrong-hit'), 520);
+  }
+}
+
+// Миттєве перемикання рівнів кнопками «Назад» та «Далі»
+document.getElementById('btn-prev').addEventListener('click', () => {
+  SoundFX.playWoodTap();
+  loadLevel(currentLevel - 1);
+});
+
+document.getElementById('btn-next').addEventListener('click', () => {
+  SoundFX.playWoodTap();
+  loadLevel(currentLevel + 1);
+});
+
+// Запуск першого завдання
+loadLevel(0);
+</script>
+</body>
+</html>
