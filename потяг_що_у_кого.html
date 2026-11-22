@@ -1,0 +1,1604 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Express Memory</title>
+<style>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  html, body {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background: radial-gradient(circle at center, #2b1810 0%, #140a06 100%);
+    font-family: Arial, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+  }
+  #stage-wrap {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  #game-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    filter: drop-shadow(0 20px 50px rgba(0,0,0,0.85));
+  }
+
+  /* Living animations */
+  @keyframes trainRock {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    25% { transform: translateY(-2.5px) rotate(0.18deg); }
+    50% { transform: translateY(1px) rotate(0deg); }
+    75% { transform: translateY(-2px) rotate(-0.18deg); }
+  }
+  @keyframes lampSway {
+    0%, 100% { transform: rotate(-2.2deg); }
+    50% { transform: rotate(2.2deg); }
+  }
+  @keyframes breathe {
+    0%, 100% { transform: scaleY(1) translateY(0px); }
+    50% { transform: scaleY(1.025) translateY(-3px); }
+  }
+  @keyframes happyBounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    30% { transform: translateY(-22px) scale(1.05, 0.96); }
+    55% { transform: translateY(0) scale(0.96, 1.04); }
+    75% { transform: translateY(-10px) scale(1.02, 0.98); }
+  }
+  @keyframes wrongShake {
+    0%, 100% { transform: translateX(0) rotate(0deg); }
+    20% { transform: translateX(-14px) rotate(-5deg); }
+    40% { transform: translateX(14px) rotate(5deg); }
+    60% { transform: translateX(-10px) rotate(-3deg); }
+    80% { transform: translateX(8px) rotate(2deg); }
+  }
+  @keyframes pulseGlow {
+    0%, 100% { filter: drop-shadow(0 0 8px rgba(255, 215, 100, 0.55)); transform: scale(1); }
+    50% { filter: drop-shadow(0 0 22px rgba(255, 225, 110, 0.95)); transform: scale(1.05); }
+  }
+  @keyframes danceBob {
+    0%, 100% { transform: translateY(0) rotate(-2deg); }
+    50% { transform: translateY(-14px) rotate(2deg); }
+  }
+  @keyframes steamRise {
+    0% { opacity: 0.85; transform: translateY(0) scale(0.7); }
+    100% { opacity: 0; transform: translateY(-35px) scale(1.5); }
+  }
+
+  .train-rocking {
+    animation: trainRock 0.85s ease-in-out infinite;
+    transform-origin: 800px 450px;
+  }
+  .lamp-sway {
+    animation: lampSway 2.6s ease-in-out infinite;
+  }
+  .char-breathe {
+    animation: breathe 2.8s ease-in-out infinite;
+    transform-origin: 0px 120px;
+  }
+  .char-happy {
+    animation: happyBounce 0.65s ease-out;
+    transform-origin: 0px 120px;
+  }
+  .char-wrong {
+    animation: wrongShake 0.48s ease-in-out;
+    transform-origin: 0px 120px;
+  }
+  .char-dance {
+    animation: danceBob 0.55s ease-in-out infinite;
+    transform-origin: 0px 120px;
+  }
+
+  /* Safe inner-layer button transforms (never override outer SVG translate!) */
+  .btn-hit {
+    cursor: pointer;
+  }
+  .ui-btn-inner {
+    transition: transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.16s;
+    transform-origin: 0px 0px;
+  }
+  .btn-hit:hover .ui-btn-inner {
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 12px rgba(255, 220, 130, 0.85));
+  }
+  .btn-hit:active .ui-btn-inner {
+    transform: scale(0.93);
+  }
+  .lever-pulse {
+    animation: pulseGlow 1.9s ease-in-out infinite;
+    transform-origin: 0px 0px;
+  }
+  .btn-hit:hover .lever-pulse {
+    animation: none;
+    transform: scale(1.07);
+    filter: drop-shadow(0 0 22px rgba(255, 225, 120, 0.95));
+  }
+  .btn-hit:active .lever-pulse {
+    animation: none;
+    transform: scale(0.95);
+  }
+
+  #lever-slide {
+    transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+  }
+  #tray-slide {
+    transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+  }
+
+  .drag-item {
+    cursor: grab;
+    transition: filter 0.18s;
+  }
+  .drag-item:hover {
+    filter: drop-shadow(0 8px 14px rgba(0,0,0,0.45)) brightness(1.06);
+  }
+  .drag-item.dragging {
+    cursor: grabbing;
+    filter: drop-shadow(0 22px 24px rgba(0,0,0,0.55)) brightness(1.08);
+  }
+  .drag-item.selected {
+    filter: drop-shadow(0 0 18px #ffd54f) brightness(1.12);
+  }
+  .char-slot {
+    cursor: pointer;
+    transition: filter 0.2s;
+  }
+  .char-slot.drop-target {
+    filter: drop-shadow(0 0 24px rgba(255, 230, 110, 0.95));
+  }
+  .steam-puff {
+    animation: steamRise 1.8s ease-out infinite;
+  }
+</style>
+</head>
+<body>
+<div id="stage-wrap">
+  <svg id="game-svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <!-- Wood & Brass Gradients -->
+      <linearGradient id="woodDark" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#5c331c"/>
+        <stop offset="45%" stop-color="#412110"/>
+        <stop offset="100%" stop-color="#291208"/>
+      </linearGradient>
+      <linearGradient id="woodRich" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#6b3b20"/>
+        <stop offset="50%" stop-color="#864c29"/>
+        <stop offset="100%" stop-color="#572e17"/>
+      </linearGradient>
+      <linearGradient id="woodTrim" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#9e5d34"/>
+        <stop offset="50%" stop-color="#6e3b1e"/>
+        <stop offset="100%" stop-color="#3d1d0d"/>
+      </linearGradient>
+      <linearGradient id="brassGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#fff0a8"/>
+        <stop offset="35%" stop-color="#e3b146"/>
+        <stop offset="70%" stop-color="#b57d1f"/>
+        <stop offset="100%" stop-color="#6e470c"/>
+      </linearGradient>
+      <linearGradient id="brassVert" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#ffefb0"/>
+        <stop offset="45%" stop-color="#d9a136"/>
+        <stop offset="100%" stop-color="#7c5110"/>
+      </linearGradient>
+      <radialGradient id="lampGlow" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#fff6cc" stop-opacity="0.72"/>
+        <stop offset="45%" stop-color="#ffd56b" stop-opacity="0.25"/>
+        <stop offset="100%" stop-color="#ffae2b" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="sunbeam" x1="0" y1="0" x2="0.4" y2="1">
+        <stop offset="0%" stop-color="#fff8d6" stop-opacity="0.24"/>
+        <stop offset="100%" stop-color="#fff8d6" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="glassGlare" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.28"/>
+        <stop offset="35%" stop-color="#ffffff" stop-opacity="0.05"/>
+        <stop offset="65%" stop-color="#ffffff" stop-opacity="0"/>
+        <stop offset="100%" stop-color="#ffffff" stop-opacity="0.16"/>
+      </linearGradient>
+      <radialGradient id="trayBg" cx="50%" cy="35%" r="65%">
+        <stop offset="0%" stop-color="#4e2330"/>
+        <stop offset="65%" stop-color="#33131d"/>
+        <stop offset="100%" stop-color="#1e0910"/>
+      </radialGradient>
+
+      <!-- Velvet Seat & Wallpaper Dynamic Gradients -->
+      <linearGradient id="seatGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop id="seat-c1" offset="0%" stop-color="#b52d43"/>
+        <stop id="seat-c2" offset="60%" stop-color="#871c2f"/>
+        <stop id="seat-c3" offset="100%" stop-color="#520d1a"/>
+      </linearGradient>
+      <linearGradient id="wallGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop id="wall-c1" offset="0%" stop-color="#3f594d"/>
+        <stop id="wall-c2" offset="100%" stop-color="#253830"/>
+      </linearGradient>
+      <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop id="sky-c1" offset="0%" stop-color="#52a8e8"/>
+        <stop id="sky-c2" offset="65%" stop-color="#a8dcf7"/>
+        <stop id="sky-c3" offset="100%" stop-color="#fff2cc"/>
+      </linearGradient>
+
+      <!-- Wallpaper Damask Pattern -->
+      <pattern id="wallPattern" width="44" height="44" patternUnits="userSpaceOnUse">
+        <path d="M22 4 L30 22 L22 40 L14 22 Z" fill="rgba(255,235,180,0.06)"/>
+        <circle cx="22" cy="22" r="3" fill="rgba(255,235,180,0.08)"/>
+        <circle cx="0" cy="0" r="2.5" fill="rgba(255,235,180,0.06)"/>
+        <circle cx="44" cy="44" r="2.5" fill="rgba(255,235,180,0.06)"/>
+      </pattern>
+
+      <!-- Tray Pattern -->
+      <pattern id="rugPattern" width="60" height="60" patternUnits="userSpaceOnUse">
+        <rect width="60" height="60" fill="none"/>
+        <path d="M30 6 L54 30 L30 54 L6 30 Z" fill="none" stroke="rgba(235,190,95,0.16)" stroke-width="2"/>
+        <circle cx="30" cy="30" r="6" fill="rgba(235,190,95,0.12)"/>
+      </pattern>
+
+      <!-- Window Clip Path -->
+      <clipPath id="windowsClip">
+        <rect x="95" y="105" width="415" height="310" rx="34"/>
+        <rect x="592" y="105" width="415" height="310" rx="34"/>
+        <rect x="1090" y="105" width="415" height="310" rx="34"/>
+      </clipPath>
+
+      <!-- Soft Drop Shadow Filter -->
+      <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000" flood-opacity="0.4"/>
+      </filter>
+
+      <!-- Character Fur/Feature Gradients -->
+      <radialGradient id="catFur" cx="40%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="#ffb85c"/>
+        <stop offset="60%" stop-color="#e5832c"/>
+        <stop offset="100%" stop-color="#b55514"/>
+      </radialGradient>
+      <radialGradient id="pugFur" cx="40%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="#f2d5ae"/>
+        <stop offset="65%" stop-color="#d4ad7d"/>
+        <stop offset="100%" stop-color="#a37a4c"/>
+      </radialGradient>
+      <radialGradient id="racFur" cx="40%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="#b8bcc2"/>
+        <stop offset="65%" stop-color="#7c828a"/>
+        <stop offset="100%" stop-color="#4e5259"/>
+      </radialGradient>
+      <radialGradient id="foxFur" cx="40%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="#ff8642"/>
+        <stop offset="60%" stop-color="#d94e1c"/>
+        <stop offset="100%" stop-color="#962b0b"/>
+      </radialGradient>
+      <radialGradient id="duckHead" cx="35%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="#2ebd7f"/>
+        <stop offset="55%" stop-color="#138257"/>
+        <stop offset="100%" stop-color="#094a31"/>
+      </radialGradient>
+      <radialGradient id="bullFur" cx="40%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="#e0a972"/>
+        <stop offset="65%" stop-color="#b8763e"/>
+        <stop offset="100%" stop-color="#804a1e"/>
+      </radialGradient>
+    </defs>
+
+    <!-- LAYER 1: PARALLAX OUTSIDE WORLD -->
+    <g clip-path="url(#windowsClip)">
+      <rect x="80" y="90" width="1440" height="340" fill="url(#skyGrad)"/>
+      <circle id="world-sun" cx="1280" cy="175" r="46" fill="#fff6c2" opacity="0.92"/>
+      <g id="parallax-clouds"></g>
+      <g id="parallax-far"></g>
+      <g id="parallax-mid"></g>
+      <g id="parallax-near"></g>
+      <rect id="window-tunnel-mask" x="1600" y="90" width="1600" height="350" fill="#0d0c14"/>
+    </g>
+
+    <!-- LAYER 2: TRAIN CARRIAGE INTERIOR -->
+    <g id="carriage-group" class="train-rocking">
+      <path d="M0,0 H1600 V900 H0 Z
+               M129,105 H476 A34,34 0 0 1 510,139 V381 A34,34 0 0 1 476,415 H129 A34,34 0 0 1 95,381 V139 A34,34 0 0 1 129,105 Z
+               M626,105 H973 A34,34 0 0 1 1007,139 V381 A34,34 0 0 1 973,415 H626 A34,34 0 0 1 592,381 V139 A34,34 0 0 1 626,105 Z
+               M1124,105 H1471 A34,34 0 0 1 1505,139 V381 A34,34 0 0 1 1471,415 H1124 A34,34 0 0 1 1090,381 V139 A34,34 0 0 1 1124,105 Z"
+            fill="url(#wallGrad)" fill-rule="evenodd"/>
+      <path d="M0,0 H1600 V900 H0 Z
+               M129,105 H476 A34,34 0 0 1 510,139 V381 A34,34 0 0 1 476,415 H129 A34,34 0 0 1 95,381 V139 A34,34 0 0 1 129,105 Z
+               M626,105 H973 A34,34 0 0 1 1007,139 V381 A34,34 0 0 1 973,415 H626 A34,34 0 0 1 592,381 V139 A34,34 0 0 1 626,105 Z
+               M1124,105 H1471 A34,34 0 0 1 1505,139 V381 A34,34 0 0 1 1471,415 H1124 A34,34 0 0 1 1090,381 V139 A34,34 0 0 1 1124,105 Z"
+            fill="url(#wallPattern)" fill-rule="evenodd"/>
+
+      <!-- Ceiling Mahogany Beam & Brass Rack -->
+      <rect x="0" y="0" width="1600" height="72" fill="url(#woodDark)"/>
+      <rect x="0" y="66" width="1600" height="10" fill="url(#brassVert)"/>
+      <line x1="60" y1="90" x2="1540" y2="90" stroke="url(#brassVert)" stroke-width="5" opacity="0.8"/>
+
+      <!-- Window Wood & Brass Frames -->
+      <g id="window-frames">
+        <rect x="95" y="105" width="415" height="310" rx="34" fill="url(#glassGlare)" stroke="url(#woodTrim)" stroke-width="16"/>
+        <rect x="95" y="105" width="415" height="310" rx="34" fill="none" stroke="url(#brassGrad)" stroke-width="4"/>
+        <rect x="592" y="105" width="415" height="310" rx="34" fill="url(#glassGlare)" stroke="url(#woodTrim)" stroke-width="16"/>
+        <rect x="592" y="105" width="415" height="310" rx="34" fill="none" stroke="url(#brassGrad)" stroke-width="4"/>
+        <rect x="1090" y="105" width="415" height="310" rx="34" fill="url(#glassGlare)" stroke="url(#woodTrim)" stroke-width="16"/>
+        <rect x="1090" y="105" width="415" height="310" rx="34" fill="none" stroke="url(#brassGrad)" stroke-width="4"/>
+      </g>
+
+      <!-- Wood Pillars Between Windows -->
+      <rect x="0" y="72" width="76" height="400" fill="url(#woodRich)"/>
+      <rect x="526" y="72" width="50" height="400" fill="url(#woodRich)"/>
+      <rect x="1024" y="72" width="50" height="400" fill="url(#woodRich)"/>
+      <rect x="1524" y="72" width="76" height="400" fill="url(#woodRich)"/>
+
+      <!-- Swaying Vintage Brass Lamps -->
+      <g class="lamp-sway" style="transform-origin: 551px 72px;">
+        <circle cx="551" cy="148" r="95" fill="url(#lampGlow)"/>
+        <path d="M545,72 H557 L555,112 H547 Z" fill="url(#brassGrad)"/>
+        <path d="M525,134 Q551,105 577,134 Z" fill="#f5c95d" stroke="#8a5a12" stroke-width="2"/>
+        <circle cx="551" cy="138" r="14" fill="#fff7d1"/>
+      </g>
+      <g class="lamp-sway" style="transform-origin: 1049px 72px; animation-delay: -0.9s;">
+        <circle cx="1049" cy="148" r="95" fill="url(#lampGlow)"/>
+        <path d="M1043,72 H1055 L1053,112 H1045 Z" fill="url(#brassGrad)"/>
+        <path d="M1023,134 Q1049,105 1075,134 Z" fill="#f5c95d" stroke="#8a5a12" stroke-width="2"/>
+        <circle cx="1049" cy="138" r="14" fill="#fff7d1"/>
+      </g>
+
+      <!-- Diagonal Sunbeams -->
+      <g id="sunbeams-layer" pointer-events="none">
+        <polygon points="150,115 470,115 620,660 220,660" fill="url(#sunbeam)"/>
+        <polygon points="650,115 970,115 1120,660 720,660" fill="url(#sunbeam)"/>
+        <polygon points="1150,115 1470,115 1590,660 1220,660" fill="url(#sunbeam)"/>
+      </g>
+
+      <!-- Lower Wainscoting & Plush Tufted Velvet Bench -->
+      <rect x="0" y="438" width="1600" height="22" fill="url(#woodTrim)"/>
+      <rect x="0" y="456" width="1600" height="7" fill="url(#brassVert)"/>
+
+      <!-- Velvet Seat Backrest -->
+      <rect x="35" y="465" width="1530" height="205" rx="28" fill="url(#seatGrad)" stroke="#3d0b14" stroke-width="5"/>
+      <g stroke="rgba(0,0,0,0.22)" stroke-width="3" fill="rgba(255,215,130,0.35)">
+        <line x1="280" y1="472" x2="280" y2="665"/>
+        <line x1="540" y1="472" x2="540" y2="665"/>
+        <line x1="800" y1="472" x2="800" y2="665"/>
+        <line x1="1060" y1="472" x2="1060" y2="665"/>
+        <line x1="1320" y1="472" x2="1320" y2="665"/>
+        <circle cx="160" cy="540" r="6"/><circle cx="410" cy="540" r="6"/><circle cx="670" cy="540" r="6"/>
+        <circle cx="930" cy="540" r="6"/><circle cx="1190" cy="540" r="6"/><circle cx="1440" cy="540" r="6"/>
+      </g>
+      <!-- Velvet Seat Cushion -->
+      <path d="M20,630 Q800,605 1580,630 L1600,740 H0 Z" fill="url(#seatGrad)" stroke="#2e070e" stroke-width="4"/>
+      <path d="M20,630 Q800,605 1580,630" fill="none" stroke="rgba(255,220,180,0.25)" stroke-width="6"/>
+
+      <!-- Wooden Floor Strip -->
+      <rect x="0" y="720" width="1600" height="180" fill="url(#woodDark)"/>
+      <rect x="0" y="720" width="1600" height="10" fill="url(#brassVert)"/>
+
+      <!-- LAYER 3: CHARACTERS CONTAINER -->
+      <g id="characters-layer"></g>
+    </g>
+
+    <!-- LAYER 4: TUNNEL DARKNESS & CHAOS EYES OVERLAY -->
+    <g id="tunnel-overlay" opacity="0" pointer-events="none">
+      <rect x="0" y="0" width="1600" height="900" fill="#070712" opacity="0.93"/>
+      <g id="chaos-eyes-layer"></g>
+    </g>
+
+    <!-- LAYER 5: INTERACTIVE BOTTOM PANEL -->
+    <!-- Phase 1: Brass Tunnel Lever (Outer = position, Middle = slide, Inner = pulse/hover) -->
+    <g id="lever-group" class="btn-hit" transform="translate(800, 812)">
+      <g id="lever-slide">
+        <g id="lever-inner" class="lever-pulse">
+          <rect x="-130" y="-52" width="260" height="104" rx="52" fill="url(#woodDark)" stroke="url(#brassGrad)" stroke-width="6" filter="url(#softShadow)"/>
+          <rect x="-116" y="-40" width="232" height="80" rx="40" fill="url(#brassGrad)"/>
+          <rect x="-108" y="-32" width="216" height="64" rx="32" fill="#8f1d2c"/>
+          <g transform="translate(0, 2)">
+            <path d="M-46,18 V-4 A26,26 0 0 1 6,-4 V18 Z" fill="#18121e" stroke="#ffd97a" stroke-width="3.5"/>
+            <path d="M-38,18 L-28,-2 M-2,18 L-12,-2" stroke="#ffd97a" stroke-width="2.5" opacity="0.7"/>
+            <path d="M18,0 H52 M40,-12 L54,0 L40,12" fill="none" stroke="#fff3c4" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+          </g>
+        </g>
+      </g>
+    </g>
+
+    <!-- Phase 3: Patterned Velvet & Brass Luggage Tray -->
+    <g id="tray-group">
+      <g id="tray-slide" style="transform: translateY(240px); opacity: 0;">
+        <rect x="75" y="692" width="1450" height="188" rx="36" fill="url(#trayBg)" stroke="url(#brassGrad)" stroke-width="8" filter="url(#softShadow)"/>
+        <rect x="90" y="706" width="1420" height="160" rx="26" fill="url(#rugPattern)" stroke="rgba(255,215,120,0.28)" stroke-width="2"/>
+        <circle cx="105" cy="722" r="6" fill="url(#brassGrad)"/>
+        <circle cx="1495" cy="722" r="6" fill="url(#brassGrad)"/>
+        <circle cx="105" cy="850" r="6" fill="url(#brassGrad)"/>
+        <circle cx="1495" cy="850" r="6" fill="url(#brassGrad)"/>
+      </g>
+    </g>
+
+    <!-- LAYER 6: DRAGGABLE ITEMS LAYER -->
+    <g id="items-layer"></g>
+
+    <!-- LAYER 7: PARTICLES & CELEBRATION EFFECTS -->
+    <g id="particles-layer" pointer-events="none"></g>
+
+    <!-- LAYER 8: MINIMALIST UI BUTTONS (Outer = fixed position, Inner = hover scale) -->
+    <g id="btn-next" class="btn-hit" transform="translate(1522, 54)">
+      <g id="btn-next-inner" class="ui-btn-inner">
+        <circle cx="0" cy="0" r="34" fill="url(#woodDark)" stroke="url(#brassGrad)" stroke-width="5" filter="url(#softShadow)"/>
+        <circle cx="0" cy="0" r="25" fill="url(#brassGrad)"/>
+        <path d="M-11,0 H11 M2,-10 L13,0 L2,10" fill="none" stroke="#361a0a" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+    </g>
+
+    <g id="btn-sound" class="btn-hit" transform="translate(68, 54)">
+      <g class="ui-btn-inner">
+        <circle cx="0" cy="0" r="28" fill="url(#woodDark)" stroke="url(#brassGrad)" stroke-width="4" filter="url(#softShadow)"/>
+        <g id="sound-on-icon">
+          <path d="M-12,-6 H-4 L6,-14 V14 L-4,6 H-12 Z" fill="#ffd97a"/>
+          <path d="M11,-7 Q17,0 11,7" fill="none" stroke="#ffd97a" stroke-width="3" stroke-linecap="round"/>
+          <path d="M15,-12 Q24,0 15,12" fill="none" stroke="#ffd97a" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+        </g>
+        <g id="sound-off-icon" opacity="0">
+          <path d="M-12,-6 H-4 L6,-14 V14 L-4,6 H-12 Z" fill="#a88c68"/>
+          <line x1="10" y1="-8" x2="20" y2="8" stroke="#ff6b6b" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="20" y1="-8" x2="10" y2="8" stroke="#ff6b6b" stroke-width="3.5" stroke-linecap="round"/>
+        </g>
+      </g>
+    </g>
+  </svg>
+</div>
+
+<script>
+(() => {
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const svg = document.getElementById("game-svg");
+
+  // ========================
+  // WEB AUDIO SOUND ENGINE
+  // ========================
+  let audioCtx = null;
+  let muted = false;
+
+  function ensureAudio() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    }
+    if (audioCtx && audioCtx.state === "suspended") {
+      audioCtx.resume();
+    }
+  }
+
+  function playTone(freq, type, duration, vol = 0.15, slideTo = null, delay = 0) {
+    if (muted) return;
+    ensureAudio();
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime + delay;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, now);
+    if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, now + duration);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(vol, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(now);
+    osc.stop(now + duration + 0.03);
+  }
+
+  function playNoise(duration, vol = 0.08, filterFreq = 800, delay = 0) {
+    if (muted) return;
+    ensureAudio();
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime + delay;
+    const bufSize = Math.floor(audioCtx.sampleRate * duration);
+    const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.setValueAtTime(filterFreq, now);
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(vol, now + 0.06);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(audioCtx.destination);
+    src.start(now);
+  }
+
+  const SFX = {
+    whistle() {
+      playTone(587.3, "triangle", 0.55, 0.12, 600, 0);
+      playTone(740.0, "triangle", 0.55, 0.10, 755, 0);
+      playTone(880.0, "sine", 0.55, 0.07, 895, 0);
+      playNoise(0.5, 0.04, 1800, 0);
+      playTone(587.3, "triangle", 0.42, 0.11, 560, 0.6);
+      playTone(740.0, "triangle", 0.42, 0.09, 710, 0.6);
+    },
+    tunnelChaos() {
+      playNoise(2.1, 0.11, 180, 0);
+      playTone(220, "sine", 0.35, 0.14, 680, 0.25);
+      playTone(720, "triangle", 0.14, 0.11, 1250, 0.55);
+      playTone(180, "sawtooth", 0.22, 0.08, 130, 0.8);
+      playTone(940, "sine", 0.16, 0.1, 310, 1.05);
+      playTone(300, "square", 0.1, 0.05, 520, 1.3);
+      playTone(460, "sine", 0.28, 0.12, 880, 1.5);
+      playNoise(0.25, 0.07, 1400, 1.75);
+    },
+    pickup() {
+      playTone(380, "sine", 0.09, 0.12, 620);
+    },
+    correct(combo = 1) {
+      const base = 440 * Math.pow(1.06, Math.min(combo, 6));
+      playTone(base, "triangle", 0.16, 0.14, null, 0);
+      playTone(base * 1.25, "triangle", 0.18, 0.14, null, 0.08);
+      playTone(base * 1.5, "sine", 0.32, 0.16, null, 0.16);
+    },
+    wrong() {
+      playTone(230, "sawtooth", 0.16, 0.09, 175, 0);
+      playTone(175, "sawtooth", 0.26, 0.10, 115, 0.14);
+    },
+    victory() {
+      const notes = [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5];
+      const times = [0, 0.11, 0.22, 0.34, 0.50, 0.62];
+      notes.forEach((n, i) => {
+        playTone(n, "triangle", i === notes.length - 1 ? 0.55 : 0.16, 0.15, null, times[i]);
+        playTone(n * 0.5, "sine", 0.2, 0.07, null, times[i]);
+      });
+      playTone(587.3, "triangle", 0.5, 0.09, 600, 0.85);
+      playTone(740.0, "triangle", 0.5, 0.08, 755, 0.85);
+    },
+    next() {
+      playTone(480, "sine", 0.1, 0.1, 740, 0);
+      playNoise(0.14, 0.04, 1500, 0);
+    }
+  };
+
+  // ========================
+  // THEMES & SCENERY POOLS
+  // ========================
+  const WORLD_THEMES = [
+    {
+      sky: ["#3e9ce6", "#9ad9f7", "#fff2cc"], sun: "#fff5b8",
+      far: "#5b89a6", mid: "#569c51", near: "#2f6b2c", tree: "#1e4d20",
+      wall: ["#3c5c4e", "#22382e"], seat: ["#b82c42", "#871b2d", "#520b17"]
+    },
+    {
+      sky: ["#5d8bc9", "#e6b98a", "#ffe6b3"], sun: "#ffd685",
+      far: "#8c697a", mid: "#c77d38", near: "#99461f", tree: "#d9621c",
+      wall: ["#5e3b2e", "#382018"], seat: ["#2d6e5e", "#1d4f43", "#0e2e26"]
+    },
+    {
+      sky: ["#2c89d9", "#78c8f5", "#d9f4ff"], sun: "#fff9c4",
+      far: "#2a7ab0", mid: "#3699b5", near: "#c4a76a", tree: "#2d7348",
+      wall: ["#2a4863", "#182c40"], seat: ["#c97c24", "#9c5911", "#613405"]
+    },
+    {
+      sky: ["#5e438a", "#c76c98", "#ffbf80"], sun: "#ff9e66",
+      far: "#694678", mid: "#855299", near: "#4e2a63", tree: "#341945",
+      wall: ["#4f354c", "#2d1b2b"], seat: ["#b88c28", "#8c6715", "#543b08"]
+    },
+    {
+      sky: ["#6ba3d6", "#b8daf2", "#eef7fc"], sun: "#ffffff",
+      far: "#8ca9c4", mid: "#c9deed", near: "#e6f2fa", tree: "#2b5952",
+      wall: ["#6e2c35", "#42161c"], seat: ["#2d5e7a", "#1c4057", "#0f2533"]
+    }
+  ];
+
+  // ========================
+  // SVG ELEMENT HELPER
+  // ========================
+  function el(tag, attrs = {}, parent = null) {
+    const node = document.createElementNS(SVG_NS, tag);
+    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+    if (parent) parent.appendChild(node);
+    return node;
+  }
+
+  // ========================
+  // DETAILED PROPS (HATS & OBJECTS)
+  // ========================
+  const HATS = [
+    {
+      id: "beret", type: "hat",
+      draw: (g) => {
+        el("path", { d: "M-54,6 C-58,-22 -24,-38 8,-34 C38,-30 58,-12 50,8 C32,16 -30,18 -54,6 Z", fill: "#c92639", stroke: "#6e0d19", "stroke-width": 3 }, g);
+        el("path", { d: "M-34,-20 C-10,-32 22,-28 38,-12", fill: "none", stroke: "#ff6b7d", "stroke-width": 4, "stroke-linecap": "round", opacity: 0.45 }, g);
+        el("path", { d: "M0,-34 Q4,-48 12,-46", fill: "none", stroke: "#7a1220", "stroke-width": 5, "stroke-linecap": "round" }, g);
+        el("ellipse", { cx: 0, cy: 10, rx: 46, ry: 7, fill: "#7a1220" }, g);
+      }
+    },
+    {
+      id: "chef", type: "hat",
+      draw: (g) => {
+        el("path", { d: "M-38,10 L-42,-16 C-60,-22 -58,-52 -32,-52 C-24,-68 24,-68 32,-52 C58,-52 60,-22 42,-16 L38,10 Z", fill: "#f7f4eb", stroke: "#b8afa0", "stroke-width": 3 }, g);
+        el("path", { d: "M-20,-42 V-10 M0,-46 V-10 M20,-42 V-10", stroke: "#dbd3c5", "stroke-width": 3, "stroke-linecap": "round" }, g);
+        el("rect", { x: -40, y: -6, width: 80, height: 18, rx: 6, fill: "#e8e2d5", stroke: "#a89f90", "stroke-width": 2.5 }, g);
+        el("line", { x1: -38, y1: 3, x2: 38, y2: 3, stroke: "#d93b3b", "stroke-width": 3 }, g);
+      }
+    },
+    {
+      id: "captain", type: "hat",
+      draw: (g) => {
+        el("path", { d: "M-52,6 Q0,24 52,6 L42,-4 Q0,6 -42,-4 Z", fill: "#182338", stroke: "#0a101c", "stroke-width": 2.5 }, g);
+        el("path", { d: "M-44,-4 L-54,-30 Q0,-46 54,-30 L44,-4 Z", fill: "#f2f5fa", stroke: "#9aa8bf", "stroke-width": 3 }, g);
+        el("rect", { x: -43, y: -12, width: 86, height: 12, rx: 3, fill: "#1b2c4d" }, g);
+        el("line", { x1: -42, y1: -6, x2: 42, y2: -6, stroke: "#f0c243", "stroke-width": 3.5 }, g);
+        el("circle", { cx: 0, cy: -22, r: 8, fill: "#f0c243", stroke: "#9e7310", "stroke-width": 2 }, g);
+      }
+    },
+    {
+      id: "crown", type: "hat",
+      draw: (g) => {
+        el("path", { d: "M-42,10 L-48,-32 L-22,-10 L0,-44 L22,-10 L48,-32 L42,10 Z", fill: "url(#brassGrad)", stroke: "#8a5a08", "stroke-width": 3, "stroke-linejoin": "round" }, g);
+        el("rect", { x: -43, y: 2, width: 86, height: 12, rx: 5, fill: "#d99d26", stroke: "#7a4d05", "stroke-width": 2.5 }, g);
+        el("circle", { cx: 0, cy: -4, r: 6.5, fill: "#e62246", stroke: "#fff", "stroke-width": 1.5 }, g);
+        el("circle", { cx: -24, cy: -2, r: 5, fill: "#2892e6", stroke: "#fff", "stroke-width": 1.2 }, g);
+        el("circle", { cx: 24, cy: -2, r: 5, fill: "#2892e6", stroke: "#fff", "stroke-width": 1.2 }, g);
+        el("circle", { cx: 0, cy: -44, r: 5, fill: "#fff2a6" }, g);
+      }
+    },
+    {
+      id: "straw", type: "hat",
+      draw: (g) => {
+        el("ellipse", { cx: 0, cy: 6, rx: 66, ry: 17, fill: "#edc56f", stroke: "#a87e2c", "stroke-width": 3 }, g);
+        el("path", { d: "M-38,4 C-38,-36 38,-36 38,4 Z", fill: "#f5d484", stroke: "#a87e2c", "stroke-width": 3 }, g);
+        el("path", { d: "M-38,-4 Q0,6 38,-4 L38,5 Q0,14 -38,5 Z", fill: "#1f9c92" }, g);
+        el("circle", { cx: 34, cy: 0, r: 8, fill: "#ff6b8b" }, g);
+        el("circle", { cx: 34, cy: 0, r: 3, fill: "#ffe066" }, g);
+      }
+    },
+    {
+      id: "beanie", type: "hat",
+      draw: (g) => {
+        el("circle", { cx: 0, cy: -46, r: 13, fill: "#ffd24d", stroke: "#b88714", "stroke-width": 2.5 }, g);
+        el("path", { d: "M-44,6 C-44,-44 44,-44 44,6 Z", fill: "#268785", stroke: "#134d4b", "stroke-width": 3 }, g);
+        el("path", { d: "M-41,-12 Q0,-4 41,-12", fill: "none", stroke: "#ffd24d", "stroke-width": 8 }, g);
+        el("path", { d: "M-32,-26 Q0,-20 32,-26", fill: "none", stroke: "#ff6f59", "stroke-width": 6 }, g);
+        el("rect", { x: -48, y: -2, width: 96, height: 18, rx: 9, fill: "#1c6967", stroke: "#10403e", "stroke-width": 2.5 }, g);
+      }
+    },
+    {
+      id: "tophat", type: "hat",
+      draw: (g) => {
+        el("ellipse", { cx: 0, cy: 8, rx: 60, ry: 12, fill: "#282a36", stroke: "#111217", "stroke-width": 3 }, g);
+        el("path", { d: "M-36,6 L-42,-52 Q0,-60 42,-52 L36,6 Z", fill: "#323545", stroke: "#111217", "stroke-width": 3 }, g);
+        el("rect", { x: -37, y: -12, width: 74, height: 14, fill: "#b8253b" }, g);
+        el("path", { d: "M-24,-48 L-20,-14", stroke: "#ffffff", "stroke-width": 6, opacity: 0.18, "stroke-linecap": "round" }, g);
+      }
+    },
+    {
+      id: "safari", type: "hat",
+      draw: (g) => {
+        el("path", { d: "M-60,8 Q0,-6 60,8 Q46,18 0,16 Q-46,18 -60,8 Z", fill: "#d4b783", stroke: "#7a6136", "stroke-width": 3 }, g);
+        el("path", { d: "M-42,2 C-42,-42 42,-42 42,2 Z", fill: "#e3ca98", stroke: "#7a6136", "stroke-width": 3 }, g);
+        el("path", { d: "M-42,-4 Q0,4 42,-4 L42,4 Q0,11 -42,4 Z", fill: "#6e4726" }, g);
+        el("circle", { cx: 0, cy: -31, r: 5, fill: "#9e7d47" }, g);
+      }
+    }
+  ];
+
+  const OBJECTS = [
+    {
+      id: "croissant", type: "obj",
+      draw: (g) => {
+        el("path", { d: "M-46,16 C-52,-12 -22,-32 0,-32 C22,-32 52,-12 46,16 C38,24 24,10 18,4 C6,10 -6,10 -18,4 C-24,10 -38,24 -46,16 Z", fill: "#e39434", stroke: "#8a480d", "stroke-width": 3 }, g);
+        el("path", { d: "M-22,-25 Q-14,-4 -18,5 M0,-31 V6 M22,-25 Q14,-4 18,5", fill: "none", stroke: "#9c5311", "stroke-width": 3, "stroke-linecap": "round" }, g);
+        el("path", { d: "M-12,-22 Q0,-26 12,-22", fill: "none", stroke: "#ffdf9e", "stroke-width": 4, "stroke-linecap": "round", opacity: 0.7 }, g);
+      }
+    },
+    {
+      id: "fish", type: "obj",
+      draw: (g) => {
+        el("path", { d: "M28,0 L52,-20 L46,0 L52,20 Z", fill: "#4a9bd4", stroke: "#1d527a", "stroke-width": 3, "stroke-linejoin": "round" }, g);
+        el("path", { d: "M-50,0 C-36,-28 14,-28 34,0 C14,28 -36,28 -50,0 Z", fill: "#6bbef2", stroke: "#1d527a", "stroke-width": 3 }, g);
+        el("path", { d: "M-26,-16 Q-18,0 -26,16 M-6,-20 Q2,0 -6,20 M12,-15 Q18,0 12,15", fill: "none", stroke: "#2d7bb5", "stroke-width": 3, "stroke-linecap": "round" }, g);
+        el("circle", { cx: -32, cy: -4, r: 5.5, fill: "#fff" }, g);
+        el("circle", { cx: -33, cy: -4, r: 2.8, fill: "#111" }, g);
+      }
+    },
+    {
+      id: "ducky", type: "obj",
+      draw: (g) => {
+        el("path", { d: "M-34,12 C-38,-6 -18,-10 -8,-4 C-8,-28 18,-36 28,-18 C34,-6 24,6 28,16 C32,28 -28,32 -34,12 Z", fill: "#ffda33", stroke: "#b88900", "stroke-width": 3 }, g);
+        el("path", { d: "M25,-16 C40,-18 44,-8 28,-6 Z", fill: "#ff7824", stroke: "#a84100", "stroke-width": 2.5 }, g);
+        el("path", { d: "M-16,6 C-6,-2 10,2 10,12 C4,20 -12,18 -16,6 Z", fill: "#f2c216", stroke: "#b88900", "stroke-width": 2 }, g);
+        el("circle", { cx: 16, cy: -16, r: 4.2, fill: "#1a1a1a" }, g);
+        el("circle", { cx: 17.5, cy: -17.5, r: 1.5, fill: "#fff" }, g);
+      }
+    },
+    {
+      id: "teacup", type: "obj",
+      draw: (g) => {
+        el("path", { d: "M24,-10 C42,-10 42,14 22,14", fill: "none", stroke: "#28a8a4", "stroke-width": 7, "stroke-linecap": "round" }, g);
+        el("ellipse", { cx: 0, cy: 26, rx: 38, ry: 9, fill: "#1d8581", stroke: "#0e4d4a", "stroke-width": 2.5 }, g);
+        el("path", { d: "M-30,-16 H30 L24,18 C20,28 -20,28 -24,18 Z", fill: "#38c2bd", stroke: "#125c59", "stroke-width": 3 }, g);
+        el("ellipse", { cx: 0, cy: -16, rx: 30, ry: 7, fill: "#7a3e19", stroke: "#f2cf66", "stroke-width": 3 }, g);
+        el("path", { d: "M-8,-26 Q-12,-38 -4,-44 M8,-26 Q14,-38 6,-44", fill: "none", stroke: "#fff", "stroke-width": 3, "stroke-linecap": "round", opacity: 0.65, class: "steam-puff" }, g);
+      }
+    },
+    {
+      id: "watermelon", type: "obj",
+      draw: (g) => {
+        el("path", { d: "M-46,-8 A48,48 0 0 0 46,-8 Z", fill: "#28913b", stroke: "#13521e", "stroke-width": 3 }, g);
+        el("path", { d: "M-39,-8 A40,40 0 0 0 39,-8 Z", fill: "#e6f5c9" }, g);
+        el("path", { d: "M-35,-8 A36,36 0 0 0 35,-8 Z", fill: "#f24455" }, g);
+        [[-16,2],[0,10],[16,2],[-8,18],[10,16]].forEach(([x,y]) => {
+          el("ellipse", { cx: x, cy: y, rx: 2.5, ry: 4.5, fill: "#241618" }, g);
+        });
+      }
+    },
+    {
+      id: "donut", type: "obj",
+      draw: (g) => {
+        el("circle", { cx: 0, cy: 0, r: 34, fill: "#e3a55b", stroke: "#8f581c", "stroke-width": 3 }, g);
+        el("path", { d: "M-32,-4 C-34,-26 -14,-34 0,-34 C18,-34 34,-22 32,-2 C28,10 18,4 14,12 C6,22 -6,12 -14,16 C-24,20 -30,8 -32,-4 Z", fill: "#ff6ea6" }, g);
+        el("circle", { cx: 0, cy: 0, r: 11, fill: "#33131d", stroke: "#8f581c", "stroke-width": 2.5 }, g);
+        [[-18,-14,"#ffe047"],[14,-18,"#5ce1e6"],[-4,-22,"#fff"],[20,0,"#ffe047"],[-20,4,"#80ff72"]].forEach(([x,y,c]) => {
+          el("rect", { x, y, width: 7, height: 3.5, rx: 1.5, fill: c, transform: `rotate(${x*3} ${x} ${y})` }, g);
+        });
+      }
+    },
+    {
+      id: "umbrella", type: "obj",
+      draw: (g) => {
+        el("path", { d: "M-34,24 L26,-26", stroke: "#6e3d19", "stroke-width": 5, "stroke-linecap": "round" }, g);
+        el("path", { d: "M-34,24 C-42,32 -30,42 -22,34", fill: "none", stroke: "#6e3d19", "stroke-width": 5, "stroke-linecap": "round" }, g);
+        el("path", { d: "M-16,12 L24,-24 L30,-16 L-6,22 Z", fill: "#e63547", stroke: "#80121e", "stroke-width": 2.5 }, g);
+        el("path", { d: "M-4,2 L16,-16", stroke: "#fff", "stroke-width": 4, "stroke-dasharray": "6 6" }, g);
+      }
+    },
+    {
+      id: "magnifying", type: "obj",
+      draw: (g) => {
+        el("line", { x1: 12, y1: 12, x2: 38, y2: 38, stroke: "#6b3818", "stroke-width": 11, "stroke-linecap": "round" }, g);
+        el("circle", { cx: -6, cy: -6, r: 27, fill: "#9be3ff", "fill-opacity": 0.65, stroke: "url(#brassGrad)", "stroke-width": 7 }, g);
+        el("path", { d: "M-20,-16 A18,18 0 0 1 -4,-24", fill: "none", stroke: "#ffffff", "stroke-width": 4.5, "stroke-linecap": "round", opacity: 0.85 }, g);
+      }
+    }
+  ];
+
+  // ========================
+  // DETAILED ANIMAL CHARACTERS
+  // ========================
+  const CHARACTER_TYPES = ["cat", "pug", "raccoon", "fox", "duck", "bulldog"];
+
+  function drawEyes(g, cx1, cx2, cy, irisColor, r = 13) {
+    const eyesGroup = el("g", { class: "eyes-group" }, g);
+    [cx1, cx2].forEach((cx) => {
+      const eye = el("g", { class: "single-eye", "data-cx": cx, "data-cy": cy }, eyesGroup);
+      const openG = el("g", { class: "eye-open" }, eye);
+      el("ellipse", { cx, cy, rx: r, ry: r * 1.08, fill: "#fffdf8", stroke: "#2b1b12", "stroke-width": 2.2 }, openG);
+      const pupilG = el("g", { class: "pupil-track" }, openG);
+      el("circle", { cx, cy: cy + 1, r: r * 0.64, fill: irisColor }, pupilG);
+      el("circle", { cx, cy: cy + 1, r: r * 0.36, fill: "#111" }, pupilG);
+      el("circle", { cx: cx - r * 0.25, cy: cy - r * 0.28, r: r * 0.22, fill: "#fff" }, pupilG);
+      el("circle", { cx: cx + r * 0.22, cy: cy + r * 0.25, r: r * 0.1, fill: "#fff", opacity: 0.8 }, pupilG);
+      el("ellipse", { cx, cy, rx: r + 1, ry: r * 1.1, fill: "#2b1b12", opacity: 0, class: "eyelid-blink" }, eye);
+      el("path", { d: `M${cx - r},${cy + 2} Q${cx},${cy - r} ${cx + r},${cy + 2}`, fill: "none", stroke: "#2b1b12", "stroke-width": 4.2, "stroke-linecap": "round", opacity: 0, class: "eye-happy" }, eye);
+      const wrongG = el("g", { opacity: 0, class: "eye-wrong" }, eye);
+      el("line", { x1: cx - 8, y1: cy - 8, x2: cx + 8, y2: cy + 8, stroke: "#2b1b12", "stroke-width": 4, "stroke-linecap": "round" }, wrongG);
+      el("line", { x1: cx + 8, y1: cy - 8, x2: cx - 8, y2: cy + 8, stroke: "#2b1b12", "stroke-width": 4, "stroke-linecap": "round" }, wrongG);
+    });
+    const brows = el("g", { class: "brows-confused", opacity: 0 }, eyesGroup);
+    el("path", { d: `M${cx1 - 15},${cy - 18} Q${cx1},${cy - 28} ${cx1 + 12},${cy - 22}`, fill: "none", stroke: "#2b1b12", "stroke-width": 4, "stroke-linecap": "round" }, brows);
+    el("path", { d: `M${cx2 - 12},${cy - 22} Q${cx2},${cy - 28} ${cx2 + 15},${cy - 18}`, fill: "none", stroke: "#2b1b12", "stroke-width": 4, "stroke-linecap": "round" }, brows);
+    return eyesGroup;
+  }
+
+  function buildCharacterSVG(type) {
+    const root = el("g", { class: "char-body-wrap char-breathe" });
+    el("ellipse", { cx: 0, cy: 138, rx: 90, ry: 22, fill: "rgba(0,0,0,0.38)" }, root);
+
+    if (type === "cat") {
+      el("path", { d: "M58,108 C108,100 116,46 86,38", fill: "none", stroke: "#d47122", "stroke-width": 20, "stroke-linecap": "round" }, root);
+      el("ellipse", { cx: 0, cy: 78, rx: 66, ry: 68, fill: "url(#catFur)", stroke: "#7a3609", "stroke-width": 3.5 }, root);
+      el("ellipse", { cx: 0, cy: 88, rx: 40, ry: 48, fill: "#ffe8c4" }, root);
+      el("path", { d: "M-58,-52 L-70,-118 L-16,-78 Z", fill: "url(#catFur)", stroke: "#7a3609", "stroke-width": 3.5, "stroke-linejoin": "round" }, root);
+      el("path", { d: "M-52,-60 L-60,-102 L-26,-76 Z", fill: "#ffaba6" }, root);
+      el("path", { d: "M58,-52 L70,-118 L16,-78 Z", fill: "url(#catFur)", stroke: "#7a3609", "stroke-width": 3.5, "stroke-linejoin": "round" }, root);
+      el("path", { d: "M52,-60 L60,-102 L26,-76 Z", fill: "#ffaba6" }, root);
+      el("ellipse", { cx: 0, cy: -24, rx: 72, ry: 60, fill: "url(#catFur)", stroke: "#7a3609", "stroke-width": 3.5 }, root);
+      el("path", { d: "M-14,-80 L-8,-60 M0,-82 L0,-58 M14,-80 L8,-60", stroke: "#9c430e", "stroke-width": 5, "stroke-linecap": "round" }, root);
+      el("ellipse", { cx: -14, cy: -4, rx: 18, ry: 14, fill: "#fff0d6" }, root);
+      el("ellipse", { cx: 14, cy: -4, rx: 18, ry: 14, fill: "#fff0d6" }, root);
+      el("path", { d: "M-10,-12 H10 L0,-2 Z", fill: "#ff7d8a" }, root);
+      el("path", { d: "M-48,-8 L-84,-14 M-48,0 L-86,4 M48,-8 L84,-14 M48,0 L86,4", stroke: "#5c2a0c", "stroke-width": 2.5, "stroke-linecap": "round" }, root);
+      el("path", { d: "M-14,4 Q-6,12 0,4 Q6,12 14,4", fill: "none", stroke: "#5c2a0c", "stroke-width": 3, "stroke-linecap": "round", class: "mouth-normal" }, root);
+      el("ellipse", { cx: 0, cy: 10, rx: 8, ry: 10, fill: "#5c1b22", opacity: 0, class: "mouth-shock" }, root);
+      drawEyes(root, -28, 28, -32, "#4db85c", 14);
+      el("ellipse", { cx: -48, cy: 105, rx: 22, ry: 18, fill: "#ffe8c4", stroke: "#7a3609", "stroke-width": 3 }, root);
+      el("ellipse", { cx: 48, cy: 105, rx: 22, ry: 18, fill: "#ffe8c4", stroke: "#7a3609", "stroke-width": 3 }, root);
+    }
+    else if (type === "pug") {
+      el("ellipse", { cx: 0, cy: 82, rx: 72, ry: 66, fill: "url(#pugFur)", stroke: "#6e4e2e", "stroke-width": 3.5 }, root);
+      el("path", { d: "M-52,32 Q0,54 52,32", fill: "none", stroke: "#cc2936", "stroke-width": 12, "stroke-linecap": "round" }, root);
+      el("circle", { cx: 0, cy: 48, r: 9, fill: "url(#brassGrad)", stroke: "#7a4e08", "stroke-width": 2 }, root);
+      el("ellipse", { cx: 0, cy: -22, rx: 74, ry: 62, fill: "url(#pugFur)", stroke: "#6e4e2e", "stroke-width": 3.5 }, root);
+      el("path", { d: "M-58,-60 C-88,-54 -90,-6 -64,-12 C-54,-14 -48,-40 -58,-60 Z", fill: "#3b2c22", stroke: "#1f1610", "stroke-width": 3 }, root);
+      el("path", { d: "M58,-60 C88,-54 90,-6 64,-12 C54,-14 48,-40 58,-60 Z", fill: "#3b2c22", stroke: "#1f1610", "stroke-width": 3 }, root);
+      el("path", { d: "M-22,-58 Q0,-64 22,-58 M-16,-49 Q0,-54 16,-49", fill: "none", stroke: "#8a6642", "stroke-width": 3, "stroke-linecap": "round" }, root);
+      el("ellipse", { cx: 0, cy: 0, rx: 34, ry: 26, fill: "#3b2c22" }, root);
+      el("ellipse", { cx: 0, cy: -9, rx: 14, ry: 9, fill: "#1a120d" }, root);
+      el("path", { d: "M-12,8 Q0,16 12,8", fill: "none", stroke: "#140c08", "stroke-width": 3, "stroke-linecap": "round", class: "mouth-normal" }, root);
+      el("path", { d: "M-7,11 C-7,26 7,26 7,11 Z", fill: "#ff758f", class: "mouth-normal" }, root);
+      el("ellipse", { cx: 0, cy: 12, rx: 9, ry: 11, fill: "#140c08", opacity: 0, class: "mouth-shock" }, root);
+      drawEyes(root, -34, 34, -26, "#6b3e1b", 15);
+      el("ellipse", { cx: -50, cy: 108, rx: 22, ry: 18, fill: "#d4ad7d", stroke: "#6e4e2e", "stroke-width": 3 }, root);
+      el("ellipse", { cx: 50, cy: 108, rx: 22, ry: 18, fill: "#d4ad7d", stroke: "#6e4e2e", "stroke-width": 3 }, root);
+    }
+    else if (type === "raccoon") {
+      el("path", { d: "M58,110 C115,105 120,42 88,36", fill: "none", stroke: "#697078", "stroke-width": 26, "stroke-linecap": "round" }, root);
+      el("path", { d: "M82,98 L98,84 M96,74 L108,58", stroke: "#222529", "stroke-width": 9, "stroke-linecap": "round" }, root);
+      el("ellipse", { cx: 0, cy: 82, rx: 68, ry: 66, fill: "url(#racFur)", stroke: "#33363b", "stroke-width": 3.5 }, root);
+      el("ellipse", { cx: 0, cy: 90, rx: 42, ry: 46, fill: "#d8dce0" }, root);
+      el("circle", { cx: -52, cy: -74, r: 22, fill: "#5e636b", stroke: "#2a2d33", "stroke-width": 3.5 }, root);
+      el("circle", { cx: -52, cy: -74, r: 12, fill: "#e6eaed" }, root);
+      el("circle", { cx: 52, cy: -74, r: 22, fill: "#5e636b", stroke: "#2a2d33", "stroke-width": 3.5 }, root);
+      el("circle", { cx: 52, cy: -74, r: 12, fill: "#e6eaed" }, root);
+      el("path", { d: "M-76,-22 C-76,-78 76,-78 76,-22 C76,18 32,38 0,38 C-32,38 -76,18 -76,-22 Z", fill: "url(#racFur)", stroke: "#33363b", "stroke-width": 3.5 }, root);
+      el("path", { d: "M-66,-26 C-56,-54 -14,-52 -6,-26 C-12,-4 -56,-2 -66,-26 Z", fill: "#23262b" }, root);
+      el("path", { d: "M66,-26 C56,-54 14,-52 6,-26 C12,-4 56,-2 66,-26 Z", fill: "#23262b" }, root);
+      el("ellipse", { cx: 0, cy: 4, rx: 28, ry: 22, fill: "#f2f4f7" }, root);
+      el("ellipse", { cx: 0, cy: -6, rx: 12, ry: 8, fill: "#1b1d21" }, root);
+      el("path", { d: "M-12,10 Q0,18 12,10", fill: "none", stroke: "#23262b", "stroke-width": 3, "stroke-linecap": "round", class: "mouth-normal" }, root);
+      el("ellipse", { cx: 0, cy: 13, rx: 8, ry: 9, fill: "#23262b", opacity: 0, class: "mouth-shock" }, root);
+      drawEyes(root, -30, 30, -28, "#8c5b2b", 13);
+      el("ellipse", { cx: -48, cy: 106, rx: 20, ry: 16, fill: "#2c2f36", stroke: "#14161a", "stroke-width": 3 }, root);
+      el("ellipse", { cx: 48, cy: 106, rx: 20, ry: 16, fill: "#2c2f36", stroke: "#14161a", "stroke-width": 3 }, root);
+    }
+    else if (type === "fox") {
+      el("path", { d: "M56,112 C118,108 124,38 86,28", fill: "none", stroke: "#d94e1c", "stroke-width": 30, "stroke-linecap": "round" }, root);
+      el("circle", { cx: 92, cy: 36, r: 15, fill: "#fff7eb" }, root);
+      el("ellipse", { cx: 0, cy: 82, rx: 64, ry: 66, fill: "url(#foxFur)", stroke: "#752208", "stroke-width": 3.5 }, root);
+      el("path", { d: "M-32,42 Q0,126 32,42 Z", fill: "#fff5e6" }, root);
+      el("path", { d: "M-56,-52 L-66,-126 L-12,-76 Z", fill: "url(#foxFur)", stroke: "#752208", "stroke-width": 3.5, "stroke-linejoin": "round" }, root);
+      el("path", { d: "M-58,-92 L-66,-126 L-36,-98 Z", fill: "#2e1a14" }, root);
+      el("path", { d: "M56,-52 L66,-126 L12,-76 Z", fill: "url(#foxFur)", stroke: "#752208", "stroke-width": 3.5, "stroke-linejoin": "round" }, root);
+      el("path", { d: "M58,-92 L66,-126 L36,-98 Z", fill: "#2e1a14" }, root);
+      el("path", { d: "M-78,-20 C-74,-78 74,-78 78,-20 C72,18 28,36 0,36 C-28,36 -72,18 -78,-20 Z", fill: "url(#foxFur)", stroke: "#752208", "stroke-width": 3.5 }, root);
+      el("path", { d: "M-75,-12 C-52,-12 -22,6 0,34 C-32,34 -68,16 -75,-12 Z", fill: "#fff5e6" }, root);
+      el("path", { d: "M75,-12 C52,-12 22,6 0,34 C32,34 68,16 75,-12 Z", fill: "#fff5e6" }, root);
+      el("ellipse", { cx: 0, cy: 2, rx: 11, ry: 8, fill: "#241410" }, root);
+      el("path", { d: "M-12,16 Q0,24 12,16", fill: "none", stroke: "#4a1c0c", "stroke-width": 3, "stroke-linecap": "round", class: "mouth-normal" }, root);
+      el("ellipse", { cx: 0, cy: 18, rx: 8, ry: 9, fill: "#4a1c0c", opacity: 0, class: "mouth-shock" }, root);
+      drawEyes(root, -28, 28, -28, "#d48a1c", 13);
+      el("ellipse", { cx: -46, cy: 108, rx: 20, ry: 16, fill: "#2e1a14", stroke: "#140a07", "stroke-width": 3 }, root);
+      el("ellipse", { cx: 46, cy: 108, rx: 20, ry: 16, fill: "#2e1a14", stroke: "#140a07", "stroke-width": 3 }, root);
+    }
+    else if (type === "duck") {
+      el("ellipse", { cx: 0, cy: 86, rx: 68, ry: 64, fill: "#8c4a2b", stroke: "#4a2210", "stroke-width": 3.5 }, root);
+      el("ellipse", { cx: 0, cy: 92, rx: 46, ry: 44, fill: "#d6cfc2" }, root);
+      el("rect", { x: -34, y: 26, width: 68, height: 14, rx: 7, fill: "#ffffff", stroke: "#b8b2a6", "stroke-width": 2 }, root);
+      el("ellipse", { cx: 0, cy: -26, rx: 62, ry: 56, fill: "url(#duckHead)", stroke: "#063623", "stroke-width": 3.5 }, root);
+      el("path", { d: "M-6,-80 Q0,-98 10,-86 Q16,-98 16,-78", fill: "none", stroke: "#138257", "stroke-width": 6, "stroke-linecap": "round" }, root);
+      el("path", { d: "M-32,-4 C-34,-18 34,-18 32,-4 C34,16 -34,16 -32,-4 Z", fill: "#ffb829", stroke: "#9e6200", "stroke-width": 3 }, root);
+      el("path", { d: "M-22,2 Q0,10 22,2", fill: "none", stroke: "#8a5200", "stroke-width": 3, "stroke-linecap": "round", class: "mouth-normal" }, root);
+      el("ellipse", { cx: 0, cy: 6, rx: 14, ry: 8, fill: "#6e2618", opacity: 0, class: "mouth-shock" }, root);
+      drawEyes(root, -26, 26, -34, "#3b2310", 13);
+      el("path", { d: "M-62,64 C-86,86 -66,126 -38,116 C-34,98 -44,72 -62,64 Z", fill: "#6e371e", stroke: "#3b1a0c", "stroke-width": 3 }, root);
+      el("path", { d: "M62,64 C86,86 66,126 38,116 C34,98 44,72 62,64 Z", fill: "#6e371e", stroke: "#3b1a0c", "stroke-width": 3 }, root);
+    }
+    else if (type === "bulldog") {
+      el("ellipse", { cx: 0, cy: 84, rx: 76, ry: 66, fill: "url(#bullFur)", stroke: "#5c3312", "stroke-width": 3.5 }, root);
+      el("ellipse", { cx: 0, cy: 88, rx: 42, ry: 48, fill: "#fff7ed" }, root);
+      el("path", { d: "M0,38 L-22,26 V50 Z M0,38 L22,26 V50 Z", fill: "#265c99", stroke: "#123257", "stroke-width": 2.5 }, root);
+      el("circle", { cx: 0, cy: 38, r: 6, fill: "#1a4270" }, root);
+      el("path", { d: "M-62,-56 C-88,-74 -84,-34 -64,-34 Z", fill: "#7a441a", stroke: "#4a260b", "stroke-width": 3 }, root);
+      el("path", { d: "M62,-56 C88,-74 84,-34 64,-34 Z", fill: "#7a441a", stroke: "#4a260b", "stroke-width": 3 }, root);
+      el("path", { d: "M-74,-26 C-74,-80 74,-80 74,-26 C84,12 64,34 38,30 C16,26 -16,26 -38,30 C-64,34 -84,12 -74,-26 Z", fill: "url(#bullFur)", stroke: "#5c3312", "stroke-width": 3.5 }, root);
+      el("ellipse", { cx: 0, cy: 4, rx: 44, ry: 24, fill: "#fff5e8" }, root);
+      el("ellipse", { cx: 0, cy: -10, rx: 14, ry: 9, fill: "#241612" }, root);
+      const mNorm = el("g", { class: "mouth-normal" }, root);
+      el("path", { d: "M-22,12 Q0,4 22,12", fill: "none", stroke: "#4a260b", "stroke-width": 3.5, "stroke-linecap": "round" }, mNorm);
+      el("path", { d: "M-16,10 L-12,2 L-8,9 Z", fill: "#ffffff", stroke: "#4a260b", "stroke-width": 1.8 }, mNorm);
+      el("path", { d: "M16,10 L12,2 L8,9 Z", fill: "#ffffff", stroke: "#4a260b", "stroke-width": 1.8 }, mNorm);
+      el("ellipse", { cx: 0, cy: 14, rx: 10, ry: 10, fill: "#4a1b16", opacity: 0, class: "mouth-shock" }, root);
+      drawEyes(root, -32, 32, -32, "#4f2f16", 13.5);
+      el("ellipse", { cx: -54, cy: 110, rx: 24, ry: 18, fill: "#fff5e8", stroke: "#5c3312", "stroke-width": 3 }, root);
+      el("ellipse", { cx: 54, cy: 110, rx: 24, ry: 18, fill: "#fff5e8", stroke: "#5c3312", "stroke-width": 3 }, root);
+    }
+
+    el("g", { class: "hat-anchor", transform: "translate(0, -86)" }, root);
+    el("g", { class: "obj-anchor", transform: "translate(0, 92)" }, root);
+    el("path", {
+      d: "M64,-68 C74,-52 72,-40 64,-40 C56,-40 54,-52 64,-68 Z",
+      fill: "#7de0ff", stroke: "#2892c7", "stroke-width": 2, opacity: 0, class: "sweat-drop"
+    }, root);
+
+    return root;
+  }
+
+  // ========================
+  // PARALLAX OUTSIDE WORLD
+  // ========================
+  let worldOffset = 0;
+  let trainSpeed = 1.0;
+
+  const pClouds = document.getElementById("parallax-clouds");
+  const pFar = document.getElementById("parallax-far");
+  const pMid = document.getElementById("parallax-mid");
+  const pNear = document.getElementById("parallax-near");
+
+  function buildParallaxScenery(theme) {
+    document.getElementById("sky-c1").setAttribute("stop-color", theme.sky[0]);
+    document.getElementById("sky-c2").setAttribute("stop-color", theme.sky[1]);
+    document.getElementById("sky-c3").setAttribute("stop-color", theme.sky[2]);
+    document.getElementById("world-sun").setAttribute("fill", theme.sun);
+    document.getElementById("wall-c1").setAttribute("stop-color", theme.wall[0]);
+    document.getElementById("wall-c2").setAttribute("stop-color", theme.wall[1]);
+    document.getElementById("seat-c1").setAttribute("stop-color", theme.seat[0]);
+    document.getElementById("seat-c2").setAttribute("stop-color", theme.seat[1]);
+    document.getElementById("seat-c3").setAttribute("stop-color", theme.seat[2]);
+
+    [pClouds, pFar, pMid, pNear].forEach(g => g.innerHTML = "");
+
+    for (let rep = 0; rep < 2; rep++) {
+      const ox = rep * 1600;
+      [[220,155,1],[620,140,0.8],[1020,165,1.15],[1420,145,0.9]].forEach(([x,y,s]) => {
+        const cg = el("g", { transform: `translate(${ox+x},${y}) scale(${s})`, opacity: 0.85 }, pClouds);
+        el("ellipse", { cx: 0, cy: 0, rx: 46, ry: 20, fill: "#ffffff" }, cg);
+        el("circle", { cx: -22, cy: -8, r: 22, fill: "#ffffff" }, cg);
+        el("circle", { cx: 14, cy: -12, r: 26, fill: "#ffffff" }, cg);
+      });
+    }
+
+    for (let rep = 0; rep < 2; rep++) {
+      const ox = rep * 1600;
+      el("path", {
+        d: `M${ox},420 L${ox+180},235 L${ox+390},330 L${ox+640},205 L${ox+920},320 L${ox+1190},220 L${ox+1420},315 L${ox+1600},420 Z`,
+        fill: theme.far, opacity: 0.82
+      }, pFar);
+    }
+
+    for (let rep = 0; rep < 2; rep++) {
+      const ox = rep * 1600;
+      el("path", {
+        d: `M${ox},425 Q${ox+250},295 ${ox+520},345 T${ox+1080},335 T${ox+1600},350 L${ox+1600},430 H${ox} Z`,
+        fill: theme.mid
+      }, pMid);
+      for (let i = 0; i < 8; i++) {
+        const tx = ox + 110 + i * 195 + (i % 2) * 35;
+        const ty = 345 + (i % 3) * 14;
+        const tg = el("g", { transform: `translate(${tx},${ty})` }, pMid);
+        el("rect", { x: -4, y: 0, width: 8, height: 22, fill: "#4f311c" }, tg);
+        el("polygon", { points: "0,-48 -24,6 24,6", fill: theme.tree }, tg);
+        el("polygon", { points: "0,-66 -18,-20 18,-20", fill: theme.tree }, tg);
+      }
+    }
+
+    for (let rep = 0; rep < 2; rep++) {
+      const ox = rep * 1600;
+      el("rect", { x: ox, y: 386, width: 1600, height: 45, fill: theme.near }, pNear);
+      for (let i = 0; i < 4; i++) {
+        const px = ox + i * 400 + 80;
+        el("rect", { x: px, y: 120, width: 10, height: 300, fill: "#382214", opacity: 0.65 }, pNear);
+        el("rect", { x: px - 14, y: 145, width: 38, height: 6, fill: "#382214", opacity: 0.65 }, pNear);
+      }
+    }
+  }
+
+  function animateWorld() {
+    worldOffset += 2.4 * trainSpeed;
+    pClouds.setAttribute("transform", `translate(${-(worldOffset * 0.12) % 1600}, 0)`);
+    pFar.setAttribute("transform", `translate(${-(worldOffset * 0.35) % 1600}, 0)`);
+    pMid.setAttribute("transform", `translate(${-(worldOffset * 0.95) % 1600}, 0)`);
+    pNear.setAttribute("transform", `translate(${-(worldOffset * 2.8) % 1600}, 0)`);
+    requestAnimationFrame(animateWorld);
+  }
+
+  // ========================
+  // PARTICLES ENGINE
+  // ========================
+  const particlesLayer = document.getElementById("particles-layer");
+
+  function spawnParticles(x, y, count = 18, palette = ["#ffe047", "#ff6b8b", "#5ce1e6", "#ffffff", "#80ff72"]) {
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
+      const speed = 3 + Math.random() * 8;
+      let vx = Math.cos(angle) * speed;
+      let vy = Math.sin(angle) * speed - 3.5;
+      let px = x, py = y, life = 1;
+      const color = palette[i % palette.length];
+      const isStar = i % 2 === 0;
+      const node = isStar
+        ? el("polygon", { points: "0,-10 3,-3 10,-3 4,2 6,10 0,5 -6,10 -4,2 -10,-3 -3,-3", fill: color }, particlesLayer)
+        : el("circle", { cx: 0, cy: 0, r: 4 + Math.random() * 5, fill: color }, particlesLayer);
+
+      let rot = Math.random() * 360;
+      function step() {
+        px += vx;
+        py += vy;
+        vy += 0.28;
+        rot += 8;
+        life -= 0.025;
+        if (life <= 0) {
+          node.remove();
+          return;
+        }
+        node.setAttribute("transform", `translate(${px},${py}) rotate(${rot}) scale(${life})`);
+        node.setAttribute("opacity", life);
+        requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+  }
+
+  // ========================
+  // GAME STATE & LOGIC
+  // ========================
+  let roundCount = 0;
+  let phase = "memorize";
+  let passengers = [];
+  let trayItems = [];
+  let selectedItem = null;
+  let dragState = null;
+  let comboCount = 0;
+  let activeTimers = [];
+
+  const charsLayer = document.getElementById("characters-layer");
+  const itemsLayer = document.getElementById("items-layer");
+  const leverGroup = document.getElementById("lever-group");
+  const leverSlide = document.getElementById("lever-slide");
+  const traySlide = document.getElementById("tray-slide");
+  const btnNextInner = document.getElementById("btn-next-inner");
+  const tunnelOverlay = document.getElementById("tunnel-overlay");
+  const chaosEyesLayer = document.getElementById("chaos-eyes-layer");
+  const windowTunnelMask = document.getElementById("window-tunnel-mask");
+  const sunbeamsLayer = document.getElementById("sunbeams-layer");
+
+  function addTimer(fn, ms) {
+    const id = setTimeout(fn, ms);
+    activeTimers.push(id);
+    return id;
+  }
+
+  function clearAllTimers() {
+    activeTimers.forEach(clearTimeout);
+    activeTimers = [];
+  }
+
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function setCharacterMood(p, mood) {
+    const b = p.bodyEl;
+    b.classList.remove("char-happy", "char-wrong", "char-dance");
+    const opens = b.querySelectorAll(".eye-open");
+    const happys = b.querySelectorAll(".eye-happy");
+    const wrongs = b.querySelectorAll(".eye-wrong");
+    const brows = b.querySelector(".brows-confused");
+    const mNorm = b.querySelectorAll(".mouth-normal");
+    const mShock = b.querySelector(".mouth-shock");
+    const sweat = b.querySelector(".sweat-drop");
+
+    opens.forEach(e => e.setAttribute("opacity", mood === "happy" || mood === "wrong" ? 0 : 1));
+    happys.forEach(e => e.setAttribute("opacity", mood === "happy" ? 1 : 0));
+    wrongs.forEach(e => e.setAttribute("opacity", mood === "wrong" ? 1 : 0));
+    if (brows) brows.setAttribute("opacity", mood === "confused" ? 1 : 0);
+    mNorm.forEach(e => e.setAttribute("opacity", mood === "confused" || mood === "wrong" ? 0 : 1));
+    if (mShock) mShock.setAttribute("opacity", mood === "confused" || mood === "wrong" ? 1 : 0);
+    if (sweat) sweat.setAttribute("opacity", mood === "confused" ? 1 : 0);
+
+    if (mood === "happy") {
+      void b.offsetWidth;
+      b.classList.add("char-happy");
+    } else if (mood === "wrong") {
+      void b.offsetWidth;
+      b.classList.add("char-wrong");
+    } else if (mood === "dance") {
+      opens.forEach(e => e.setAttribute("opacity", 0));
+      happys.forEach(e => e.setAttribute("opacity", 1));
+      b.classList.add("char-dance");
+    }
+  }
+
+  // Random natural blinking
+  setInterval(() => {
+    if (phase === "tunnel") return;
+    passengers.forEach(p => {
+      if (Math.random() < 0.35) {
+        const lids = p.bodyEl.querySelectorAll(".eyelid-blink");
+        const opens = p.bodyEl.querySelectorAll(".eye-open");
+        if (opens[0] && opens[0].getAttribute("opacity") !== "0") {
+          lids.forEach(l => l.setAttribute("opacity", 1));
+          setTimeout(() => lids.forEach(l => l.setAttribute("opacity", 0)), 130);
+        }
+      }
+    });
+  }, 1900);
+
+  // Realistic eye-tracking
+  function updateEyeTracking(svgX, svgY) {
+    passengers.forEach(p => {
+      const dx = svgX - p.x;
+      const dy = svgY - (p.y - 28);
+      const dist = Math.hypot(dx, dy) || 1;
+      const maxShift = 4.2;
+      const ox = (dx / dist) * Math.min(maxShift, dist / 40);
+      const oy = (dy / dist) * Math.min(maxShift, dist / 40);
+      p.bodyEl.querySelectorAll(".pupil-track").forEach(pt => {
+        pt.setAttribute("transform", `translate(${ox.toFixed(1)},${oy.toFixed(1)})`);
+      });
+    });
+  }
+
+  function clientToSvg(clientX, clientY) {
+    const pt = svg.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    const ctm = svg.getScreenCTM();
+    return ctm ? pt.matrixTransform(ctm.inverse()) : { x: 800, y: 450 };
+  }
+
+  // ========================
+  // START NEW INFINITE ROUND
+  // ========================
+  function startNewRound() {
+    clearAllTimers();
+    roundCount++;
+    phase = "memorize";
+    selectedItem = null;
+    dragState = null;
+    comboCount = 0;
+    trainSpeed = 1.0;
+
+    const theme = WORLD_THEMES[(roundCount - 1 + Math.floor(Math.random() * 2)) % WORLD_THEMES.length];
+    buildParallaxScenery(theme);
+
+    charsLayer.innerHTML = "";
+    itemsLayer.innerHTML = "";
+    particlesLayer.innerHTML = "";
+    chaosEyesLayer.innerHTML = "";
+
+    tunnelOverlay.setAttribute("opacity", 0);
+    windowTunnelMask.setAttribute("x", 1600);
+    sunbeamsLayer.setAttribute("opacity", 1);
+
+    // Show brass lever smoothly, hide tray
+    leverSlide.style.transform = "translateY(0px)";
+    leverSlide.style.opacity = "1";
+    leverGroup.style.pointerEvents = "auto";
+
+    traySlide.style.transform = "translateY(240px)";
+    traySlide.style.opacity = "0";
+
+    btnNextInner.classList.remove("lever-pulse");
+
+    const numChars = (roundCount === 1) ? 3 : (Math.random() < 0.55 ? 3 : 4);
+    const chosenTypes = shuffle(CHARACTER_TYPES).slice(0, numChars);
+    const chosenHats = shuffle(HATS);
+    const chosenObjs = shuffle(OBJECTS);
+
+    const xPositions = numChars === 3 ? [350, 800, 1250] : [255, 618, 982, 1345];
+    const baseScale = numChars === 3 ? 1.05 : 0.94;
+
+    let hatIdx = 0, objIdx = 0;
+    passengers = chosenTypes.map((type, idx) => {
+      const slotEl = el("g", {
+        class: "char-slot",
+        transform: `translate(${xPositions[idx]}, 545) scale(${baseScale})`
+      }, charsLayer);
+
+      const bodyEl = buildCharacterSVG(type);
+      bodyEl.style.animationDelay = `${-idx * 0.7}s`;
+      slotEl.appendChild(bodyEl);
+
+      let hat = null, obj = null;
+      if (roundCount === 1) {
+        if (idx % 2 === 0) hat = chosenHats[hatIdx++];
+        else obj = chosenObjs[objIdx++];
+      } else {
+        const mode = Math.random();
+        if (mode < 0.38) {
+          hat = chosenHats[hatIdx++];
+        } else if (mode < 0.76) {
+          obj = chosenObjs[objIdx++];
+        } else {
+          hat = chosenHats[hatIdx++];
+          obj = chosenObjs[objIdx++];
+        }
+      }
+
+      const p = {
+        id: idx,
+        type,
+        x: xPositions[idx],
+        y: 545,
+        scale: baseScale,
+        slotEl,
+        bodyEl,
+        hat,
+        obj,
+        restoredHat: false,
+        restoredObj: false
+      };
+
+      if (hat) hat.draw(bodyEl.querySelector(".hat-anchor"));
+      if (obj) obj.draw(bodyEl.querySelector(".obj-anchor"));
+
+      slotEl.addEventListener("pointerdown", () => {
+        if (phase === "restore" && selectedItem) {
+          attemptDrop(selectedItem, p);
+        }
+      });
+
+      return p;
+    });
+
+    if (passengers.reduce((s, p) => s + (p.hat ? 1 : 0) + (p.obj ? 1 : 0), 0) < 3) {
+      const p0 = passengers[0];
+      if (!p0.hat) {
+        p0.hat = chosenHats[hatIdx++];
+        p0.hat.draw(p0.bodyEl.querySelector(".hat-anchor"));
+      }
+    }
+
+    startNewRound.unusedHats = chosenHats.slice(hatIdx);
+    startNewRound.unusedObjs = chosenObjs.slice(objIdx);
+  }
+
+  // ========================
+  // PHASE 2: TUNNEL CHAOS!
+  // ========================
+  function triggerTunnel() {
+    if (phase !== "memorize") return;
+    phase = "tunnel";
+    SFX.whistle();
+
+    leverSlide.style.transform = "translateY(150px)";
+    leverSlide.style.opacity = "0";
+    leverGroup.style.pointerEvents = "none";
+
+    trainSpeed = 2.4;
+    let maskX = 1600;
+    function slideInMask() {
+      maskX -= 75;
+      if (maskX <= 0) {
+        windowTunnelMask.setAttribute("x", 0);
+        enterDarkness();
+        return;
+      }
+      windowTunnelMask.setAttribute("x", maskX);
+      requestAnimationFrame(slideInMask);
+    }
+    addTimer(() => requestAnimationFrame(slideInMask), 450);
+  }
+
+  function enterDarkness() {
+    sunbeamsLayer.setAttribute("opacity", 0);
+    tunnelOverlay.style.transition = "opacity 0.22s ease";
+    tunnelOverlay.setAttribute("opacity", 1);
+    SFX.tunnelChaos();
+
+    chaosEyesLayer.innerHTML = "";
+    const eyePairs = [];
+    for (let i = 0; i < passengers.length; i++) {
+      const gx = 280 + i * 320 + Math.random() * 80;
+      const gy = 380 + Math.random() * 140;
+      const g = el("g", { transform: `translate(${gx},${gy})` }, chaosEyesLayer);
+      el("ellipse", { cx: -18, cy: 0, rx: 11, ry: 13, fill: "#fff7b8" }, g);
+      el("circle", { cx: -16, cy: 0, r: 5, fill: "#111" }, g);
+      el("ellipse", { cx: 18, cy: 0, rx: 11, ry: 13, fill: "#fff7b8" }, g);
+      el("circle", { cx: 20, cy: 0, r: 5, fill: "#111" }, g);
+      eyePairs.push(g);
+    }
+
+    const hopInterval = setInterval(() => {
+      eyePairs.forEach(g => {
+        const nx = 220 + Math.random() * 1160;
+        const ny = 240 + Math.random() * 360;
+        const rot = (Math.random() - 0.5) * 35;
+        g.setAttribute("transform", `translate(${nx},${ny}) rotate(${rot})`);
+      });
+    }, 340);
+
+    addTimer(() => {
+      clearInterval(hopInterval);
+      exitTunnelToRestore();
+    }, 2150);
+  }
+
+  // ========================
+  // PHASE 3: AFTERMATH & RESTORE
+  // ========================
+  function exitTunnelToRestore() {
+    phase = "restore";
+    trainSpeed = 1.0;
+
+    const neededItems = [];
+    passengers.forEach(p => {
+      p.bodyEl.querySelector(".hat-anchor").innerHTML = "";
+      p.bodyEl.querySelector(".obj-anchor").innerHTML = "";
+      p.restoredHat = !p.hat;
+      p.restoredObj = !p.obj;
+      if (p.hat) neededItems.push({ prop: p.hat, ownerId: p.id, isDecoy: false });
+      if (p.obj) neededItems.push({ prop: p.obj, ownerId: p.id, isDecoy: false });
+      setCharacterMood(p, "confused");
+    });
+
+    const decoyCount = neededItems.length <= 4 ? 2 : 1;
+    const decoys = shuffle([...(startNewRound.unusedHats || []), ...(startNewRound.unusedObjs || [])]).slice(0, decoyCount);
+    decoys.forEach(prop => neededItems.push({ prop, ownerId: -1, isDecoy: true }));
+
+    tunnelOverlay.style.transition = "opacity 0.35s ease";
+    tunnelOverlay.setAttribute("opacity", 0);
+    sunbeamsLayer.setAttribute("opacity", 1);
+
+    let maskX = 0;
+    function slideOutMask() {
+      maskX -= 85;
+      if (maskX <= -1600) {
+        windowTunnelMask.setAttribute("x", 1600);
+        return;
+      }
+      windowTunnelMask.setAttribute("x", maskX);
+      requestAnimationFrame(slideOutMask);
+    }
+    requestAnimationFrame(slideOutMask);
+
+    traySlide.style.transform = "translateY(0px)";
+    traySlide.style.opacity = "1";
+
+    const shuffled = shuffle(neededItems);
+    const total = shuffled.length;
+    const spacing = Math.min(205, 1320 / total);
+    const startX = 800 - ((total - 1) * spacing) / 2;
+
+    trayItems = shuffled.map((entry, i) => {
+      const hx = startX + i * spacing;
+      const hy = 790;
+      const g = el("g", {
+        class: "drag-item",
+        transform: `translate(${hx}, ${hy}) scale(1.06)`
+      }, itemsLayer);
+
+      el("ellipse", { cx: 0, cy: 14, rx: 58, ry: 22, fill: "rgba(0,0,0,0.32)" }, g);
+      const artG = el("g", { class: "item-art" }, g);
+      entry.prop.draw(artG);
+      el("circle", { cx: 0, cy: 0, r: 64, fill: "transparent" }, g);
+
+      const itemObj = {
+        ...entry,
+        homeX: hx,
+        homeY: hy,
+        el: g,
+        placed: false
+      };
+
+      setupItemInteraction(itemObj);
+      return itemObj;
+    });
+  }
+
+  // ========================
+  // DRAG & DROP + CLICK-TO-PLACE
+  // ========================
+  function setupItemInteraction(itemObj) {
+    itemObj.el.addEventListener("pointerdown", (e) => {
+      if (phase !== "restore" || itemObj.placed) return;
+      e.stopPropagation();
+      ensureAudio();
+      SFX.pickup();
+
+      itemsLayer.appendChild(itemObj.el);
+
+      const pt = clientToSvg(e.clientX, e.clientY);
+      dragState = {
+        item: itemObj,
+        startX: pt.x,
+        startY: pt.y,
+        lastX: pt.x,
+        moved: false
+      };
+      itemObj.el.classList.add("dragging");
+    });
+  }
+
+  window.addEventListener("pointermove", (e) => {
+    const pt = clientToSvg(e.clientX, e.clientY);
+    if (phase === "restore" || phase === "memorize") {
+      updateEyeTracking(pt.x, pt.y);
+    }
+
+    if (!dragState) return;
+    const dx = pt.x - dragState.startX;
+    const dy = pt.y - dragState.startY;
+    if (Math.hypot(dx, dy) > 10) dragState.moved = true;
+
+    const vx = Math.max(-22, Math.min(22, (pt.x - dragState.lastX) * 0.9));
+    dragState.lastX = pt.x;
+
+    dragState.item.el.setAttribute("transform", `translate(${pt.x}, ${pt.y}) scale(1.22) rotate(${vx})`);
+
+    const target = findTargetPassenger(pt.x, pt.y);
+    passengers.forEach(p => {
+      p.slotEl.classList.toggle("drop-target", target && target.id === p.id);
+    });
+  });
+
+  window.addEventListener("pointerup", (e) => {
+    if (!dragState) return;
+    const { item, moved } = dragState;
+    dragState = null;
+    item.el.classList.remove("dragging");
+    passengers.forEach(p => p.slotEl.classList.remove("drop-target"));
+
+    const pt = clientToSvg(e.clientX, e.clientY);
+
+    if (!moved) {
+      if (selectedItem === item) {
+        selectedItem.el.classList.remove("selected");
+        selectedItem.el.setAttribute("transform", `translate(${item.homeX}, ${item.homeY}) scale(1.06)`);
+        selectedItem = null;
+      } else {
+        if (selectedItem) {
+          selectedItem.el.classList.remove("selected");
+          selectedItem.el.setAttribute("transform", `translate(${selectedItem.homeX}, ${selectedItem.homeY}) scale(1.06)`);
+        }
+        selectedItem = item;
+        item.el.classList.add("selected");
+        item.el.setAttribute("transform", `translate(${item.homeX}, ${item.homeY - 16}) scale(1.16)`);
+      }
+      return;
+    }
+
+    const target = findTargetPassenger(pt.x, pt.y);
+    if (target) {
+      attemptDrop(item, target);
+    } else {
+      returnItemHome(item);
+    }
+  });
+
+  function findTargetPassenger(x, y) {
+    if (y > 685) return null;
+    let best = null, bestDist = 175;
+    passengers.forEach(p => {
+      const d = Math.hypot(x - p.x, y - (p.y - 10));
+      if (d < bestDist) {
+        bestDist = d;
+        best = p;
+      }
+    });
+    return best;
+  }
+
+  function returnItemHome(item) {
+    item.el.classList.remove("selected");
+    if (selectedItem === item) selectedItem = null;
+    item.el.setAttribute("transform", `translate(${item.homeX}, ${item.homeY}) scale(1.06)`);
+  }
+
+  function attemptDrop(item, passenger) {
+    if (selectedItem === item) {
+      item.el.classList.remove("selected");
+      selectedItem = null;
+    }
+
+    const isRightOwner = !item.isDecoy && item.ownerId === passenger.id;
+    if (isRightOwner) {
+      item.placed = true;
+      item.el.remove();
+      comboCount++;
+      SFX.correct(comboCount);
+
+      const anchor = item.prop.type === "hat"
+        ? passenger.bodyEl.querySelector(".hat-anchor")
+        : passenger.bodyEl.querySelector(".obj-anchor");
+      item.prop.draw(anchor);
+
+      if (item.prop.type === "hat") passenger.restoredHat = true;
+      else passenger.restoredObj = true;
+
+      const fxY = item.prop.type === "hat" ? passenger.y - 95 : passenger.y + 85;
+      spawnParticles(passenger.x, fxY, 22);
+
+      setCharacterMood(passenger, "happy");
+      addTimer(() => {
+        if (phase === "restore") {
+          const allDoneForThis = passenger.restoredHat && passenger.restoredObj;
+          setCharacterMood(passenger, allDoneForThis ? "normal" : "confused");
+        }
+      }, 950);
+
+      checkVictory();
+    } else {
+      comboCount = 0;
+      SFX.wrong();
+      setCharacterMood(passenger, "wrong");
+      spawnParticles(passenger.x, passenger.y - 40, 8, ["#ff6b6b", "#ffa94d", "#fff"]);
+      returnItemHome(item);
+      addTimer(() => {
+        if (phase === "restore") {
+          const allDoneForThis = passenger.restoredHat && passenger.restoredObj;
+          setCharacterMood(passenger, allDoneForThis ? "normal" : "confused");
+        }
+      }, 620);
+    }
+  }
+
+  function checkVictory() {
+    const allRestored = passengers.every(p => p.restoredHat && p.restoredObj);
+    if (!allRestored) return;
+
+    phase = "victory";
+    SFX.victory();
+
+    trayItems.forEach(it => {
+      if (!it.placed) {
+        spawnParticles(it.homeX, it.homeY, 10, ["#ffe066", "#ffffff"]);
+        it.el.remove();
+      }
+    });
+
+    traySlide.style.transform = "translateY(240px)";
+    traySlide.style.opacity = "0";
+
+    passengers.forEach((p, idx) => {
+      setCharacterMood(p, "dance");
+      addTimer(() => {
+        spawnParticles(p.x, p.y - 60, 26);
+      }, idx * 180);
+    });
+
+    btnNextInner.classList.add("lever-pulse");
+    addTimer(() => {
+      if (phase === "victory") {
+        btnNextInner.classList.remove("lever-pulse");
+        startNewRound();
+      }
+    }, 3400);
+  }
+
+  // ========================
+  // UI BUTTONS
+  // ========================
+  leverGroup.addEventListener("pointerdown", () => {
+    ensureAudio();
+    triggerTunnel();
+  });
+
+  document.getElementById("btn-next").addEventListener("pointerdown", () => {
+    ensureAudio();
+    SFX.next();
+    btnNextInner.classList.remove("lever-pulse");
+    startNewRound();
+  });
+
+  document.getElementById("btn-sound").addEventListener("pointerdown", () => {
+    muted = !muted;
+    document.getElementById("sound-on-icon").setAttribute("opacity", muted ? 0 : 1);
+    document.getElementById("sound-off-icon").setAttribute("opacity", muted ? 1 : 0);
+    if (!muted) {
+      ensureAudio();
+      SFX.pickup();
+    }
+  });
+
+  startNewRound();
+  requestAnimationFrame(animateWorld);
+})();
+</script>
+</body>
+</html>
