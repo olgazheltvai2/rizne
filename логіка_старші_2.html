@@ -1,0 +1,2062 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Олімпіадна Кухня Шефа-Єнота</title>
+<style>
+  /* =========================================================
+     БАЗОВІ СТИЛІ: БЕЗ БІЛИХ ПРЯМОКУТНИКІВ ТА БЕЗ ЗАЙВИХ СЛІВ
+     Усі поверхні стилізовані під дерево, мідь, латунь і сланець
+     ========================================================= */
+  * {
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #331c0f;
+    font-family: Arial, sans-serif;
+  }
+
+  #game-root {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Живий сюжетний SVG-фон затишної кухні-майстерні */
+  #bg-scene {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  /* Основна сцена: Шеф-Єнот зліва + ігрове поле справа */
+  #stage-layout {
+    position: relative;
+    z-index: 5;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 1.4vh 2.4vw 2vh 1.2vw;
+    gap: 1.2vw;
+  }
+
+  /* Живий персонаж (Шеф-Єнот) */
+  #character-zone {
+    position: relative;
+    width: 22vw;
+    min-width: 185px;
+    max-width: 315px;
+    height: 60vh;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    z-index: 8;
+  }
+
+  #raccoon-svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    filter: drop-shadow(0 14px 18px rgba(25, 10, 2, 0.5));
+  }
+
+  /* Ігрова зона: дошка із завданням + 4 стилізовані кнопки-підставки */
+  #puzzle-zone {
+    flex: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 0.8vh;
+    padding-bottom: 0.4vh;
+    z-index: 7;
+  }
+
+  #board-container {
+    width: 100%;
+    max-width: 980px;
+    height: 70vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  #board-svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    filter: drop-shadow(0 16px 24px rgba(24, 10, 2, 0.52));
+  }
+
+  #options-row {
+    width: 100%;
+    max-width: 940px;
+    height: 23vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.6vw;
+    padding: 0 0.8vw;
+  }
+
+  /* Стилізована дерев'яно-латунна підставка для відповіді */
+  .option-coaster {
+    position: relative;
+    flex: 1;
+    max-width: 210px;
+    height: 100%;
+    max-height: 175px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 0;
+    outline: none;
+    transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.2s ease;
+    filter: drop-shadow(0 10px 12px rgba(24, 10, 2, 0.5));
+  }
+
+  .option-coaster:hover {
+    transform: translateY(-9px) scale(1.05);
+    filter: drop-shadow(0 18px 20px rgba(24, 10, 2, 0.58)) brightness(1.07);
+  }
+
+  .option-coaster:active {
+    transform: translateY(-2px) scale(0.97);
+  }
+
+  .option-coaster.shake {
+    animation: coasterShake 0.48s ease;
+  }
+
+  .option-coaster.pop-win {
+    animation: coasterWin 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* Мінімалістичні латунні кнопки навігації (Назад / Далі) */
+  .nav-btn {
+    position: absolute;
+    top: 2vh;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 3px solid #f7d58b;
+    background: radial-gradient(circle at 32% 28%, #e6a94c 0%, #a86420 65%, #6e3a0c 100%);
+    box-shadow:
+      0 6px 14px rgba(24, 10, 2, 0.55),
+      inset 0 2px 4px rgba(255, 245, 210, 0.65),
+      inset 0 -3px 6px rgba(60, 25, 4, 0.6);
+    cursor: pointer;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.18s ease;
+  }
+
+  .nav-btn:hover {
+    transform: scale(1.1);
+    filter: brightness(1.14);
+  }
+
+  .nav-btn:active {
+    transform: scale(0.94);
+  }
+
+  #btn-prev { left: 1.6vw; }
+  #btn-next { right: 1.6vw; }
+
+  /* Шар візуальних ефектів (зірочки, конфетті, борошно) */
+  #fx-layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 25;
+  }
+
+  /* =========================================================
+     АНІМАЦІЇ ФОНУ, ШЕСТЕРЕНЬ ТА ПЕРСОНАЖА
+     ========================================================= */
+  @keyframes swayPan {
+    0%, 100% { transform: rotate(-2.2deg); }
+    50% { transform: rotate(2.2deg); }
+  }
+  @keyframes driftCloud {
+    0% { transform: translateX(-40px); }
+    100% { transform: translateX(260px); }
+  }
+  @keyframes steamRise {
+    0% { transform: translateY(10px) scale(0.7); opacity: 0; }
+    30% { opacity: 0.55; }
+    100% { transform: translateY(-75px) scale(1.35); opacity: 0; }
+  }
+  @keyframes raccoonBreathe {
+    0%, 100% { transform: translateY(0px) scaleY(1); }
+    50% { transform: translateY(-4px) scaleY(1.015); }
+  }
+  @keyframes tailWag {
+    0%, 100% { transform: rotate(-6deg); }
+    50% { transform: rotate(9deg); }
+  }
+  @keyframes raccoonJump {
+    0% { transform: translateY(0) scale(1); }
+    25% { transform: translateY(-34px) scale(1.06, 0.96); }
+    55% { transform: translateY(-6px) scale(0.97, 1.04); }
+    75% { transform: translateY(-20px) scale(1.03); }
+    100% { transform: translateY(0) scale(1); }
+  }
+  @keyframes hatPop {
+    0% { transform: translateY(0) rotate(0deg); }
+    35% { transform: translateY(-38px) rotate(-14deg); }
+    65% { transform: translateY(-22px) rotate(12deg); }
+    100% { transform: translateY(0) rotate(0deg); }
+  }
+  @keyframes raccoonShock {
+    0%, 100% { transform: translateX(0) rotate(0deg); }
+    20% { transform: translateX(-10px) rotate(-5deg); }
+    40% { transform: translateX(10px) rotate(5deg); }
+    60% { transform: translateX(-7px) rotate(-3deg); }
+    80% { transform: translateX(6px) rotate(2deg); }
+  }
+  @keyframes coasterShake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-10px) rotate(-4deg); }
+    40% { transform: translateX(10px) rotate(4deg); }
+    60% { transform: translateX(-7px) rotate(-2deg); }
+    80% { transform: translateX(5px) rotate(2deg); }
+  }
+  @keyframes coasterWin {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.16) translateY(-14px); }
+    100% { transform: scale(1.04) translateY(-4px); }
+  }
+  @keyframes spinCW {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  @keyframes spinCCW {
+    from { transform: rotate(360deg); }
+    to { transform: rotate(0deg); }
+  }
+
+  .pan-sway-1 { transform-origin: 495px 86px; animation: swayPan 5.4s ease-in-out infinite; }
+  .pan-sway-2 { transform-origin: 605px 86px; animation: swayPan 6.7s ease-in-out infinite reverse; }
+  .pan-sway-3 { transform-origin: 705px 86px; animation: swayPan 4.8s ease-in-out infinite; }
+  .cloud-1 { animation: driftCloud 34s linear infinite; }
+  .cloud-2 { animation: driftCloud 46s linear infinite -18s; }
+  .steam-1 { animation: steamRise 3.2s ease-out infinite; }
+  .steam-2 { animation: steamRise 3.2s ease-out infinite 1.1s; }
+  .steam-3 { animation: steamRise 3.2s ease-out infinite 2.2s; }
+
+  .raccoon-body-idle {
+    transform-origin: 150px 320px;
+    animation: raccoonBreathe 3.4s ease-in-out infinite;
+  }
+  .raccoon-tail {
+    transform-origin: 95px 295px;
+    animation: tailWag 2.8s ease-in-out infinite;
+  }
+  .raccoon-happy { animation: raccoonJump 0.85s ease-in-out; }
+  .raccoon-happy #chef-hat { transform-origin: 155px 80px; animation: hatPop 0.85s ease-in-out; }
+  .raccoon-shock { animation: raccoonShock 0.55s ease-in-out; }
+
+  .gear-spin-cw  { animation: spinCW 5s linear infinite; }
+  .gear-spin-ccw { animation: spinCCW 5s linear infinite; }
+
+  @media (max-width: 900px) {
+    #character-zone { width: 20vw; min-width: 130px; height: 46vh; }
+    .nav-btn { width: 46px; height: 46px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="game-root">
+
+  <!-- Кнопки миттєвого переходу між рівнями без тексту -->
+  <button id="btn-prev" class="nav-btn" aria-label="Назад">
+    <svg width="24" height="24" viewBox="0 0 26 26">
+      <path d="M17 4 L7 13 L17 22" fill="none" stroke="#fff7df" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+
+  <button id="btn-next" class="nav-btn" aria-label="Далі">
+    <svg width="24" height="24" viewBox="0 0 26 26">
+      <path d="M9 4 L19 13 L9 22" fill="none" stroke="#fff7df" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+
+  <!-- =========================================================
+       СЮЖЕТНИЙ ЖИВИЙ SVG-ФОН: КУХНЯ-МАЙСТЕРНЯ ШЕФА-ЄНОТА
+       ========================================================= -->
+  <svg id="bg-scene" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="wallGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#f2cf9b"/>
+        <stop offset="55%" stop-color="#dfad70"/>
+        <stop offset="100%" stop-color="#b97b42"/>
+      </linearGradient>
+      <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#60b6f2"/>
+        <stop offset="65%" stop-color="#a8dcf8"/>
+        <stop offset="100%" stop-color="#eef7d8"/>
+      </linearGradient>
+      <linearGradient id="counterTopGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#a86736"/>
+        <stop offset="22%" stop-color="#8b4d22"/>
+        <stop offset="100%" stop-color="#5c2f11"/>
+      </linearGradient>
+      <linearGradient id="counterFrontGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#5a2e12"/>
+        <stop offset="100%" stop-color="#2e1506"/>
+      </linearGradient>
+      <linearGradient id="copperGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#f9c28c"/>
+        <stop offset="40%" stop-color="#cf6f34"/>
+        <stop offset="85%" stop-color="#8c3b14"/>
+        <stop offset="100%" stop-color="#572108"/>
+      </linearGradient>
+      <linearGradient id="brassRail" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#fbe4a0"/>
+        <stop offset="50%" stop-color="#c48a34"/>
+        <stop offset="100%" stop-color="#704711"/>
+      </linearGradient>
+      <radialGradient id="sunGlow" cx="15%" cy="18%" r="55%">
+        <stop offset="0%" stop-color="#fff8d6" stop-opacity="0.42"/>
+        <stop offset="100%" stop-color="#fff8d6" stop-opacity="0"/>
+      </radialGradient>
+      <pattern id="tilePattern" width="76" height="44" patternUnits="userSpaceOnUse">
+        <rect width="76" height="44" fill="#c78b56"/>
+        <rect x="2" y="2" width="72" height="19" rx="3" fill="#e8be8a"/>
+        <rect x="2" y="2" width="72" height="5" rx="2" fill="#f5d9b0" opacity="0.55"/>
+        <rect x="-36" y="23" width="72" height="19" rx="3" fill="#dfb078"/>
+        <rect x="40" y="23" width="72" height="19" rx="3" fill="#e5b882"/>
+      </pattern>
+      <pattern id="wallStripe" width="60" height="60" patternUnits="userSpaceOnUse">
+        <rect width="60" height="60" fill="none"/>
+        <path d="M0 0 L0 60" stroke="#c68949" stroke-width="18" opacity="0.14"/>
+        <circle cx="30" cy="30" r="3" fill="#fff2d6" opacity="0.22"/>
+      </pattern>
+      <clipPath id="windowClip">
+        <path d="M90 120 Q205 40 320 120 L320 420 L90 420 Z"/>
+      </clipPath>
+    </defs>
+
+    <rect width="1600" height="900" fill="url(#wallGrad)"/>
+    <rect width="1600" height="470" fill="url(#wallStripe)"/>
+    <rect x="0" y="450" width="1600" height="230" fill="url(#tilePattern)"/>
+    <rect x="0" y="444" width="1600" height="12" fill="#7c471e"/>
+    <rect x="0" y="444" width="1600" height="4" fill="#bd804b"/>
+
+    <!-- Арочне вікно з живими хмарками -->
+    <g>
+      <g clip-path="url(#windowClip)">
+        <rect x="85" y="45" width="240" height="380" fill="url(#skyGrad)"/>
+        <ellipse cx="145" cy="405" rx="130" ry="60" fill="#7ab556"/>
+        <ellipse cx="275" cy="415" rx="120" ry="52" fill="#5e9640"/>
+        <g class="cloud-1" opacity="0.92">
+          <ellipse cx="120" cy="155" rx="34" ry="18" fill="#ffffff"/>
+          <ellipse cx="145" cy="148" rx="28" ry="20" fill="#ffffff"/>
+          <ellipse cx="170" cy="158" rx="26" ry="14" fill="#ffffff"/>
+        </g>
+        <g class="cloud-2" opacity="0.8">
+          <ellipse cx="90" cy="235" rx="26" ry="13" fill="#ffffff"/>
+          <ellipse cx="115" cy="228" rx="22" ry="15" fill="#ffffff"/>
+        </g>
+      </g>
+      <path d="M90 120 Q205 40 320 120 L320 420 L90 420 Z" fill="none" stroke="#6f3b17" stroke-width="14"/>
+      <path d="M96 123 Q205 48 314 123 L314 414 L96 414 Z" fill="none" stroke="#a66432" stroke-width="4"/>
+      <line x1="205" y1="78" x2="205" y2="420" stroke="#6f3b17" stroke-width="9"/>
+      <line x1="90" y1="265" x2="320" y2="265" stroke="#6f3b17" stroke-width="9"/>
+      <rect x="74" y="416" width="262" height="22" rx="6" fill="#7d441d"/>
+      <rect x="74" y="416" width="262" height="7" rx="3" fill="#b4713c"/>
+      <g transform="translate(245, 355)">
+        <path d="M12 36 L44 36 L39 64 L17 64 Z" fill="#c75d31"/>
+        <rect x="8" y="28" width="40" height="10" rx="3" fill="#d96e3f"/>
+        <ellipse cx="22" cy="18" rx="12" ry="8" transform="rotate(-25 22 18)" fill="#4ca146"/>
+        <ellipse cx="36" cy="16" rx="13" ry="8" transform="rotate(25 36 16)" fill="#3b8838"/>
+        <ellipse cx="28" cy="8" rx="11" ry="7" fill="#63be58"/>
+      </g>
+    </g>
+
+    <!-- Латунна рейка з мідними сковорідками -->
+    <g opacity="0.9">
+      <rect x="430" y="78" width="340" height="12" rx="6" fill="url(#brassRail)"/>
+      <circle cx="445" cy="84" r="9" fill="#7a4c16"/>
+      <circle cx="755" cy="84" r="9" fill="#7a4c16"/>
+      <g class="pan-sway-1">
+        <path d="M495 86 L495 162" stroke="#5c2d10" stroke-width="7" stroke-linecap="round"/>
+        <circle cx="495" cy="202" r="44" fill="url(#copperGrad)" stroke="#5c2509" stroke-width="3"/>
+        <circle cx="495" cy="202" r="33" fill="#8f431a" opacity="0.45"/>
+      </g>
+      <g class="pan-sway-2">
+        <path d="M605 86 L605 148" stroke="#5c2d10" stroke-width="6" stroke-linecap="round"/>
+        <circle cx="605" cy="182" r="34" fill="url(#copperGrad)" stroke="#5c2509" stroke-width="3"/>
+        <circle cx="605" cy="182" r="24" fill="#8f431a" opacity="0.45"/>
+      </g>
+      <g class="pan-sway-3">
+        <path d="M705 86 L705 190" stroke="#7d4c1c" stroke-width="6" stroke-linecap="round"/>
+        <ellipse cx="705" cy="202" rx="18" ry="15" fill="url(#copperGrad)" stroke="#5c2509" stroke-width="2.5"/>
+      </g>
+    </g>
+
+    <!-- Мідний казанок із парою -->
+    <g transform="translate(18, 560)">
+      <path class="steam-1" d="M70 -10 Q55 -35 72 -58 Q88 -80 70 -105" fill="none" stroke="#fff8ec" stroke-width="8" stroke-linecap="round" opacity="0.4"/>
+      <path class="steam-2" d="M105 -5 Q122 -30 102 -55 Q85 -78 106 -102" fill="none" stroke="#fff8ec" stroke-width="7" stroke-linecap="round" opacity="0.35"/>
+      <path class="steam-3" d="M88 -12 Q78 -35 92 -60" fill="none" stroke="#fff8ec" stroke-width="6" stroke-linecap="round" opacity="0.3"/>
+      <ellipse cx="90" cy="40" rx="78" ry="18" fill="#592209"/>
+      <path d="M18 40 C16 115, 32 130, 90 130 C148 130, 164 115, 162 40 Z" fill="url(#copperGrad)" stroke="#542108" stroke-width="3"/>
+      <ellipse cx="90" cy="40" rx="72" ry="13" fill="#df8848" stroke="#63290b" stroke-width="2.5"/>
+    </g>
+
+    <!-- Дерев'яна стільниця -->
+    <g>
+      <rect x="0" y="655" width="1600" height="190" fill="url(#counterTopGrad)"/>
+      <path d="M0 688 Q420 678 840 692 T1600 685" fill="none" stroke="#633212" stroke-width="3" opacity="0.35"/>
+      <path d="M0 735 Q360 748 780 732 T1600 742" fill="none" stroke="#4a2209" stroke-width="3" opacity="0.3"/>
+      <path d="M0 788 Q480 774 960 792 T1600 782" fill="none" stroke="#3c1b06" stroke-width="4" opacity="0.32"/>
+      <rect x="0" y="655" width="1600" height="8" fill="#cb8b52" opacity="0.7"/>
+      <rect x="0" y="842" width="1600" height="60" fill="url(#counterFrontGrad)"/>
+      <rect x="0" y="842" width="1600" height="5" fill="#7c421a"/>
+    </g>
+
+    <rect width="1600" height="900" fill="url(#sunGlow)"/>
+  </svg>
+
+  <!-- =========================================================
+       ОСНОВНА СЦЕНА: ПЕРСОНАЖ + ЗАВДАННЯ + ВАРІАНТИ
+       ========================================================= -->
+  <div id="stage-layout">
+    <div id="character-zone">
+      <svg id="raccoon-svg" viewBox="0 0 300 420">
+        <defs>
+          <radialGradient id="furGray" cx="42%" cy="32%" r="65%">
+            <stop offset="0%" stop-color="#b4b0aa"/>
+            <stop offset="55%" stop-color="#807a74"/>
+            <stop offset="100%" stop-color="#534d48"/>
+          </radialGradient>
+          <radialGradient id="furLight" cx="50%" cy="35%" r="60%">
+            <stop offset="0%" stop-color="#f6f1e9"/>
+            <stop offset="70%" stop-color="#ddd4c8"/>
+            <stop offset="100%" stop-color="#b9aea1"/>
+          </radialGradient>
+          <linearGradient id="maskDark" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#3c3734"/>
+            <stop offset="100%" stop-color="#1d1a18"/>
+          </linearGradient>
+          <linearGradient id="hatGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="65%" stop-color="#f2ebe1"/>
+            <stop offset="100%" stop-color="#d4c7b8"/>
+          </linearGradient>
+          <linearGradient id="scarfGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#e8533f"/>
+            <stop offset="100%" stop-color="#9e2518"/>
+          </linearGradient>
+          <linearGradient id="apronGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#f5ecd8"/>
+            <stop offset="100%" stop-color="#d5c5a8"/>
+          </linearGradient>
+          <linearGradient id="woodSpoon" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#dfa05b"/>
+            <stop offset="100%" stop-color="#9c5d24"/>
+          </linearGradient>
+        </defs>
+
+        <g id="raccoon-actor">
+          <!-- Смугастий хвіст -->
+          <g class="raccoon-tail">
+            <path d="M98 310 C22 308, 4 240, 38 195 C56 172, 92 182, 90 218 C88 250, 96 275, 114 292 Z" fill="url(#furGray)" stroke="#3e3834" stroke-width="3"/>
+            <path d="M24 238 Q48 226 84 242" fill="none" stroke="#292523" stroke-width="14" stroke-linecap="round"/>
+            <path d="M32 204 Q56 196 86 212" fill="none" stroke="#292523" stroke-width="12" stroke-linecap="round"/>
+            <path d="M38 274 Q64 264 94 276" fill="none" stroke="#292523" stroke-width="13" stroke-linecap="round"/>
+          </g>
+
+          <g class="raccoon-body-idle">
+            <ellipse cx="156" cy="318" rx="82" ry="92" fill="url(#furGray)" stroke="#3d3733" stroke-width="3"/>
+            <path d="M95 275 Q156 262 217 275 L226 392 Q156 410 86 392 Z" fill="url(#apronGrad)" stroke="#9e8c72" stroke-width="2.5"/>
+            <path d="M126 320 L186 320 L182 358 Q156 368 130 358 Z" fill="#e5d7be" stroke="#a89578" stroke-width="2"/>
+            <path d="M100 245 Q156 276 212 245 L202 272 Q156 296 110 272 Z" fill="url(#scarfGrad)" stroke="#70180e" stroke-width="2.5"/>
+            <path d="M148 274 L132 308 L158 292 L176 310 L166 274 Z" fill="#c73524" stroke="#70180e" stroke-width="2"/>
+
+            <g id="raccoon-head">
+              <path d="M92 142 C72 102, 102 82, 128 112 Z" fill="url(#furGray)" stroke="#3b3531" stroke-width="3"/>
+              <path d="M96 134 C86 112, 102 100, 119 116 Z" fill="#e6b7a8"/>
+              <path d="M220 142 C240 102, 210 82, 184 112 Z" fill="url(#furGray)" stroke="#3b3531" stroke-width="3"/>
+              <path d="M216 134 C226 112, 210 100, 193 116 Z" fill="#e6b7a8"/>
+
+              <path d="M74 185 C70 132, 108 104, 156 104 C204 104, 242 132, 238 185 C235 232, 200 256, 156 256 C112 256, 77 232, 74 185 Z" fill="url(#furGray)" stroke="#3b3531" stroke-width="3"/>
+              <path d="M78 192 C78 232, 115 254, 156 254 C197 254, 234 232, 234 192 C214 202, 188 194, 156 196 C124 194, 98 202, 78 192 Z" fill="url(#furLight)"/>
+              <path d="M84 176 C88 144, 126 142, 146 168 C152 178, 142 204, 114 204 C92 204, 82 192, 84 176 Z" fill="url(#maskDark)"/>
+              <path d="M228 176 C224 144, 186 142, 166 168 C160 178, 170 204, 198 204 C220 204, 230 192, 228 176 Z" fill="url(#maskDark)"/>
+              <path d="M150 112 Q156 145 156 178" stroke="#302b28" stroke-width="8" stroke-linecap="round"/>
+
+              <ellipse id="cheek-l" cx="98" cy="212" rx="14" ry="8" fill="#f07e74" opacity="0.35"/>
+              <ellipse id="cheek-r" cx="214" cy="212" rx="14" ry="8" fill="#f07e74" opacity="0.35"/>
+
+              <!-- Очі звичайні + зіниці за курсором -->
+              <g id="eyes-normal">
+                <ellipse cx="120" cy="176" rx="17" ry="19" fill="#ffffff" stroke="#1c1917" stroke-width="2"/>
+                <ellipse cx="192" cy="176" rx="17" ry="19" fill="#ffffff" stroke="#1c1917" stroke-width="2"/>
+                <g id="pupil-l">
+                  <circle cx="122" cy="177" r="9.5" fill="#2c1d12"/>
+                  <circle cx="122" cy="177" r="5" fill="#0d0805"/>
+                  <circle cx="126" cy="172" r="3.4" fill="#ffffff"/>
+                </g>
+                <g id="pupil-r">
+                  <circle cx="194" cy="177" r="9.5" fill="#2c1d12"/>
+                  <circle cx="194" cy="177" r="5" fill="#0d0805"/>
+                  <circle cx="198" cy="172" r="3.4" fill="#ffffff"/>
+                </g>
+                <ellipse id="lid-l" cx="120" cy="176" rx="18" ry="0" fill="#2f2a27"/>
+                <ellipse id="lid-r" cx="192" cy="176" rx="18" ry="0" fill="#2f2a27"/>
+              </g>
+
+              <!-- Очі щасливі -->
+              <g id="eyes-happy" display="none">
+                <path d="M104 178 Q120 158 136 178" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+                <path d="M176 178 Q192 158 208 178" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+              </g>
+
+              <!-- Очі здивовані -->
+              <g id="eyes-shock" display="none">
+                <circle cx="120" cy="176" r="19" fill="#ffffff" stroke="#1c1917" stroke-width="2.5"/>
+                <circle cx="192" cy="176" r="19" fill="#ffffff" stroke="#1c1917" stroke-width="2.5"/>
+                <circle cx="120" cy="176" r="4.5" fill="#1a1410"/>
+                <circle cx="192" cy="176" r="4.5" fill="#1a1410"/>
+              </g>
+
+              <ellipse cx="156" cy="212" rx="32" ry="23" fill="#faf5ed"/>
+              <ellipse cx="156" cy="202" rx="13" ry="9" fill="#29211e"/>
+              <g id="flour-nose" opacity="0">
+                <circle cx="156" cy="204" r="14" fill="#ffffff" opacity="0.9"/>
+                <circle cx="142" cy="210" r="7" fill="#ffffff" opacity="0.82"/>
+                <circle cx="170" cy="208" r="8" fill="#ffffff" opacity="0.84"/>
+              </g>
+
+              <path id="mouth-normal" d="M142 220 Q156 232 170 220" fill="none" stroke="#362b26" stroke-width="3.2" stroke-linecap="round"/>
+              <path id="mouth-happy" d="M136 216 Q156 244 176 216 Z" fill="#c94646" stroke="#362b26" stroke-width="2.8" display="none"/>
+              <ellipse id="mouth-shock" cx="156" cy="224" rx="10" ry="12" fill="#4f2222" stroke="#2c1d18" stroke-width="2.5" display="none"/>
+
+              <!-- Латунні окуляри розумного винахідника на ковпаку -->
+              <g id="chef-hat">
+                <path d="M104 106 C82 76, 98 34, 132 42 C142 16, 182 16, 192 42 C226 36, 236 78, 210 106 Z" fill="url(#hatGrad)" stroke="#a89882" stroke-width="3"/>
+                <rect x="102" y="98" width="108" height="22" rx="7" fill="#efe6d7" stroke="#9e8e78" stroke-width="2.5"/>
+                <!-- Окуляри-гогли на ободку ковпака -->
+                <circle cx="134" cy="108" r="14" fill="#8ad8e8" fill-opacity="0.7" stroke="#b37422" stroke-width="4.5"/>
+                <circle cx="178" cy="108" r="14" fill="#8ad8e8" fill-opacity="0.7" stroke="#b37422" stroke-width="4.5"/>
+                <line x1="148" y1="108" x2="164" y2="108" stroke="#b37422" stroke-width="4.5"/>
+                <path d="M128 103 L135 113" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+                <path d="M172 103 L179 113" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+              </g>
+            </g>
+
+            <!-- Лапки та дерев'яна ложка -->
+            <g>
+              <g transform="translate(215, 222) rotate(18)">
+                <rect x="12" y="25" width="11" height="92" rx="5" fill="url(#woodSpoon)" stroke="#613610" stroke-width="2"/>
+                <ellipse cx="17.5" cy="18" rx="18" ry="24" fill="url(#woodSpoon)" stroke="#613610" stroke-width="2"/>
+              </g>
+              <ellipse cx="226" cy="312" rx="26" ry="20" transform="rotate(-15 226 312)" fill="#4a4440" stroke="#262220" stroke-width="2.5"/>
+            </g>
+            <ellipse cx="88" cy="322" rx="25" ry="19" transform="rotate(18 88 322)" fill="#4a4440" stroke="#262220" stroke-width="2.5"/>
+          </g>
+        </g>
+      </svg>
+    </div>
+
+    <div id="puzzle-zone">
+      <div id="board-container">
+        <svg id="board-svg" viewBox="0 0 960 560"></svg>
+      </div>
+      <div id="options-row"></div>
+    </div>
+  </div>
+
+  <svg id="fx-layer" viewBox="0 0 1600 900" preserveAspectRatio="none"></svg>
+</div>
+
+<script>
+/* ============================================================================
+   1. ЗВУКОВИЙ РУШІЙ (WEB AUDIO API) — ЖИВІ ЗВУКИ БЕЗ ЖОДНОГО ТЕКСТУ
+   ============================================================================ */
+const SoundFX = (() => {
+  let ctx = null;
+  const getCtx = () => {
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  };
+
+  function hover() {
+    const c = getCtx(), t = c.currentTime;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(540, t);
+    o.frequency.exponentialRampToValueAtTime(700, t + 0.045);
+    g.gain.setValueAtTime(0.05, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+    o.connect(g); g.connect(c.destination);
+    o.start(t); o.stop(t + 0.055);
+  }
+
+  function nav() {
+    const c = getCtx(), t = c.currentTime;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(380, t);
+    o.frequency.exponentialRampToValueAtTime(640, t + 0.09);
+    g.gain.setValueAtTime(0.13, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+    o.connect(g); g.connect(c.destination);
+    o.start(t); o.stop(t + 0.12);
+  }
+
+  function raccoonGiggle() {
+    const c = getCtx(), now = c.currentTime;
+    [540, 740, 620, 880].forEach((f, i) => {
+      const o = c.createOscillator(), g = c.createGain(), t = now + i * 0.065;
+      o.type = 'sine';
+      o.frequency.setValueAtTime(f, t);
+      o.frequency.exponentialRampToValueAtTime(f * 1.25, t + 0.055);
+      g.gain.setValueAtTime(0.1, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+      o.connect(g); g.connect(c.destination);
+      o.start(t); o.stop(t + 0.065);
+    });
+  }
+
+  let winIdx = 0;
+  function win() {
+    const c = getCtx(), now = c.currentTime;
+    const tunes = [
+      [523.25, 659.25, 783.99, 1046.5],
+      [587.33, 739.99, 880.0, 1174.66],
+      [440.0, 554.37, 659.25, 880.0, 1108.73],
+      [523.25, 659.25, 587.33, 783.99, 1046.5]
+    ];
+    tunes[winIdx++ % tunes.length].forEach((f, i) => {
+      const t = now + i * 0.085;
+      const o1 = c.createOscillator(), o2 = c.createOscillator(), g = c.createGain();
+      o1.type = 'triangle'; o2.type = 'sine';
+      o1.frequency.setValueAtTime(f, t); o2.frequency.setValueAtTime(f * 2, t);
+      g.gain.setValueAtTime(0.15, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+      o1.connect(g); o2.connect(g); g.connect(c.destination);
+      o1.start(t); o2.start(t); o1.stop(t + 0.38); o2.stop(t + 0.38);
+    });
+  }
+
+  let errIdx = 0;
+  function wrong() {
+    const c = getCtx(), now = c.currentTime;
+    const mode = errIdx++ % 3;
+    const o = c.createOscillator(), g = c.createGain();
+    if (mode === 0) {
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(240, now);
+      o.frequency.exponentialRampToValueAtTime(115, now + 0.28);
+      g.gain.setValueAtTime(0.11, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+    } else if (mode === 1) {
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(480, now);
+      o.frequency.exponentialRampToValueAtTime(175, now + 0.32);
+      g.gain.setValueAtTime(0.14, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    } else {
+      o.type = 'square';
+      o.frequency.setValueAtTime(290, now);
+      o.frequency.setValueAtTime(205, now + 0.11);
+      g.gain.setValueAtTime(0.08, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+    }
+    o.connect(g); g.connect(c.destination);
+    o.start(now); o.stop(now + 0.36);
+  }
+
+  function finale() {
+    const c = getCtx(), now = c.currentTime;
+    [523, 659, 784, 659, 784, 1046, 1318].forEach((f, i) => {
+      const t = now + i * 0.1;
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = 'triangle'; o.frequency.setValueAtTime(f, t);
+      g.gain.setValueAtTime(0.16, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+      o.connect(g); g.connect(c.destination);
+      o.start(t); o.stop(t + 0.48);
+    });
+  }
+
+  return { hover, nav, raccoonGiggle, win, wrong, finale };
+})();
+
+/* ============================================================================
+   2. ЖИВИЙ ПЕРСОНАЖ (ШЕФ-ЄНОТ)
+   ============================================================================ */
+const Raccoon = (() => {
+  const actor = document.getElementById('raccoon-actor');
+  const eyesNormal = document.getElementById('eyes-normal');
+  const eyesHappy = document.getElementById('eyes-happy');
+  const eyesShock = document.getElementById('eyes-shock');
+  const mouthNormal = document.getElementById('mouth-normal');
+  const mouthHappy = document.getElementById('mouth-happy');
+  const mouthShock = document.getElementById('mouth-shock');
+  const pupilL = document.getElementById('pupil-l');
+  const pupilR = document.getElementById('pupil-r');
+  const lidL = document.getElementById('lid-l');
+  const lidR = document.getElementById('lid-r');
+  const flourNose = document.getElementById('flour-nose');
+  const cheekL = document.getElementById('cheek-l');
+  const cheekR = document.getElementById('cheek-r');
+  let timer = null;
+
+  window.addEventListener('mousemove', (e) => {
+    const rect = document.getElementById('raccoon-svg').getBoundingClientRect();
+    const dx = Math.max(-1, Math.min(1, (e.clientX - (rect.left + rect.width * 0.52)) / 380));
+    const dy = Math.max(-1, Math.min(1, (e.clientY - (rect.top + rect.height * 0.42)) / 320));
+    const tr = `translate(${(dx * 5).toFixed(1)}, ${(dy * 4.5).toFixed(1)})`;
+    pupilL.setAttribute('transform', tr);
+    pupilR.setAttribute('transform', tr);
+  });
+
+  function blink() {
+    setTimeout(() => {
+      if (eyesNormal.getAttribute('display') !== 'none') {
+        lidL.setAttribute('ry', '19'); lidR.setAttribute('ry', '19');
+        setTimeout(() => { lidL.setAttribute('ry', '0'); lidR.setAttribute('ry', '0'); }, 140);
+      }
+      blink();
+    }, 2600 + Math.random() * 2800);
+  }
+  blink();
+
+  function setMood(mood, ms = 1200) {
+    clearTimeout(timer);
+    actor.classList.remove('raccoon-happy', 'raccoon-shock');
+    void actor.offsetWidth;
+    eyesNormal.setAttribute('display', mood === 'normal' ? 'inline' : 'none');
+    eyesHappy.setAttribute('display', mood === 'happy' ? 'inline' : 'none');
+    eyesShock.setAttribute('display', mood === 'shock' ? 'inline' : 'none');
+    mouthNormal.setAttribute('display', mood === 'normal' ? 'inline' : 'none');
+    mouthHappy.setAttribute('display', mood === 'happy' ? 'inline' : 'none');
+    mouthShock.setAttribute('display', mood === 'shock' ? 'inline' : 'none');
+    flourNose.setAttribute('opacity', mood === 'shock' ? '1' : '0');
+    cheekL.setAttribute('opacity', mood === 'happy' ? '0.78' : '0.35');
+    cheekR.setAttribute('opacity', mood === 'happy' ? '0.78' : '0.35');
+    if (mood === 'happy') actor.classList.add('raccoon-happy');
+    if (mood === 'shock') actor.classList.add('raccoon-shock');
+    if (mood !== 'normal' && ms > 0) timer = setTimeout(() => setMood('normal', 0), ms);
+  }
+
+  document.getElementById('character-zone').addEventListener('click', () => {
+    SoundFX.raccoonGiggle();
+    setMood('happy', 900);
+  });
+
+  return { setMood };
+})();
+
+/* ============================================================================
+   3. ВІЗУАЛЬНІ ЕФЕКТИ (ЗІРОЧКИ ТА ХМАРКА БОРОШНА)
+   ============================================================================ */
+const FX = (() => {
+  const layer = document.getElementById('fx-layer');
+
+  function burstStars(cx = 920, cy = 380, count = 28) {
+    const cols = ['#ffe156', '#ff6b6b', '#55efc4', '#74b9ff', '#ff9ff3', '#ffa502'];
+    for (let i = 0; i < count; i++) {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      const s = 8 + Math.random() * 14;
+      el.setAttribute('points', `0,${-s} ${s*0.32},${-s*0.32} ${s},0 ${s*0.32},${s*0.32} 0,${s} ${-s*0.32},${s*0.32} ${-s},0 ${-s*0.32},${-s*0.32}`);
+      el.setAttribute('fill', cols[i % cols.length]);
+      layer.appendChild(el);
+      const a = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
+      const d = 110 + Math.random() * 260;
+      const anim = el.animate([
+        { transform: `translate(${cx}px, ${cy}px) scale(0.2) rotate(0deg)`, opacity: 1 },
+        { transform: `translate(${cx + Math.cos(a)*d}px, ${cy + Math.sin(a)*d - 60}px) scale(1.1) rotate(${(Math.random()-0.5)*360}deg)`, opacity: 0 }
+      ], { duration: 850 + Math.random() * 450, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
+      anim.onfinish = () => el.remove();
+    }
+  }
+
+  function flourPuff(cx = 235, cy = 550) {
+    for (let i = 0; i < 12; i++) {
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('r', 12 + Math.random() * 20);
+      c.setAttribute('fill', '#fffaf0');
+      layer.appendChild(c);
+      const a = Math.random() * Math.PI * 2, d = 35 + Math.random() * 85;
+      const anim = c.animate([
+        { transform: `translate(${cx}px, ${cy}px) scale(0.3)`, opacity: 0.9 },
+        { transform: `translate(${cx + Math.cos(a)*d}px, ${cy + Math.sin(a)*d}px) scale(1.5)`, opacity: 0 }
+      ], { duration: 600 + Math.random() * 250, easing: 'ease-out' });
+      anim.onfinish = () => c.remove();
+    }
+  }
+
+  return { burstStars, flourPuff };
+})();
+
+/* ============================================================================
+   4. БІБЛІОТЕКА ДЕТАЛІЗОВАНИХ SVG-ОБ'ЄКТІВ (БЕЗ ЕМОДЗІ!)
+   ============================================================================ */
+let uidSeq = 1;
+const uid = (p) => `${p}_${uidSeq++}`;
+
+const Art = {
+  apple() {
+    const g = uid('ap');
+    return `
+      <defs><radialGradient id="${g}" cx="35%" cy="30%" r="65%">
+        <stop offset="0%" stop-color="#ff7a6b"/><stop offset="45%" stop-color="#d92920"/><stop offset="100%" stop-color="#7c0e09"/>
+      </radialGradient></defs>
+      <path d="M0 -24 C-18 -34, -38 -18, -34 8 C-30 30, -14 38, 0 32 C14 38, 30 30, 34 8 C38 -18, 18 -34, 0 -24 Z" fill="url(#${g})" stroke="#610c07" stroke-width="2.5"/>
+      <path d="M-20 -12 C-24 -2, -22 10, -14 16" fill="none" stroke="#ffd2cc" stroke-width="4.5" stroke-linecap="round" opacity="0.65"/>
+      <path d="M0 -22 Q3 -36 10 -40" fill="none" stroke="#633614" stroke-width="4.5" stroke-linecap="round"/>
+      <path d="M4 -33 C16 -46, 32 -40, 26 -24 C16 -22, 8 -26, 4 -33 Z" fill="#4aa844" stroke="#235c1f" stroke-width="2"/>
+    `;
+  },
+
+  pear() {
+    const g = uid('pr');
+    return `
+      <defs><radialGradient id="${g}" cx="36%" cy="38%" r="65%">
+        <stop offset="0%" stop-color="#f7ea7c"/><stop offset="55%" stop-color="#b8c934"/><stop offset="100%" stop-color="#6c7d14"/>
+      </radialGradient></defs>
+      <path d="M0 -30 C-12 -30, -16 -14, -22 -2 C-34 14, -28 38, 0 38 C28 38, 34 14, 22 -2 C16 -14, 12 -30, 0 -30 Z" fill="url(#${g})" stroke="#4c590c" stroke-width="2.5"/>
+      <path d="M-14 6 C-18 16, -14 24, -6 28" fill="none" stroke="#fff9c4" stroke-width="4.5" stroke-linecap="round" opacity="0.7"/>
+      <path d="M0 -30 Q-4 -40 4 -44" fill="none" stroke="#613714" stroke-width="4" stroke-linecap="round"/>
+      <path d="M3 -36 C16 -46, 28 -36, 20 -25 C12 -24, 6 -29, 3 -36 Z" fill="#4fa63e" stroke="#25591c" stroke-width="2"/>
+    `;
+  },
+
+  cherry() {
+    const g = uid('ch');
+    return `
+      <defs><radialGradient id="${g}" cx="34%" cy="30%" r="65%">
+        <stop offset="0%" stop-color="#ff6b7d"/><stop offset="45%" stop-color="#bf152c"/><stop offset="100%" stop-color="#610513"/>
+      </radialGradient></defs>
+      <path d="M-16 14 Q-12 -18 4 -34 Q18 -14 18 16" fill="none" stroke="#477a24" stroke-width="3.8" stroke-linecap="round"/>
+      <path d="M4 -34 C18 -44, 34 -34, 24 -20 C14 -20, 8 -26, 4 -34 Z" fill="#52ab3e" stroke="#25591c" stroke-width="2"/>
+      <circle cx="-17" cy="18" r="18" fill="url(#${g})" stroke="#4f0610" stroke-width="2.2"/>
+      <circle cx="17" cy="22" r="18" fill="url(#${g})" stroke="#4f0610" stroke-width="2.2"/>
+      <ellipse cx="-23" cy="12" rx="4.5" ry="7" transform="rotate(-24 -23 12)" fill="#ffdce0" opacity="0.75"/>
+      <ellipse cx="11" cy="16" rx="4.5" ry="7" transform="rotate(-24 11 16)" fill="#ffdce0" opacity="0.75"/>
+    `;
+  },
+
+  cheese() {
+    const g1 = uid('cs1'), g2 = uid('cs2');
+    return `
+      <defs>
+        <linearGradient id="${g1}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ffe77a"/><stop offset="100%" stop-color="#f2b629"/></linearGradient>
+        <linearGradient id="${g2}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e59e1a"/><stop offset="100%" stop-color="#b56c08"/></linearGradient>
+      </defs>
+      <polygon points="-38,2 10,-28 40,-4 -16,10" fill="url(#${g1})" stroke="#8f5306" stroke-width="2.5" stroke-linejoin="round"/>
+      <polygon points="-38,2 -16,10 -16,34 -38,24" fill="#d48912" stroke="#8f5306" stroke-width="2.5" stroke-linejoin="round"/>
+      <polygon points="-16,10 40,-4 40,22 -16,34" fill="url(#${g2})" stroke="#8f5306" stroke-width="2.5" stroke-linejoin="round"/>
+      <circle cx="2" cy="18" r="7.2" fill="#9c5905"/>
+      <circle cx="24" cy="11" r="6" fill="#9c5905"/>
+      <circle cx="-27" cy="15" r="4.5" fill="#9c5905"/>
+    `;
+  },
+
+  croissant() {
+    const g = uid('cr');
+    return `
+      <defs><linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#f7c873"/><stop offset="55%" stop-color="#d4862d"/><stop offset="100%" stop-color="#8c4810"/>
+      </linearGradient></defs>
+      <path d="M-38 22 C-42 -8, -18 -26, 0 -26 C18 -26, 42 -8, 38 22 C28 28, 20 14, 14 8 C6 14, -6 14, -14 8 C-20 14, -28 28, -38 22 Z" fill="url(#${g})" stroke="#6b340a" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M-16 -20 C-22 -4, -18 8, -12 10" fill="none" stroke="#6b340a" stroke-width="2.5"/>
+      <path d="M16 -20 C22 -4, 18 8, 12 10" fill="none" stroke="#6b340a" stroke-width="2.5"/>
+      <path d="M-8 -18 Q0 -21 8 -18" fill="none" stroke="#ffe7b3" stroke-width="4" stroke-linecap="round" opacity="0.75"/>
+    `;
+  },
+
+  pie() {
+    const g = uid('pi');
+    return `
+      <defs><linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#f2ba66"/><stop offset="100%" stop-color="#b86b21"/>
+      </linearGradient></defs>
+      <path d="M-36 6 L-28 32 Q0 42 28 32 L36 6 Z" fill="#b54d2a" stroke="#692610" stroke-width="2.5"/>
+      <ellipse cx="0" cy="4" rx="40" ry="18" fill="#8f4514" stroke="#592607" stroke-width="2.5"/>
+      <ellipse cx="0" cy="2" rx="35" ry="15" fill="url(#${g})"/>
+      <g stroke="#7d4112" stroke-width="3" opacity="0.75">
+        <line x1="-22" y1="-8" x2="18" y2="12"/><line x1="-8" y1="-12" x2="28" y2="6"/>
+        <line x1="22" y1="-8" x2="-18" y2="12"/><line x1="8" y1="-12" x2="-28" y2="6"/>
+      </g>
+    `;
+  },
+
+  cake() {
+    const g = uid('ck');
+    return `
+      <defs><linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#f5d393"/><stop offset="100%" stop-color="#cc8d41"/>
+      </linearGradient></defs>
+      <rect x="-32" y="-6" width="64" height="38" rx="6" fill="url(#${g})" stroke="#6e3c11" stroke-width="2.5"/>
+      <rect x="-32" y="10" width="64" height="7" fill="#f78da7"/>
+      <path d="M-34 -6 C-34 -20, 34 -20, 34 -6 L34 4 C26 10, 20 -2, 12 6 C4 12, -4 -2, -12 7 C-20 12, -26 0, -34 5 Z" fill="#6b341e" stroke="#421c0d" stroke-width="2.2"/>
+      <circle cx="0" cy="-21" r="10" fill="#d91e36" stroke="#6e0a16" stroke-width="2"/>
+      <circle cx="-3" cy="-24" r="3" fill="#ffd6dc"/>
+    `;
+  },
+
+  watermelon() {
+    return `
+      <path d="M0 -34 L-38 24 Q0 42 38 24 Z" fill="#2d8a3e" stroke="#184f22" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M0 -30 L-33 20 Q0 35 33 20 Z" fill="#dff2c4"/>
+      <path d="M0 -27 L-29 17 Q0 30 29 17 Z" fill="#eb3b4d"/>
+      <ellipse cx="-8" cy="4" rx="2.5" ry="4.5" transform="rotate(15 -8 4)" fill="#241614"/>
+      <ellipse cx="9" cy="6" rx="2.5" ry="4.5" transform="rotate(-15 9 6)" fill="#241614"/>
+      <ellipse cx="0" cy="14" rx="2.5" ry="4.5" fill="#241614"/>
+    `;
+  },
+
+  // Реалістична латунна гирка з числом для алгебраїчних задач
+  weight({ val = 10 }) {
+    const g = uid('wt');
+    return `
+      <defs><linearGradient id="${g}" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#ffea9f"/><stop offset="48%" stop-color="#d49635"/><stop offset="100%" stop-color="#7a4c0e"/>
+      </linearGradient></defs>
+      <circle cx="0" cy="-30" r="11" fill="none" stroke="#c98d2e" stroke-width="6"/>
+      <path d="M-22 -18 L22 -18 L34 32 Q0 40 -34 32 Z" fill="url(#${g})" stroke="#5c3607" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M-16 -10 L-22 24" stroke="#fff4cc" stroke-width="4" stroke-linecap="round" opacity="0.45"/>
+      <text x="0" y="20" text-anchor="middle" font-size="30" font-weight="bold" fill="#3b1f04">${val}</text>
+    `;
+  },
+
+  // Пряник із числом для магічного квадрата
+  cookie({ val = 5 }) {
+    const g = uid('ckn');
+    return `
+      <defs><radialGradient id="${g}" cx="35%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="#e3a054"/><stop offset="100%" stop-color="#945218"/>
+      </radialGradient></defs>
+      <rect x="-38" y="-38" width="76" height="76" rx="20" fill="url(#${g})" stroke="#5c2d08" stroke-width="3.5"/>
+      <rect x="-31" y="-31" width="62" height="62" rx="14" fill="none" stroke="#fff3db" stroke-width="3" stroke-dasharray="7 5" opacity="0.85"/>
+      <text x="0" y="14" text-anchor="middle" font-size="40" font-weight="bold" fill="#fff9eb" stroke="#5c2d08" stroke-width="1.5">${val}</text>
+    `;
+  },
+
+  // Баночка варення з числом для числової піраміди
+  numJar({ val = '', isQ = false }) {
+    const fill = isQ ? '#e6a832' : '#c72852';
+    return `
+      <rect x="-34" y="-22" width="68" height="58" rx="14" fill="#e6f4f7" fill-opacity="0.32" stroke="#7d9aa3" stroke-width="2.6"/>
+      <rect x="-30" y="-12" width="60" height="44" rx="10" fill="${fill}" opacity="0.9"/>
+      <rect x="-28" y="-34" width="56" height="14" rx="5" fill="#d99634" stroke="#5c3309" stroke-width="2.5"/>
+      <rect x="-24" y="-8" width="8" height="34" rx="4" fill="#ffffff" opacity="0.3"/>
+      <text x="0" y="22" text-anchor="middle" font-size="${isQ ? 38 : 30}" font-weight="bold" fill="#fffaf0">${isQ ? '?' : val}</text>
+    `;
+  },
+
+  // Мишка-помічник для алгоритмічних маршрутів
+  mouse() {
+    return `
+      <circle cx="-18" cy="-22" r="14" fill="#b8b3ad" stroke="#47423e" stroke-width="2.5"/>
+      <circle cx="-18" cy="-22" r="8" fill="#f0b6b6"/>
+      <circle cx="18" cy="-22" r="14" fill="#b8b3ad" stroke="#47423e" stroke-width="2.5"/>
+      <circle cx="18" cy="-22" r="8" fill="#f0b6b6"/>
+      <ellipse cx="0" cy="4" rx="26" ry="22" fill="#d4cfc8" stroke="#47423e" stroke-width="2.5"/>
+      <circle cx="-9" cy="-1" r="4" fill="#211d1a"/>
+      <circle cx="9" cy="-1" r="4" fill="#211d1a"/>
+      <circle cx="-10" cy="-2.5" r="1.4" fill="#ffffff"/>
+      <circle cx="8" cy="-2.5" r="1.4" fill="#ffffff"/>
+      <ellipse cx="0" cy="12" rx="6" ry="4.5" fill="#e87a8a"/>
+      <line x1="-14" y1="12" x2="-30" y2="8" stroke="#47423e" stroke-width="2"/>
+      <line x1="-14" y1="16" x2="-30" y2="18" stroke="#47423e" stroke-width="2"/>
+      <line x1="14" y1="12" x2="30" y2="8" stroke="#47423e" stroke-width="2"/>
+      <line x1="14" y1="16" x2="30" y2="18" stroke="#47423e" stroke-width="2"/>
+    `;
+  },
+
+  // Плитка-печиво з центральною стрілкою (обертання) + ягодою в куті (для матриці Равена)
+  ravenTile({ rot = 0, corner = 'TL' }) {
+    const cMap = { TL: [-24, -24], TR: [24, -24], BR: [24, 24], BL: [-24, 24] };
+    const [bx, by] = cMap[corner];
+    return `
+      <rect x="-38" y="-38" width="76" height="76" rx="14" fill="#d99d55" stroke="#6e3e12" stroke-width="3"/>
+      <rect x="-31" y="-31" width="62" height="62" rx="10" fill="#5e3318"/>
+      <!-- Стрілка-пряник у центрі -->
+      <g transform="rotate(${rot})">
+        <path d="M0 -24 L15 -4 L6 -4 L6 22 L-6 22 L-6 -4 L-15 -4 Z" fill="#ffe07d" stroke="#7d4f0c" stroke-width="2.2" stroke-linejoin="round"/>
+      </g>
+      <!-- Ягода в одному з 4 кутів -->
+      <circle cx="${bx}" cy="${by}" r="8.5" fill="#e84366" stroke="#751228" stroke-width="2"/>
+      <circle cx="${bx-2.5}" cy="${by-2.5}" r="2.5" fill="#ffd4de"/>
+    `;
+  },
+
+  // Бельгійська вафля 3x3 з ягодами (для матриці на перетин множин)
+  waffle({ dots = [] }) {
+    let cells = '';
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        const idx = r * 3 + c;
+        const x = -27 + c * 27, y = -27 + r * 27;
+        cells += `<rect x="${x-10}" y="${y-10}" width="20" height="20" rx="4" fill="#9c5c1d" stroke="#69390b" stroke-width="1.5"/>`;
+        if (dots.includes(idx)) {
+          cells += `
+            <circle cx="${x}" cy="${y}" r="8" fill="#4635a8" stroke="#1c1252" stroke-width="1.8"/>
+            <circle cx="${x-2.5}" cy="${y-2.5}" r="2.6" fill="#c7c2ff"/>
+          `;
+        }
+      }
+    }
+    return `
+      <rect x="-42" y="-42" width="84" height="84" rx="14" fill="#e6a84c" stroke="#78440e" stroke-width="3"/>
+      ${cells}
+    `;
+  },
+
+  // Асиметричний бенто-ланчбокс 2x2 (для задачі на дзеркальну симетрію)
+  bento({ items = ['apple', 'cheese', 'watermelon', 'cherry'] }) {
+    const pos = [[-22, -22], [22, -22], [-22, 22], [22, 22]];
+    const inner = items.map((t, i) => `
+      <rect x="${pos[i][0]-19}" y="${pos[i][1]-19}" width="38" height="38" rx="8" fill="#4f3728" stroke="#8c6244" stroke-width="1.6"/>
+      <g transform="translate(${pos[i][0]}, ${pos[i][1]}) scale(0.45)">${Art[t]()}</g>
+    `).join('');
+    return `
+      <rect x="-45" y="-45" width="90" height="90" rx="14" fill="#9e3026" stroke="#4d120c" stroke-width="3.5"/>
+      ${inner}
+    `;
+  },
+
+  // Стрілка обертання (CW / CCW) для задач із шестернями
+  spinArrow({ dir = 'cw', label = '' }) {
+    const path = dir === 'cw'
+      ? `<path d="M-18 -10 A22 22 0 1 1 -16 14" fill="none" stroke="#ffe169" stroke-width="7" stroke-linecap="round"/>
+         <polygon points="-22,22 -6,16 -18,4" fill="#ffe169"/>`
+      : `<path d="M18 -10 A22 22 0 1 0 16 14" fill="none" stroke="#55efc4" stroke-width="7" stroke-linecap="round"/>
+         <polygon points="22,22 6,16 18,4" fill="#55efc4"/>`;
+    return `
+      <circle cx="0" cy="0" r="30" fill="#2c221c" stroke="#c98e38" stroke-width="3"/>
+      ${path}
+      ${label ? `<text x="0" y="6" text-anchor="middle" font-size="18" font-weight="bold" fill="#fff6e0">${label}</text>` : ''}
+    `;
+  },
+
+  // Пара стрілок обертання для двох вихідних шестерень (A і B)
+  gearPair({ left = 'cw', right = 'ccw' }) {
+    return `
+      <g transform="translate(-32, 0) scale(0.92)">${Art.spinArrow({ dir: left, label: 'A' })}</g>
+      <g transform="translate(32, 0) scale(0.92)">${Art.spinArrow({ dir: right, label: 'B' })}</g>
+    `;
+  },
+
+  // Схема 3x3 (вигляд зверху на 3D-вежу з коробок)
+  topGrid({ cells = [] }) {
+    const colMap = {
+      red:   '#e04338',
+      blue:  '#3a82d4',
+      gold:  '#f2be35',
+      empty: '#3b2b20'
+    };
+    let html = '';
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        const key = cells[r * 3 + c] || 'empty';
+        const x = -28 + c * 28, y = -28 + r * 28;
+        html += `<rect x="${x-12}" y="${y-12}" width="24" height="24" rx="5" fill="${colMap[key]}" stroke="#24150a" stroke-width="2.2"/>`;
+        if (key !== 'empty') {
+          html += `<rect x="${x-8}" y="${y-8}" width="16" height="5" rx="2" fill="#ffffff" opacity="0.3"/>`;
+        }
+      }
+    }
+    return `
+      <rect x="-44" y="-44" width="88" height="88" rx="12" fill="#704422" stroke="#3b1f0b" stroke-width="3"/>
+      ${html}
+    `;
+  }
+};
+
+// Групове малювання предметів (для чаш вагів і табличок)
+function renderItemGroup(items, scale = 1) {
+  const n = items.length;
+  const layouts = {
+    1: [[0, 0, 1.0]],
+    2: [[-28, 2, 0.78], [28, 2, 0.78]],
+    3: [[-34, 6, 0.65], [0, -14, 0.65], [34, 6, 0.65]],
+    4: [[-25, -18, 0.6], [25, -18, 0.6], [-25, 20, 0.6], [25, 20, 0.6]],
+    5: [[-28, -20, 0.54], [28, -20, 0.54], [0, 0, 0.54], [-28, 22, 0.54], [28, 22, 0.54]]
+  };
+  const coords = layouts[n] || layouts[3];
+  return items.map((it, i) => {
+    const [x, y, s] = coords[i] || [0, 0, 0.5];
+    return `<g transform="translate(${x}, ${y}) scale(${(s * scale).toFixed(2)})">${Art[it.type](it.props || {})}</g>`;
+  }).join('');
+}
+
+const rep = (type, count, props = {}) => Array.from({ length: count }, () => ({ type, props }));
+
+/* ============================================================================
+   5. БАЗА З 15 ОЛІМПІАДНИХ ЛОГІЧНИХ ЗАВДАНЬ ДЛЯ 3–4 КЛАСУ (9–10 РОКІВ)
+   Усі 15 рівнів перевірені математично, кожен тренує справжню логіку!
+   ============================================================================ */
+const LEVELS = [
+  // РІВЕНЬ 1 — Система рівнянь на вагах: Торт+Торт=14, Торт+Сир=12 -> 3 Сири = 15
+  {
+    mode: 'scale',
+    hints: [
+      { left: rep('cake', 2), right: [{ type: 'weight', props: { val: 14 } }] },
+      { left: [{ type: 'cake' }, { type: 'cheese' }], right: [{ type: 'weight', props: { val: 12 } }] }
+    ],
+    targetLeft: rep('cheese', 3),
+    targetWeight: 15,
+    options: [
+      { items: [{ type: 'weight', props: { val: 15 } }], weight: 15, correct: true },
+      { items: [{ type: 'weight', props: { val: 12 } }], weight: 12 },
+      { items: [{ type: 'weight', props: { val: 16 } }], weight: 16 },
+      { items: [{ type: 'weight', props: { val: 18 } }], weight: 18 }
+    ]
+  },
+
+  // РІВЕНЬ 2 — Просторове мислення 3D: Вигляд ЗВЕРХУ на башту з коробок для тортів
+  {
+    mode: 'iso3d',
+    // Сітка 3x3 (r=0 далекий ряд, r=2 ближній ряд), кожна клітинка = стопка кольорів знизу вгору
+    stacks: [
+      [['red', 'red'], ['gold'], ['blue', 'blue', 'blue']],
+      [[], ['blue', 'red'], ['gold', 'gold']],
+      [['blue'], [], ['red']]
+    ],
+    options: [
+      // Правильний вигляд зверху (кольори верхніх коробок!)
+      { item: { type: 'topGrid', props: { cells: ['red','gold','blue', 'empty','red','gold', 'blue','empty','red'] } }, correct: true },
+      // Дистрактор 1: віддзеркалено по горизонталі
+      { item: { type: 'topGrid', props: { cells: ['blue','gold','red', 'gold','red','empty', 'red','empty','blue'] } } },
+      // Дистрактор 2: перевернуто верх-низ
+      { item: { type: 'topGrid', props: { cells: ['blue','empty','red', 'empty','red','gold', 'red','gold','blue'] } } },
+      // Дистрактор 3: переплутано середню коробку
+      { item: { type: 'topGrid', props: { cells: ['red','gold','blue', 'empty','blue','gold', 'blue','empty','red'] } } }
+    ]
+  },
+
+  // РІВЕНЬ 3 — Механіка шестерень та ременів: Центр (CW) -> A (CCW) і B (CW)
+  {
+    mode: 'gears',
+    variant: 1,
+    options: [
+      { item: { type: 'gearPair', props: { left: 'ccw', right: 'cw' } }, correct: true },
+      { item: { type: 'gearPair', props: { left: 'cw', right: 'ccw' } } },
+      { item: { type: 'gearPair', props: { left: 'cw', right: 'cw' } } },
+      { item: { type: 'gearPair', props: { left: 'ccw', right: 'ccw' } } }
+    ]
+  },
+
+  // РІВЕНЬ 4 — Ваги зі скороченням спільного предмета:
+  // Кавун+Яблуко = 2 Сири+Яблуко (Кавун=2 Сири); Сир+Груша=9; 2 Груші=8 (Г=4, С=5, К=10). Кавун+Груша = 14!
+  {
+    mode: 'scale',
+    hints: [
+      { left: [{ type: 'watermelon' }, { type: 'apple' }], right: [{ type: 'cheese' }, { type: 'cheese' }, { type: 'apple' }] },
+      { left: [{ type: 'cheese' }, { type: 'pear' }], right: [{ type: 'weight', props: { val: 9 } }] },
+      { left: rep('pear', 2), right: [{ type: 'weight', props: { val: 8 } }] }
+    ],
+    targetLeft: [{ type: 'watermelon' }, { type: 'pear' }],
+    targetWeight: 14,
+    options: [
+      { items: [{ type: 'weight', props: { val: 14 } }], weight: 14, correct: true },
+      { items: [{ type: 'weight', props: { val: 12 } }], weight: 12 },
+      { items: [{ type: 'weight', props: { val: 13 } }], weight: 13 },
+      { items: [{ type: 'weight', props: { val: 15 } }], weight: 15 }
+    ]
+  },
+
+  // РІВЕНЬ 5 — Матриця Равена 3x3 (подвійна трансформація: стрілка +90° CW і ягода +1 кут CW)
+  {
+    mode: 'matrix',
+    grid: [
+      { type: 'ravenTile', props: { rot: 0, corner: 'TL' } },
+      { type: 'ravenTile', props: { rot: 90, corner: 'TR' } },
+      { type: 'ravenTile', props: { rot: 180, corner: 'BR' } },
+      { type: 'ravenTile', props: { rot: 90, corner: 'TR' } },
+      { type: 'ravenTile', props: { rot: 180, corner: 'BR' } },
+      { type: 'ravenTile', props: { rot: 270, corner: 'BL' } },
+      { type: 'ravenTile', props: { rot: 180, corner: 'BR' } },
+      { type: 'ravenTile', props: { rot: 270, corner: 'BL' } },
+      null
+    ],
+    options: [
+      { item: { type: 'ravenTile', props: { rot: 0, corner: 'TL' } }, correct: true },
+      { item: { type: 'ravenTile', props: { rot: 0, corner: 'TR' } } },
+      { item: { type: 'ravenTile', props: { rot: 180, corner: 'TL' } } },
+      { item: { type: 'ravenTile', props: { rot: 270, corner: 'TL' } } }
+    ]
+  },
+
+  // РІВЕНЬ 6 — Алгоритм маршруту по кухні 4x4 (Bebras-стиль):
+  // Старт (3,0). Команди: ↑ → → ↑ ← ↑ => фініш у (0,1) = Круасан!
+  {
+    mode: 'gridPath',
+    start: [3, 0],
+    commands: ['up', 'right', 'right', 'up', 'left', 'up'],
+    tube: null,
+    targets: [
+      { r: 0, c: 0, type: 'cheese' },
+      { r: 0, c: 1, type: 'croissant' },
+      { r: 0, c: 2, type: 'cake' },
+      { r: 1, c: 3, type: 'pie' }
+    ],
+    options: [
+      { item: { type: 'croissant' }, correct: true },
+      { item: { type: 'cheese' } },
+      { item: { type: 'cake' } },
+      { item: { type: 'pie' } }
+    ]
+  },
+
+  // РІВЕНЬ 7 — Магічний квадрат 3x3 на пряниках (сума кожного рядка, стовпця й діагоналі = 18)
+  {
+    mode: 'magicSquare',
+    sum: 18,
+    cells: [9, 2, 7, 4, 6, 8, 5, 10, null],
+    options: [
+      { item: { type: 'cookie', props: { val: 3 } }, correct: true },
+      { item: { type: 'cookie', props: { val: 1 } } },
+      { item: { type: 'cookie', props: { val: 4 } } },
+      { item: { type: 'cookie', props: { val: 11 } } }
+    ]
+  },
+
+  // РІВЕНЬ 8 — Дзеркальна симетрія: Бенто-ланчбокс у вертикальному дзеркалі
+  {
+    mode: 'mirror',
+    source: ['apple', 'cheese', 'watermelon', 'cherry'],
+    options: [
+      // Горизонтальне віддзеркалення (ПРАВИЛЬНО)
+      { item: { type: 'bento', props: { items: ['cheese', 'apple', 'cherry', 'watermelon'] } }, correct: true },
+      // Пастка: поворот на 180°
+      { item: { type: 'bento', props: { items: ['cherry', 'watermelon', 'cheese', 'apple'] } } },
+      // Пастка: вертикальне віддзеркалення
+      { item: { type: 'bento', props: { items: ['watermelon', 'cherry', 'apple', 'cheese'] } } },
+      // Пастка: без змін
+      { item: { type: 'bento', props: { items: ['apple', 'cheese', 'watermelon', 'cherry'] } } }
+    ]
+  },
+
+  // РІВЕНЬ 9 — Чиста алгебра на вагах без чисел (3 рівняння):
+  // Пиріг+Круасан = 2 Сири; Пиріг = Круасан + 2 Яблука; Круасан = 2 Яблука -> 1 Сир = 3 Яблука!
+  {
+    mode: 'scale',
+    hints: [
+      { left: [{ type: 'pie' }, { type: 'croissant' }], right: rep('cheese', 2) },
+      { left: rep('pie', 1), right: [{ type: 'croissant' }, { type: 'apple' }, { type: 'apple' }] },
+      { left: rep('croissant', 1), right: rep('apple', 2) }
+    ],
+    targetLeft: rep('cheese', 1),
+    targetWeight: 3,
+    options: [
+      { items: rep('apple', 3), weight: 3, correct: true },
+      { items: rep('apple', 2), weight: 2 },
+      { items: rep('apple', 4), weight: 4 },
+      { items: rep('apple', 5), weight: 5 }
+    ]
+  },
+
+  // РІВЕНЬ 10 — Числова піраміда з баночок варення (верхня = сума двох нижніх):
+  // Низ: 4, 7, 5, 8 -> Ряд 3: 11 (підказка), 12, 13 -> Ряд 2: 23, 25 -> Верхівка: 48!
+  {
+    mode: 'pyramid',
+    rows: [
+      ['?'],
+      ['', ''],
+      [11, '', ''],
+      [4, 7, 5, 8]
+    ],
+    options: [
+      { item: { type: 'numJar', props: { val: 48 } }, correct: true },
+      { item: { type: 'numJar', props: { val: 44 } } },
+      { item: { type: 'numJar', props: { val: 46 } } },
+      { item: { type: 'numJar', props: { val: 50 } } }
+    ]
+  },
+
+  // РІВЕНЬ 11 — Складна передача (Центр CCW + 2 перехрещених і 1 відкритий ремінь -> A=CW, B=CW)
+  {
+    mode: 'gears',
+    variant: 2,
+    options: [
+      { item: { type: 'gearPair', props: { left: 'cw', right: 'cw' } }, correct: true },
+      { item: { type: 'gearPair', props: { left: 'cw', right: 'ccw' } } },
+      { item: { type: 'gearPair', props: { left: 'ccw', right: 'cw' } } },
+      { item: { type: 'gearPair', props: { left: 'ccw', right: 'ccw' } } }
+    ]
+  },
+
+  // РІВЕНЬ 12 — Матриця 3x3 на ПЕРЕТИН множин (у 3-му стовпці — тільки СПІЛЬНІ ягоди 1-го і 2-го стовпців!)
+  {
+    mode: 'matrix',
+    grid: [
+      { type: 'waffle', props: { dots: [0, 1, 4, 8] } },
+      { type: 'waffle', props: { dots: [1, 2, 4, 6] } },
+      { type: 'waffle', props: { dots: [1, 4] } },
+      { type: 'waffle', props: { dots: [0, 3, 5, 6, 7] } },
+      { type: 'waffle', props: { dots: [2, 3, 5, 8] } },
+      { type: 'waffle', props: { dots: [3, 5] } },
+      { type: 'waffle', props: { dots: [0, 2, 4, 6, 8] } },
+      { type: 'waffle', props: { dots: [1, 2, 4, 5, 6] } },
+      null
+    ],
+    options: [
+      { item: { type: 'waffle', props: { dots: [2, 4, 6] } }, correct: true },
+      { item: { type: 'waffle', props: { dots: [0, 4, 8] } } },
+      { item: { type: 'waffle', props: { dots: [0, 1, 2, 4, 5, 6, 8] } } },
+      { item: { type: 'waffle', props: { dots: [2, 6] } } }
+    ]
+  },
+
+  // РІВЕНЬ 13 — Олімпіадна задача на попарні суми:
+  // Яблуко+Груша=9, Груша+Сир=13, Яблуко+Сир=12 -> Яблуко+Груша+Сир = 17!
+  {
+    mode: 'scale',
+    hints: [
+      { left: [{ type: 'apple' }, { type: 'pear' }], right: [{ type: 'weight', props: { val: 9 } }] },
+      { left: [{ type: 'pear' }, { type: 'cheese' }], right: [{ type: 'weight', props: { val: 13 } }] },
+      { left: [{ type: 'apple' }, { type: 'cheese' }], right: [{ type: 'weight', props: { val: 12 } }] }
+    ],
+    targetLeft: [{ type: 'apple' }, { type: 'pear' }, { type: 'cheese' }],
+    targetWeight: 17,
+    options: [
+      { items: [{ type: 'weight', props: { val: 17 } }], weight: 17, correct: true },
+      { items: [{ type: 'weight', props: { val: 15 } }], weight: 15 },
+      { items: [{ type: 'weight', props: { val: 16 } }], weight: 16 },
+      { items: [{ type: 'weight', props: { val: 18 } }], weight: 18 }
+    ]
+  },
+
+  // РІВЕНЬ 14 — Алгоритм із мідною трубою-телепортом:
+  // Старт (3,0), команди: → ↑ → ↓ ↓. На (2,1) вхід у трубу -> вихід у (0,2) -> (0,3) -> (1,3) -> (2,3) = Торт!
+  {
+    mode: 'gridPath',
+    start: [3, 0],
+    commands: ['right', 'up', 'right', 'down', 'down'],
+    tube: { from: [2, 1], to: [0, 2] },
+    targets: [
+      { r: 2, c: 3, type: 'cake' },
+      { r: 3, c: 2, type: 'cheese' },     // пастка, якщо не помітити трубу
+      { r: 1, c: 3, type: 'pie' },
+      { r: 0, c: 3, type: 'watermelon' }
+    ],
+    options: [
+      { item: { type: 'cake' }, correct: true },
+      { item: { type: 'cheese' } },
+      { item: { type: 'pie' } },
+      { item: { type: 'watermelon' } }
+    ]
+  },
+
+  // РІВЕНЬ 15 — СУПЕРФІНАЛ: Підвісна мідна люстра-балансир (SolveMe Mobile)
+  // Загальна вага 32 -> Ліво=16 (2 Торти -> Торт=8), Право=16 -> (2 Сири=8 -> Сир=4) та (Сир + 2 Яблука = 8 -> Яблуко = 2!)
+  {
+    mode: 'mobile',
+    total: 32,
+    options: [
+      { item: { type: 'weight', props: { val: 2 } }, correct: true },
+      { item: { type: 'weight', props: { val: 3 } } },
+      { item: { type: 'weight', props: { val: 4 } } },
+      { item: { type: 'weight', props: { val: 6 } } }
+    ]
+  }
+];
+
+/* ============================================================================
+   6. СПІЛЬНІ SVG-ГРАДІЄНТИ ТА ГЕНЕРАТОРИ ІГРОВИХ ДОЩОК
+   ============================================================================ */
+const boardSvg = document.getElementById('board-svg');
+const optionsRow = document.getElementById('options-row');
+let currentLevel = 0;
+let isLocked = false;
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function sharedDefs() {
+  return `
+    <defs>
+      <linearGradient id="slateGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#3c4248"/><stop offset="55%" stop-color="#292d32"/><stop offset="100%" stop-color="#1b1e21"/>
+      </linearGradient>
+      <linearGradient id="woodFrame" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#b5713b"/><stop offset="50%" stop-color="#874c20"/><stop offset="100%" stop-color="#572c0e"/>
+      </linearGradient>
+      <linearGradient id="brassBeam" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#ffea9f"/><stop offset="45%" stop-color="#d49635"/><stop offset="100%" stop-color="#7d4f0f"/>
+      </linearGradient>
+      <linearGradient id="copperPipe" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#ffd4a8"/><stop offset="45%" stop-color="#d47235"/><stop offset="100%" stop-color="#6e2c0a"/>
+      </linearGradient>
+      <radialGradient id="tileRecess" cx="50%" cy="40%" r="65%">
+        <stop offset="0%" stop-color="#52463c"/><stop offset="100%" stop-color="#352c25"/>
+      </radialGradient>
+      <radialGradient id="goldGlow" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#ffe785" stop-opacity="0.52"/><stop offset="100%" stop-color="#ffe785" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="mirrorGlass" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#d9f4ff"/><stop offset="45%" stop-color="#8ecbe0"/><stop offset="100%" stop-color="#5698b5"/>
+      </linearGradient>
+    </defs>
+  `;
+}
+
+// --- 1. ДОШКА ВАГІВ (Алгебраїчні системи рівнянь) ---
+function renderScaleBoard(lvl) {
+  const n = lvl.hints.length;
+  const cardW = n === 3 ? 294 : 410, gap = 20;
+  const startX = (960 - (n * cardW + (n - 1) * gap)) / 2;
+
+  const hintsHtml = lvl.hints.map((h, i) => {
+    const x = startX + i * (cardW + gap);
+    const sc = n === 3 ? 0.66 : 0.8;
+    return `
+      <g transform="translate(${x}, 14)">
+        <rect width="${cardW}" height="128" rx="18" fill="url(#woodFrame)" stroke="#4a2409" stroke-width="3.5"/>
+        <rect x="8" y="8" width="${cardW-16}" height="112" rx="12" fill="url(#slateGrad)"/>
+        <g transform="translate(${cardW*0.26}, 64)">${renderItemGroup(h.left, sc)}</g>
+        <g transform="translate(${cardW*0.5}, 64)">
+          <rect x="-14" y="-9" width="28" height="5.5" rx="2.5" fill="#f7d58b"/>
+          <rect x="-14" y="4" width="28" height="5.5" rx="2.5" fill="#f7d58b"/>
+        </g>
+        <g transform="translate(${cardW*0.74}, 64)">${renderItemGroup(h.right, sc)}</g>
+      </g>
+    `;
+  }).join('');
+
+  boardSvg.innerHTML = `
+    ${sharedDefs()}
+    ${hintsHtml}
+    <g transform="translate(480, 305)">
+      <path d="M-110 228 Q0 242 110 228 L92 194 L-92 194 Z" fill="url(#brassBeam)" stroke="#5c3607" stroke-width="3"/>
+      <rect x="-16" y="-22" width="32" height="220" rx="10" fill="url(#brassBeam)" stroke="#5c3607" stroke-width="3"/>
+      <circle cx="0" cy="-28" r="22" fill="url(#brassBeam)" stroke="#5c3607" stroke-width="3"/>
+      <polygon id="scale-pointer" points="0,-58 -8,-28 8,-28" fill="#ffe48f" stroke="#5c3607" stroke-width="2"
+               style="transition: transform 0.65s cubic-bezier(0.34, 1.45, 0.64, 1); transform: rotate(-11deg); transform-origin: 0px -28px;"/>
+      <g id="scale-beam" style="transition: transform 0.65s cubic-bezier(0.34, 1.45, 0.64, 1); transform: rotate(-11deg); transform-origin: 0px -28px;">
+        <rect x="-255" y="-36" width="510" height="16" rx="8" fill="url(#brassBeam)" stroke="#5c3607" stroke-width="2.8"/>
+        <g id="pan-left" style="transition: transform 0.65s cubic-bezier(0.34, 1.45, 0.64, 1); transform: rotate(11deg); transform-origin: -245px -28px;">
+          <line x1="-245" y1="-28" x2="-325" y2="108" stroke="#c9933a" stroke-width="3.5"/>
+          <line x1="-245" y1="-28" x2="-165" y2="108" stroke="#c9933a" stroke-width="3.5"/>
+          <g transform="translate(-245, 62)">${renderItemGroup(lvl.targetLeft, 1.02)}</g>
+          <path d="M-338 106 Q-245 148 -152 106 Z" fill="url(#brassBeam)" stroke="#5c3607" stroke-width="3"/>
+          <ellipse cx="-245" cy="106" rx="93" ry="12" fill="#f7ce74" stroke="#5c3607" stroke-width="2.5"/>
+        </g>
+        <g id="pan-right" style="transition: transform 0.65s cubic-bezier(0.34, 1.45, 0.64, 1); transform: rotate(11deg); transform-origin: 245px -28px;">
+          <line x1="245" y1="-28" x2="165" y2="108" stroke="#c9933a" stroke-width="3.5"/>
+          <line x1="245" y1="-28" x2="325" y2="108" stroke="#c9933a" stroke-width="3.5"/>
+          <g id="pan-right-content" transform="translate(245, 58)">
+            <circle cx="0" cy="0" r="44" fill="url(#goldGlow)"/>
+            <circle cx="0" cy="0" r="34" fill="none" stroke="#ffe494" stroke-width="3.5" stroke-dasharray="8 6"/>
+            <text x="0" y="15" text-anchor="middle" font-size="44" font-weight="bold" fill="#ffe494">?</text>
+          </g>
+          <path d="M152 106 Q245 148 338 106 Z" fill="url(#brassBeam)" stroke="#5c3607" stroke-width="3"/>
+          <ellipse cx="245" cy="106" rx="93" ry="12" fill="#f7ce74" stroke="#5c3607" stroke-width="2.5"/>
+        </g>
+      </g>
+      <circle cx="0" cy="-28" r="10" fill="#fff2c2" stroke="#5c3607" stroke-width="2.5"/>
+    </g>
+  `;
+}
+
+// --- 2. 3D-ІЗОМЕТРИЧНА ВЕЖА З КОРОБОК (ВИГЛЯД ЗВЕРХУ) ---
+function drawIsoCube(x, y, colKey) {
+  const pal = {
+    red:  { top: '#f25c54', left: '#c92a22', right: '#8f1913' },
+    blue: { top: '#5aa5f0', left: '#2f6db5', right: '#1c477d' },
+    gold: { top: '#ffe066', left: '#d99e1e', right: '#9c6a08' }
+  }[colKey];
+  const dx = 48, dy = 26, h = 44;
+  return `
+    <g>
+      <polygon points="${x},${y} ${x+dx},${y+dy} ${x},${y+dy*2} ${x-dx},${y+dy}" fill="${pal.top}" stroke="#3b1d0b" stroke-width="2.2" stroke-linejoin="round"/>
+      <polygon points="${x-dx},${y+dy} ${x},${y+dy*2} ${x},${y+dy*2+h} ${x-dx},${y+dy+h}" fill="${pal.left}" stroke="#3b1d0b" stroke-width="2.2" stroke-linejoin="round"/>
+      <polygon points="${x},${y+dy*2} ${x+dx},${y+dy} ${x+dx},${y+dy+h} ${x},${y+dy*2+h}" fill="${pal.right}" stroke="#3b1d0b" stroke-width="2.2" stroke-linejoin="round"/>
+      <!-- Декоративна стрічка на кришці коробки -->
+      <line x1="${x-dx*0.5}" y1="${y+dy*0.5}" x2="${x+dx*0.5}" y2="${y+dy*1.5}" stroke="#ffffff" stroke-width="4" opacity="0.45"/>
+    </g>
+  `;
+}
+
+function renderIso3DBoard(lvl) {
+  const originX = 480, originY = 260, dx = 50, dy = 27, h = 44;
+  let floorHtml = '', cubesHtml = '';
+
+  // Малюємо плитку підноса 3x3
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      const cx = originX + (c - r) * dx;
+      const cy = originY + (c + r) * dy;
+      floorHtml += `<polygon points="${cx},${cy} ${cx+dx},${cy+dy} ${cx},${cy+dy*2} ${cx-dx},${cy+dy}" fill="#6e4627" stroke="#3b1f0b" stroke-width="2.5"/>`;
+    }
+  }
+
+  // Малюємо 3D-коробки у порядку від дальніх до ближніх (painter's algorithm)
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      const stack = lvl.stacks[r][c];
+      const baseX = originX + (c - r) * dx;
+      const baseY = originY + (c + r) * dy;
+      stack.forEach((col, level) => {
+        cubesHtml += drawIsoCube(baseX, baseY - (level + 1) * h, col);
+      });
+    }
+  }
+
+  boardSvg.innerHTML = `
+    ${sharedDefs()}
+    <rect x="110" y="18" width="740" height="524" rx="28" fill="url(#woodFrame)" stroke="#4a2409" stroke-width="4"/>
+    <rect x="128" y="34" width="704" height="492" rx="20" fill="url(#slateGrad)"/>
+
+    <!-- Візуальний індикатор «ПОГЛЯД ЗВЕРХУ»: реалістичне око + стрілка вниз -->
+    <g transform="translate(480, 92)">
+      <ellipse cx="0" cy="-16" rx="42" ry="22" fill="#fff8e8" stroke="#c98e38" stroke-width="4"/>
+      <circle cx="0" cy="-16" r="14" fill="#3a7ca5"/>
+      <circle cx="0" cy="-16" r="6.5" fill="#16222b"/>
+      <circle cx="5" cy="-21" r="3.5" fill="#ffffff"/>
+      <path d="M0 14 L0 52" stroke="#ffe07d" stroke-width="7" stroke-linecap="round"/>
+      <polygon points="-14,44 14,44 0,66" fill="#ffe07d"/>
+    </g>
+
+    <g transform="translate(0, 62)">
+      ${floorHtml}
+      ${cubesHtml}
+    </g>
+  `;
+}
+
+// --- 3. МЕХАНІКА ШЕСТЕРЕНЬ ТА ШКІРЯНИХ РЕМЕНІВ ---
+function makeGearSvg(x, y, r, teeth, color, label, spinClass = '') {
+  let pts = [];
+  for (let i = 0; i < teeth * 2; i++) {
+    const a = (Math.PI * i) / teeth;
+    const rad = i % 2 === 0 ? r + 9 : r - 4;
+    pts.push(`${(Math.cos(a) * rad).toFixed(1)},${(Math.sin(a) * rad).toFixed(1)}`);
+  }
+  return `
+    <g transform="translate(${x}, ${y})">
+      <g class="${spinClass}">
+        <polygon points="${pts.join(' ')}" fill="${color}" stroke="#4a2708" stroke-width="2.6" stroke-linejoin="round"/>
+        <circle cx="0" cy="0" r="${r * 0.56}" fill="#2b1e16" stroke="#4a2708" stroke-width="2.5"/>
+        <circle cx="0" cy="0" r="${r * 0.24}" fill="#f5d07a" stroke="#4a2708" stroke-width="2"/>
+        <line x1="${-r*0.56}" y1="0" x2="${r*0.56}" y2="0" stroke="${color}" stroke-width="5"/>
+        <line x1="0" y1="${-r*0.56}" x2="0" y2="${r*0.56}" stroke="${color}" stroke-width="5"/>
+      </g>
+      ${label ? `<circle cx="0" cy="0" r="22" fill="#2b1e16" stroke="#ffe07d" stroke-width="3"/>
+                 <text x="0" y="8" text-anchor="middle" font-size="24" font-weight="bold" fill="#ffe07d">${label}</text>` : ''}
+    </g>
+  `;
+}
+
+function renderGearsBoard(lvl) {
+  let scene = '';
+  if (lvl.variant === 1) {
+    // Варіант 1 (Рівень 3): Центр (CW) -> Ліво: зчеплена + відкритий ремінь (A=CCW); Право: зчеплена + перехрещений ремінь (B=CW)
+    scene = `
+      <!-- Відкритий ремінь зліва (зберігає напрямок) -->
+      <line x1="358" y1="226" x2="190" y2="226" stroke="#c96e32" stroke-width="9" stroke-linecap="round"/>
+      <line x1="358" y1="334" x2="190" y2="334" stroke="#c96e32" stroke-width="9" stroke-linecap="round"/>
+      <!-- Перехрещений ремінь справа (змінює напрямок!) -->
+      <line x1="602" y1="226" x2="770" y2="334" stroke="#c96e32" stroke-width="9" stroke-linecap="round"/>
+      <line x1="602" y1="334" x2="770" y2="226" stroke="#e08446" stroke-width="9" stroke-linecap="round"/>
+
+      ${makeGearSvg(480, 280, 62, 14, '#e6aa42', '', 'gear-spin-cw')}
+      ${makeGearSvg(358, 280, 52, 12, '#cf7638', '')}
+      ${makeGearSvg(602, 280, 52, 12, '#cf7638', '')}
+      ${makeGearSvg(190, 280, 52, 12, '#e6aa42', 'A')}
+      ${makeGearSvg(770, 280, 52, 12, '#e6aa42', 'B')}
+
+      <!-- Стрілка обертання ведучої шестерні (CW) -->
+      <g transform="translate(480, 142)">
+        <path d="M-28 0 A30 30 0 1 1 28 0" fill="none" stroke="#ffe169" stroke-width="8" stroke-linecap="round"/>
+        <polygon points="16,-6 36,-10 30,14" fill="#ffe169"/>
+      </g>
+    `;
+  } else {
+    // Варіант 2 (Рівень 11): Центр (CCW) -> Ліво: перехрещений + 2 зчеплені (A=CW); Право: відкритий + перехрещений (B=CW)
+    scene = `
+      <!-- Ліво: перехрещений ремінь -->
+      <line x1="480" y1="224" x2="338" y2="318" stroke="#c96e32" stroke-width="8" stroke-linecap="round"/>
+      <line x1="480" y1="336" x2="338" y2="242" stroke="#e08446" stroke-width="8" stroke-linecap="round"/>
+      <!-- Право: відкритий ремінь -->
+      <line x1="480" y1="224" x2="628" y2="238" stroke="#c96e32" stroke-width="8" stroke-linecap="round"/>
+      <line x1="480" y1="336" x2="628" y2="322" stroke="#c96e32" stroke-width="8" stroke-linecap="round"/>
+      <!-- Право: перехрещений ремінь до B -->
+      <line x1="628" y1="238" x2="788" y2="326" stroke="#c96e32" stroke-width="8" stroke-linecap="round"/>
+      <line x1="628" y1="322" x2="788" y2="234" stroke="#e08446" stroke-width="8" stroke-linecap="round"/>
+
+      ${makeGearSvg(480, 280, 54, 12, '#e6aa42', '', 'gear-spin-ccw')}
+      ${makeGearSvg(338, 280, 38, 10, '#cf7638', '')}
+      ${makeGearSvg(254, 280, 38, 10, '#cf7638', '')}
+      ${makeGearSvg(166, 280, 42, 11, '#e6aa42', 'A')}
+      ${makeGearSvg(628, 280, 42, 11, '#cf7638', '')}
+      ${makeGearSvg(788, 280, 46, 12, '#e6aa42', 'B')}
+
+      <!-- Стрілка обертання ведучої шестерні (CCW) -->
+      <g transform="translate(480, 142)">
+        <path d="M28 0 A30 30 0 1 0 -28 0" fill="none" stroke="#55efc4" stroke-width="8" stroke-linecap="round"/>
+        <polygon points="-16,-6 -36,-10 -30,14" fill="#55efc4"/>
+      </g>
+    `;
+  }
+
+  boardSvg.innerHTML = `
+    ${sharedDefs()}
+    <rect x="44" y="28" width="872" height="504" rx="28" fill="url(#woodFrame)" stroke="#4a2409" stroke-width="4"/>
+    <rect x="64" y="46" width="832" height="468" rx="20" fill="url(#slateGrad)"/>
+    ${scene}
+  `;
+}
+
+// --- 4. МАТРИЦЯ РАВЕНА 3x3 (Обертання + перетин множин) ---
+function renderMatrixBoard(lvl) {
+  const cell = 142, gap = 16;
+  const startX = (960 - (cell * 3 + gap * 2)) / 2;
+  const startY = 48;
+
+  const cellsHtml = lvl.grid.map((item, idx) => {
+    const r = Math.floor(idx / 3), c = idx % 3;
+    const cx = startX + c * (cell + gap) + cell / 2;
+    const cy = startY + r * (cell + gap) + cell / 2;
+    if (!item) {
+      return `
+        <g transform="translate(${cx}, ${cy})">
+          <rect x="${-cell/2}" y="${-cell/2}" width="${cell}" height="${cell}" rx="18" fill="#4f3923" stroke="#f7cb68" stroke-width="4" stroke-dasharray="10 7"/>
+          <g id="matrix-target-content"><text x="0" y="22" text-anchor="middle" font-size="64" font-weight="bold" fill="#ffe082">?</text></g>
+        </g>
+      `;
+    }
+    return `
+      <g transform="translate(${cx}, ${cy})">
+        <rect x="${-cell/2}" y="${-cell/2}" width="${cell}" height="${cell}" rx="18" fill="url(#tileRecess)" stroke="#735b46" stroke-width="2.5"/>
+        <g transform="scale(1.24)">${Art[item.type](item.props || {})}</g>
+      </g>
+    `;
+  }).join('');
+
+  boardSvg.innerHTML = `
+    ${sharedDefs()}
+    <path d="M174 220 C134 220, 134 340, 174 340" fill="none" stroke="url(#brassBeam)" stroke-width="14" stroke-linecap="round"/>
+    <path d="M786 220 C826 220, 826 340, 786 340" fill="none" stroke="url(#brassBeam)" stroke-width="14" stroke-linecap="round"/>
+    <rect x="184" y="16" width="592" height="528" rx="28" fill="url(#woodFrame)" stroke="#4a2409" stroke-width="4"/>
+    <rect x="202" y="30" width="556" height="500" rx="20" fill="url(#slateGrad)"/>
+    ${cellsHtml}
+  `;
+}
+
+// --- 5. АЛГОРИТМІЧНИЙ МАРШРУТ ПО КУХНІ 4x4 (+ ТРУБА-ТЕЛЕПОРТ) ---
+function renderGridPathBoard(lvl) {
+  const cell = 94, gap = 8;
+  const gridSize = cell * 4 + gap * 3;
+  const startX = (960 - gridSize) / 2;
+  const startY = 132;
+
+  const arrowRot = { up: 0, right: 90, down: 180, left: 270 };
+  const cmdW = 66, cmdGap = 14;
+  const cmdStartX = (960 - (lvl.commands.length * cmdW + (lvl.commands.length - 1) * cmdGap)) / 2;
+
+  const cmdsHtml = lvl.commands.map((dir, i) => {
+    const cx = cmdStartX + i * (cmdW + cmdGap) + cmdW / 2;
+    return `
+      <g transform="translate(${cx}, 64)">
+        <rect x="-30" y="-30" width="60" height="60" rx="14" fill="#4f3728" stroke="#f2c97d" stroke-width="3"/>
+        <g transform="rotate(${arrowRot[dir]})">
+          <path d="M0 -18 L14 -2 L6 -2 L6 18 L-6 18 L-6 -2 L-14 -2 Z" fill="#ffe169"/>
+        </g>
+      </g>
+    `;
+  }).join('');
+
+  const cellCenter = (r, c) => [startX + c * (cell + gap) + cell / 2, startY + r * (cell + gap) + cell / 2];
+
+  let tilesHtml = '';
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      const [cx, cy] = cellCenter(r, c);
+      const isEven = (r + c) % 2 === 0;
+      tilesHtml += `<rect x="${cx-cell/2}" y="${cy-cell/2}" width="${cell}" height="${cell}" rx="12" fill="${isEven ? '#524438' : '#40342b'}" stroke="#7d644c" stroke-width="2"/>`;
+    }
+  }
+
+  // Якщо є труба-телепорт (Рівень 14), малюємо реалістичну мідну трубу між входом і виходом
+  let tubeHtml = '';
+  if (lvl.tube) {
+    const [fx, fy] = cellCenter(...lvl.tube.from);
+    const [tx, ty] = cellCenter(...lvl.tube.to);
+    tubeHtml = `
+      <path d="M${fx} ${fy} Q${(fx+tx)/2 - 40} ${(fy+ty)/2 - 40} ${tx} ${ty}" fill="none" stroke="url(#copperPipe)" stroke-width="22" stroke-linecap="round" opacity="0.88"/>
+      <path d="M${fx} ${fy} Q${(fx+tx)/2 - 40} ${(fy+ty)/2 - 40} ${tx} ${ty}" fill="none" stroke="#ffe4c4" stroke-width="4" stroke-dasharray="10 10" stroke-linecap="round" opacity="0.7"/>
+      <circle cx="${fx}" cy="${fy}" r="22" fill="#2e160a" stroke="#e08948" stroke-width="6"/>
+      <circle cx="${tx}" cy="${ty}" r="22" fill="#2e160a" stroke="#55efc4" stroke-width="6"/>
+    `;
+  }
+
+  const [sx, sy] = cellCenter(...lvl.start);
+  const targetsHtml = lvl.targets.map(t => {
+    const [cx, cy] = cellCenter(t.r, t.c);
+    return `<g transform="translate(${cx}, ${cy}) scale(0.84)">${Art[t.type]()}</g>`;
+  }).join('');
+
+  boardSvg.innerHTML = `
+    ${sharedDefs()}
+    <rect x="115" y="14" width="730" height="532" rx="28" fill="url(#woodFrame)" stroke="#4a2409" stroke-width="4"/>
+    <rect x="133" y="28" width="694" height="504" rx="20" fill="url(#slateGrad)"/>
+    ${cmdsHtml}
+    ${tilesHtml}
+    ${tubeHtml}
+    ${targetsHtml}
+    <g transform="translate(${sx}, ${sy}) scale(0.92)">${Art.mouse()}</g>
+  `;
+}
+
+// --- 6. МАГІЧНИЙ КВАДРАТ 3x3 НА ПРЯНИКАХ ---
+function renderMagicSquareBoard(lvl) {
+  const cell = 132, gap = 14;
+  const startX = (960 - (cell * 3 + gap * 2)) / 2;
+  const startY = 82;
+
+  const cellsHtml = lvl.cells.map((val, idx) => {
+    const r = Math.floor(idx / 3), c = idx % 3;
+    const cx = startX + c * (cell + gap) + cell / 2;
+    const cy = startY + r * (cell + gap) + cell / 2;
+    if (val === null) {
+      return `
+        <g transform="translate(${cx}, ${cy})">
+          <rect x="-60" y="-60" width="120" height="120" rx="24" fill="#4f3923" stroke="#f7cb68" stroke-width="4" stroke-dasharray="10 7"/>
+          <g id="matrix-target-content"><text x="0" y="20" text-anchor="middle" font-size="60" font-weight="bold" fill="#ffe082">?</text></g>
+        </g>
+      `;
+    }
+    return `<g transform="translate(${cx}, ${cy}) scale(1.45)">${Art.cookie({ val })}</g>`;
+  }).join('');
+
+  // Медальйони суми «= 18» біля рядків і стовпців (щоб правило було 100% ясним без тексту)
+  const badges = `
+    <g transform="translate(${startX + cell*3 + gap*2 + 54}, ${startY + cell/2})">
+      <circle r="30" fill="url(#brassBeam)" stroke="#5c3607" stroke-width="3"/>
+      <text x="0" y="10" text-anchor="middle" font-size="26" font-weight="bold" fill="#3b1f04">${lvl.sum}</text>
+    </g>
+    <g transform="translate(${startX + cell*3 + gap*2 + 54}, ${startY + cell*1.5 + gap})">
+      <circle r="30" fill="url(#brassBeam)" stroke="#5c3607" stroke-width="3"/>
+      <text x="0" y="10" text-anchor="middle" font-size="26" font-weight="bold" fill="#3b1f04">${lvl.sum}</text>
+    </g>
+    <g transform="translate(${startX + cell/2}, ${startY - 40})">
+      <circle r="26" fill="url(#brassBeam)" stroke="#5c3607" stroke-width="3"/>
+      <text x="0" y="9" text-anchor="middle" font-size="24" font-weight="bold" fill="#3b1f04">${lvl.sum}</text>
+    </g>
+  `;
+
+  boardSvg.innerHTML = `
+    ${sharedDefs()}
+    <rect x="160" y="16" width="640" height="528" rx="28" fill="url(#woodFrame)" stroke="#4a2409" stroke-width="4"/>
+    <rect x="178" y="30" width="604" height="500" rx="20" fill="url(#slateGrad)"/>
+    ${cellsHtml}
+    ${badges}
+  `;
+}
+
+// --- 7. ДЗЕРКАЛЬНА СИМЕТРІЯ (БЕНТО У ДЗЕРКАЛІ) ---
+function renderMirrorBoard(lvl) {
+  boardSvg.innerHTML = `
+    ${sharedDefs()}
+    <rect x="85" y="45" width="790" height="470" rx="28" fill="url(#woodFrame)" stroke="#4a2409" stroke-width="4"/>
+    <rect x="103" y="63" width="754" height="434" rx="20" fill="url(#slateGrad)"/>
+
+    <!-- Лівий ланчбокс -->
+    <g transform="translate(275, 280) scale(2.65)">${Art.bento({ items: lvl.source })}</g>
+
+    <!-- Реалістичне вертикальне дзеркало в золотій рамі -->
+    <g transform="translate(480, 280)">
+      <rect x="-18" y="-195" width="36" height="390" rx="14" fill="url(#brassBeam)" stroke="#5c3607" stroke-width="3.5"/>
+      <rect x="-9" y="-182" width="18" height="364" rx="8" fill="url(#mirrorGlass)"/>
+      <line x1="-4" y1="-150" x2="4" y2="-110" stroke="#ffffff" stroke-width="4" stroke-linecap="round" opacity="0.8"/>
+      <line x1="-4" y1="-40" x2="4" y2="20" stroke="#ffffff" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+      <line x1="-4" y1="90" x2="4" y2="140" stroke="#ffffff" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+    </g>
+
+    <!-- Праве віконце для відповіді -->
+    <g transform="translate(685, 280)">
+      <rect x="-120" y="-120" width="240" height="240" rx="28" fill="#4f3923" stroke="#f7cb68" stroke-width="5" stroke-dasharray="12 8"/>
+      <g id="matrix-target-content"><text x="0" y="34" text-anchor="middle" font-size="96" font-weight="bold" fill="#ffe082">?</text></g>
+    </g>
+  `;
+}
+
+// --- 8. ЧИСЛОВА ПІРАМІДА З БАНОЧОК ВАРЕННЯ ---
+function renderPyramidBoard(lvl) {
+  let html = '';
+  const rowY = [108, 222, 336, 450];
+  lvl.rows.forEach((row, rIdx) => {
+    const gap = 112;
+    const startX = 480 - ((row.length - 1) * gap) / 2;
+    row.forEach((val, cIdx) => {
+      const x = startX + cIdx * gap, y = rowY[rIdx];
+      const isQ = val === '?';
+      html += `
+        <g transform="translate(${x}, ${y}) scale(1.22)" ${isQ ? 'id="pyramid-target"' : ''}>
+          ${Art.numJar({ val, isQ })}
+        </g>
+      `;
+    });
+  });
+
+  boardSvg.innerHTML = `
+    ${sharedDefs()}
+    <rect x="135" y="18" width="690" height="524" rx="28" fill="url(#woodFrame)" stroke="#4a2409" stroke-width="4"/>
+    <rect x="153" y="34" width="654" height="492" rx="20" fill="url(#slateGrad)"/>
+    <!-- Візуальна дуга-підказка під баночкою 11 (4 + 7 = 11) -->
+    <path d="M312 405 L368 370 L424 405" fill="none" stroke="#ffe07d" stroke-width="4" stroke-dasharray="6 5" opacity="0.75"/>
+    ${html}
+  `;
+}
+
+// --- 9. ПІДВІСНА ЛЮСТРА-БАЛАНСИР (SOLVEME MOBILE — СУПЕРФІНАЛ!) ---
+function renderMobileBoard(lvl) {
+  boardSvg.innerHTML = `
+    ${sharedDefs()}
+    <rect x="60" y="16" width="840" height="528" rx="28" fill="url(#woodFrame)" stroke="#4a2409" stroke-width="4"/>
+    <rect x="78" y="32" width="804" height="496" rx="20" fill="url(#slateGrad)"/>
+
+    <!-- Верхній гак і медальйон загальної ваги (32) -->
+    <line x1="480" y1="32" x2="480" y2="128" stroke="#f2c97d" stroke-width="6"/>
+    <circle cx="480" cy="84" r="38" fill="url(#brassBeam)" stroke="#5c3607" stroke-width="4"/>
+    <text x="480" y="96" text-anchor="middle" font-size="36" font-weight="bold" fill="#3b1f04">${lvl.total}</text>
+
+    <!-- Головна поперечина -->
+    <rect x="210" y="124" width="540" height="12" rx="6" fill="url(#brassBeam)" stroke="#5c3607" stroke-width="2.5"/>
+
+    <!-- ЛІВА ГІЛКА (вага 16 -> 2 Торти) -->
+    <line x1="255" y1="136" x2="255" y2="235" stroke="#f2c97d" stroke-width="4"/>
+    <rect x="165" y="232" width="180" height="10" rx="5" fill="url(#brassBeam)" stroke="#5c3607" stroke-width="2"/>
+    <line x1="200" y1="242" x2="200" y2="305" stroke="#f2c97d" stroke-width="3.5"/>
+    <line x1="310" y1="242" x2="310" y2="305" stroke="#f2c97d" stroke-width="3.5"/>
+    <g transform="translate(200, 325) scale(1.05)">${Art.cake()}</g>
+    <g transform="translate(310, 325) scale(1.05)">${Art.cake()}</g>
+
+    <!-- ПРАВА ГІЛКА (вага 16 -> ділиться навпіл по 8) -->
+    <line x1="680" y1="136" x2="680" y2="205" stroke="#f2c97d" stroke-width="4"/>
+    <rect x="530" y="202" width="300" height="10" rx="5" fill="url(#brassBeam)" stroke="#5c3607" stroke-width="2"/>
+
+    <!-- Права-ліва підгілка (вага 8 -> 2 Сири) -->
+    <line x1="565" y1="212" x2="565" y2="275" stroke="#f2c97d" stroke-width="3.5"/>
+    <g transform="translate(565, 305) scale(0.9)">${Art.cheese()}</g>
+    <line x1="565" y1="335" x2="565" y2="375" stroke="#f2c97d" stroke-width="3.5"/>
+    <g transform="translate(565, 398) scale(0.9)">${Art.cheese()}</g>
+
+    <!-- Права-права підгілка (вага 8 -> 1 Сир + 2 Яблука) -->
+    <line x1="795" y1="212" x2="795" y2="265" stroke="#f2c97d" stroke-width="3.5"/>
+    <g transform="translate(795, 290) scale(0.88)">${Art.cheese()}</g>
+    <line x1="795" y1="322" x2="795" y2="358" stroke="#f2c97d" stroke-width="3.5"/>
+    <rect x="740" y="355" width="110" height="8" rx="4" fill="url(#brassBeam)"/>
+    <line x1="755" y1="363" x2="755" y2="395" stroke="#f2c97d" stroke-width="3"/>
+    <line x1="835" y1="363" x2="835" y2="395" stroke="#f2c97d" stroke-width="3"/>
+    <g transform="translate(755, 412) scale(0.75)">${Art.apple()}</g>
+    <g transform="translate(835, 412) scale(0.75)">${Art.apple()}</g>
+
+    <!-- Медальйон питання внизу зліва: 1 Яблуко = ? -->
+    <g transform="translate(260, 456)">
+      <rect x="-125" y="-44" width="250" height="88" rx="20" fill="#4a3322" stroke="#f7cb68" stroke-width="3.5"/>
+      <g transform="translate(-66, 0) scale(0.88)">${Art.apple()}</g>
+      <rect x="-14" y="-9" width="28" height="5.5" rx="2.5" fill="#f7d58b"/>
+      <rect x="-14" y="4" width="28" height="5.5" rx="2.5" fill="#f7d58b"/>
+      <g id="mobile-target-content" transform="translate(68, 0)">
+        <text x="0" y="18" text-anchor="middle" font-size="52" font-weight="bold" fill="#ffe082">?</text>
+      </g>
+    </g>
+  `;
+}
+
+/* ============================================================================
+   7. РЕНДЕРИНГ 4 ВАРІАНТІВ ВІДПОВІДЕЙ НА ПІДСТАВКАХ
+   ============================================================================ */
+function renderOptions(lvl) {
+  optionsRow.innerHTML = '';
+  shuffle(lvl.options).forEach((opt) => {
+    const btn = document.createElement('button');
+    btn.className = 'option-coaster';
+    const gId = uid('cst');
+    const contentSvg = lvl.mode === 'scale'
+      ? `<g transform="translate(95, 84) scale(1.12)">${renderItemGroup(opt.items, 1)}</g>`
+      : `<g transform="translate(95, 84) scale(1.22)">${Art[opt.item.type](opt.item.props || {})}</g>`;
+
+    btn.innerHTML = `
+      <svg viewBox="0 0 190 170" width="100%" height="100%">
+        <defs>
+          <radialGradient id="${gId}" cx="35%" cy="28%" r="72%">
+            <stop offset="0%" stop-color="#f5d59c"/><stop offset="68%" stop-color="#c98842"/><stop offset="100%" stop-color="#874c1c"/>
+          </radialGradient>
+        </defs>
+        <rect x="8" y="10" width="174" height="150" rx="32" fill="url(#${gId})" stroke="#54290b" stroke-width="4"/>
+        <rect x="18" y="20" width="154" height="130" rx="24" fill="#402d22" stroke="#f2c97d" stroke-width="2.5"/>
+        <ellipse cx="95" cy="85" rx="64" ry="52" fill="#594132" opacity="0.55"/>
+        ${contentSvg}
+      </svg>
+    `;
+
+    btn.addEventListener('mouseenter', () => { if (!isLocked) SoundFX.hover(); });
+    btn.addEventListener('click', () => handleChoice(lvl, opt, btn));
+    optionsRow.appendChild(btn);
+  });
+}
+
+/* ============================================================================
+   8. ОБРОБКА ВІДПОВІДЕЙ, ФІЗИКА ВАГІВ ТА ФІНАЛ
+   ============================================================================ */
+function handleChoice(lvl, opt, btn) {
+  if (isLocked) return;
+  isLocked = true;
+
+  // Візуальна підстановка обраного варіанту на дошку
+  if (lvl.mode === 'scale') {
+    document.getElementById('pan-right-content').innerHTML = renderItemGroup(opt.items, 1.0);
+    const angle = opt.weight < lvl.targetWeight ? -13 : opt.weight > lvl.targetWeight ? 13 : 0;
+    document.getElementById('scale-beam').style.transform = `rotate(${angle}deg)`;
+    document.getElementById('scale-pointer').style.transform = `rotate(${angle}deg)`;
+    document.getElementById('pan-left').style.transform = `rotate(${-angle}deg)`;
+    document.getElementById('pan-right').style.transform = `rotate(${-angle}deg)`;
+  } else if (lvl.mode === 'matrix' || lvl.mode === 'magicSquare' || lvl.mode === 'mirror') {
+    const sc = lvl.mode === 'mirror' ? 2.6 : lvl.mode === 'magicSquare' ? 1.45 : 1.24;
+    const slot = document.getElementById('matrix-target-content');
+    if (slot) slot.innerHTML = `<g transform="scale(${sc})">${Art[opt.item.type](opt.item.props || {})}</g>`;
+  } else if (lvl.mode === 'pyramid') {
+    const slot = document.getElementById('pyramid-target');
+    if (slot) slot.innerHTML = Art.numJar({ val: opt.item.props.val, isQ: false });
+  } else if (lvl.mode === 'mobile') {
+    const slot = document.getElementById('mobile-target-content');
+    if (slot) slot.innerHTML = `<g transform="scale(0.9)">${Art.weight(opt.item.props)}</g>`;
+  }
+
+  if (opt.correct) {
+    btn.classList.add('pop-win');
+    SoundFX.win();
+    Raccoon.setMood('happy', 1450);
+    FX.burstStars(920, 380, 32);
+
+    setTimeout(() => {
+      if (currentLevel === LEVELS.length - 1) showFinale();
+      else loadLevel(currentLevel + 1);
+    }, 1500);
+  } else {
+    btn.classList.add('shake');
+    SoundFX.wrong();
+    Raccoon.setMood('shock', 1000);
+    FX.flourPuff(240, 550);
+
+    setTimeout(() => {
+      btn.classList.remove('shake');
+      if (lvl.mode === 'scale') {
+        document.getElementById('pan-right-content').innerHTML = `
+          <circle cx="0" cy="0" r="44" fill="url(#goldGlow)"/>
+          <circle cx="0" cy="0" r="34" fill="none" stroke="#ffe494" stroke-width="3.5" stroke-dasharray="8 6"/>
+          <text x="0" y="15" text-anchor="middle" font-size="44" font-weight="bold" fill="#ffe494">?</text>
+        `;
+        document.getElementById('scale-beam').style.transform = 'rotate(-11deg)';
+        document.getElementById('scale-pointer').style.transform = 'rotate(-11deg)';
+        document.getElementById('pan-left').style.transform = 'rotate(11deg)';
+        document.getElementById('pan-right').style.transform = 'rotate(11deg)';
+      } else if (lvl.mode === 'matrix' || lvl.mode === 'magicSquare' || lvl.mode === 'mirror') {
+        const slot = document.getElementById('matrix-target-content');
+        if (slot) slot.innerHTML = `<text x="0" y="${lvl.mode==='mirror'?34:22}" text-anchor="middle" font-size="${lvl.mode==='mirror'?96:62}" font-weight="bold" fill="#ffe082">?</text>`;
+      } else if (lvl.mode === 'pyramid') {
+        const slot = document.getElementById('pyramid-target');
+        if (slot) slot.innerHTML = Art.numJar({ isQ: true });
+      } else if (lvl.mode === 'mobile') {
+        const slot = document.getElementById('mobile-target-content');
+        if (slot) slot.innerHTML = `<text x="0" y="18" text-anchor="middle" font-size="52" font-weight="bold" fill="#ffe082">?</text>`;
+      }
+      isLocked = false;
+    }, 950);
+  }
+}
+
+function showFinale() {
+  isLocked = false;
+  SoundFX.finale();
+  Raccoon.setMood('happy', 3500);
+  FX.burstStars(800, 320, 48);
+  setTimeout(() => FX.burstStars(520, 400, 32), 350);
+  setTimeout(() => FX.burstStars(1120, 380, 32), 650);
+
+  boardSvg.innerHTML = `
+    ${sharedDefs()}
+    <g transform="translate(480, 285)" style="cursor:pointer" id="finale-trophy">
+      <circle cx="0" cy="0" r="215" fill="url(#goldGlow)"/>
+      <!-- Золотий кубок шефа-переможця -->
+      <path d="M-85 -110 C-145 -110, -145 -10, -75 10" fill="none" stroke="url(#brassBeam)" stroke-width="18" stroke-linecap="round"/>
+      <path d="M85 -110 C145 -110, 145 -10, 75 10" fill="none" stroke="url(#brassBeam)" stroke-width="18" stroke-linecap="round"/>
+      <path d="M-95 -135 L95 -135 L72 30 Q0 85 -72 30 Z" fill="url(#brassBeam)" stroke="#5c3607" stroke-width="4.5"/>
+      <rect x="-24" y="55" width="48" height="75" fill="url(#brassBeam)" stroke="#5c3607" stroke-width="4"/>
+      <rect x="-85" y="125" width="170" height="32" rx="10" fill="#6b3412" stroke="#3b1905" stroke-width="4"/>
+      <polygon points="0,-96 16,-56 58,-52 26,-24 36,18 0,-4 -36,18 -26,-24 -58,-52 -16,-56" fill="#fff4b8" stroke="#99610e" stroke-width="3"/>
+    </g>
+  `;
+  optionsRow.innerHTML = '';
+  document.getElementById('finale-trophy').addEventListener('click', () => {
+    SoundFX.nav();
+    loadLevel(0);
+  });
+}
+
+function loadLevel(index) {
+  currentLevel = (index + LEVELS.length) % LEVELS.length;
+  isLocked = false;
+  const lvl = LEVELS[currentLevel];
+
+  if (lvl.mode === 'scale') renderScaleBoard(lvl);
+  else if (lvl.mode === 'iso3d') renderIso3DBoard(lvl);
+  else if (lvl.mode === 'gears') renderGearsBoard(lvl);
+  else if (lvl.mode === 'matrix') renderMatrixBoard(lvl);
+  else if (lvl.mode === 'gridPath') renderGridPathBoard(lvl);
+  else if (lvl.mode === 'magicSquare') renderMagicSquareBoard(lvl);
+  else if (lvl.mode === 'mirror') renderMirrorBoard(lvl);
+  else if (lvl.mode === 'pyramid') renderPyramidBoard(lvl);
+  else if (lvl.mode === 'mobile') renderMobileBoard(lvl);
+
+  renderOptions(lvl);
+}
+
+/* ============================================================================
+   9. НАВІГАЦІЯ (КНОПКИ НАЗАД / ДАЛІ ТА КЛАВІАТУРА)
+   ============================================================================ */
+document.getElementById('btn-prev').addEventListener('click', () => { SoundFX.nav(); loadLevel(currentLevel - 1); });
+document.getElementById('btn-next').addEventListener('click', () => { SoundFX.nav(); loadLevel(currentLevel + 1); });
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowLeft') { SoundFX.nav(); loadLevel(currentLevel - 1); }
+  if (e.key === 'ArrowRight') { SoundFX.nav(); loadLevel(currentLevel + 1); }
+});
+
+loadLevel(0);
+</script>
+</body>
+</html>
