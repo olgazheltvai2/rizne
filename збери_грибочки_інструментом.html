@@ -1,0 +1,2799 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>✦</title>
+  <style>
+    /* =====================================================================
+       RESET & FULL-VIEWPORT WIDESCREEN STAGE (NO SCROLLING, NO TEXT)
+       ===================================================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #142a1b;
+      touch-action: manipulation;
+    }
+
+    #stage {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: radial-gradient(ellipse at 50% 30%, #2f5c37 0%, #193622 65%, #0e2014 100%);
+    }
+
+    /* Hide default cursor on desktop when custom tool cursor is active */
+    #stage.custom-cursor-active,
+    #stage.custom-cursor-active * {
+      cursor: none !important;
+    }
+
+    /* =====================================================================
+       LAYER 1: LIVING SCENIC FOREST BACKGROUND
+       ===================================================================== */
+    #bg-scene {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .sunbeam {
+      transform-origin: 50% 0%;
+      animation: sunbeamSway 11s ease-in-out infinite alternate;
+    }
+    .sunbeam-2 {
+      animation-duration: 14s;
+      animation-delay: -4s;
+    }
+    .sunbeam-3 {
+      animation-duration: 9.5s;
+      animation-delay: -7s;
+    }
+
+    @keyframes sunbeamSway {
+      0% { transform: skewX(-4deg) scaleX(0.95); opacity: 0.22; }
+      50% { opacity: 0.36; }
+      100% { transform: skewX(5deg) scaleX(1.06); opacity: 0.24; }
+    }
+
+    .bg-canopy-sway {
+      transform-origin: top center;
+      animation: gentleSway 7s ease-in-out infinite alternate;
+    }
+    .bg-fern-sway {
+      transform-origin: bottom center;
+      animation: fernSway 4.8s ease-in-out infinite alternate;
+    }
+    .bg-fern-sway-slow {
+      transform-origin: bottom center;
+      animation: fernSway 6.3s ease-in-out infinite alternate-reverse;
+    }
+
+    @keyframes gentleSway {
+      0% { transform: rotate(-1.2deg); }
+      100% { transform: rotate(1.4deg); }
+    }
+    @keyframes fernSway {
+      0% { transform: rotate(-2.8deg) skewX(-1deg); }
+      100% { transform: rotate(3.2deg) skewX(1.2deg); }
+    }
+
+    /* =====================================================================
+       LAYER 2: AMBIENT & PARTICLE CANVAS
+       ===================================================================== */
+    #fx-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 25;
+      pointer-events: none;
+    }
+
+    /* =====================================================================
+       LAYER 3: BUTTERFLIES & CELEBRATION HEDGEHOG
+       ===================================================================== */
+    #critters-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 18;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .butterfly {
+      position: absolute;
+      width: clamp(32px, 3.2vw, 52px);
+      height: clamp(32px, 3.2vw, 52px);
+      will-change: transform;
+      filter: drop-shadow(0 4px 6px rgba(10, 25, 12, 0.35));
+    }
+
+    .butterfly .wing-l {
+      transform-origin: 50% 50%;
+      animation: flapLeft 0.26s ease-in-out infinite alternate;
+    }
+    .butterfly .wing-r {
+      transform-origin: 50% 50%;
+      animation: flapRight 0.26s ease-in-out infinite alternate;
+    }
+    @keyframes flapLeft {
+      0% { transform: scaleX(1) rotate(0deg); }
+      100% { transform: scaleX(0.32) rotate(-14deg); }
+    }
+    @keyframes flapRight {
+      0% { transform: scaleX(1) rotate(0deg); }
+      100% { transform: scaleX(0.32) rotate(14deg); }
+    }
+
+    /* Forest Hedgehog (peeks out on completion celebration) */
+    #hedgehog-wrap {
+      position: absolute;
+      right: clamp(14px, 3vw, 48px);
+      bottom: clamp(110px, 18vh, 175px);
+      width: clamp(110px, 11vw, 175px);
+      height: clamp(90px, 9vw, 145px);
+      z-index: 16;
+      pointer-events: none;
+      transform: translateY(130%) scale(0.75) rotate(8deg);
+      opacity: 0;
+      transition: transform 0.65s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s ease;
+      filter: drop-shadow(0 10px 14px rgba(10, 22, 10, 0.45));
+    }
+    #hedgehog-wrap.celebrate {
+      transform: translateY(0%) scale(1) rotate(0deg);
+      opacity: 1;
+    }
+    #hedgehog-wrap.celebrate svg {
+      animation: hedgehogWiggle 0.52s ease-in-out infinite alternate;
+    }
+    @keyframes hedgehogWiggle {
+      0% { transform: rotate(-4deg) translateY(0px); }
+      100% { transform: rotate(5deg) translateY(-6px); }
+    }
+
+    /* =====================================================================
+       LAYER 4: MAIN PLAYFIELD (GLADE + 28 MUSHROOMS + WICKER BASKET)
+       ===================================================================== */
+    #playfield {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) clamp(150px, 19vw, 285px);
+      grid-template-rows: 1fr clamp(102px, 15.5vh, 144px);
+      padding: clamp(12px, 2vh, 24px) clamp(14px, 2.2vw, 34px) clamp(8px, 1.2vh, 16px);
+      gap: clamp(6px, 1.2vw, 18px);
+    }
+
+    /* Glade container holding trail SVG + 4x7 mushroom grid */
+    #glade-area {
+      grid-column: 1 / 2;
+      grid-row: 1 / 2;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+      min-height: 0;
+      padding: clamp(6px, 1.2vh, 18px) clamp(8px, 1.8vw, 28px);
+    }
+
+    /* Organic mossy clearing rug (NO rectangles!) */
+    #glade-moss-floor {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      max-width: 1180px;
+      max-height: 760px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #trail-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      overflow: visible;
+    }
+
+    #mushroom-grid {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      grid-template-rows: repeat(4, 1fr);
+      gap: clamp(4px, 0.9vmin, 14px) clamp(4px, 1.1vw, 18px);
+      align-items: center;
+      justify-items: center;
+      transition: opacity 0.35s ease, transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    #mushroom-grid.board-swap-out {
+      opacity: 0;
+      transform: scale(0.92) translateY(14px);
+    }
+    #mushroom-grid.board-swap-in {
+      animation: boardPopIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    @keyframes boardPopIn {
+      0% { opacity: 0; transform: scale(0.94) translateY(-10px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    /* Individual Mushroom Slot */
+    .m-slot {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      max-width: 132px;
+      max-height: 146px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 6%;
+      border-radius: 50%;
+      transition: transform 0.2s ease;
+    }
+
+    .m-slot.active {
+      z-index: 6;
+    }
+
+    /* Soft mossy ground pad beneath each mushroom */
+    .m-ground-pad {
+      position: absolute;
+      bottom: 4%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 78%;
+      height: 24%;
+      border-radius: 50%;
+      background: radial-gradient(ellipse at center, rgba(20, 44, 21, 0.55) 0%, rgba(36, 70, 32, 0.28) 60%, transparent 100%);
+      pointer-events: none;
+      transition: all 0.35s ease;
+    }
+
+    /* Active Mushroom Golden Spotlight & Halo */
+    .m-spotlight {
+      position: absolute;
+      inset: -14% -10% -8% -10%;
+      pointer-events: none;
+      opacity: 0;
+      transform: scale(0.75);
+      transition: opacity 0.35s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .m-slot.active .m-spotlight {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .m-spotlight-beam {
+      position: absolute;
+      top: -55%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 96%;
+      height: 155%;
+      background: radial-gradient(ellipse at 50% 78%, rgba(255, 240, 148, 0.42) 0%, rgba(255, 224, 110, 0.16) 48%, transparent 76%);
+      filter: blur(4px);
+      animation: spotlightPulse 2.2s ease-in-out infinite alternate;
+    }
+
+    .m-spotlight-ring {
+      position: absolute;
+      bottom: 5%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      height: 32%;
+      border-radius: 50%;
+      border: 2.5px solid rgba(255, 236, 130, 0.85);
+      box-shadow: 0 0 18px rgba(255, 226, 98, 0.75), inset 0 0 12px rgba(255, 242, 165, 0.55);
+      animation: ringBreathe 1.8s ease-in-out infinite alternate;
+    }
+
+    /* Orbiting fireflies around active mushroom */
+    .m-firefly {
+      position: absolute;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #fffde0 0%, #ffe066 55%, transparent 100%);
+      box-shadow: 0 0 10px 3px rgba(255, 234, 110, 0.85);
+      pointer-events: none;
+    }
+    .m-firefly.f1 {
+      top: 14%;
+      left: 14%;
+      animation: fireflyOrbit1 3.1s ease-in-out infinite;
+    }
+    .m-firefly.f2 {
+      top: 28%;
+      right: 10%;
+      width: 6px;
+      height: 6px;
+      animation: fireflyOrbit2 2.7s ease-in-out infinite;
+    }
+    .m-firefly.f3 {
+      bottom: 24%;
+      left: 20%;
+      width: 5px;
+      height: 5px;
+      animation: fireflyOrbit3 3.6s ease-in-out infinite;
+    }
+
+    @keyframes spotlightPulse {
+      0% { opacity: 0.72; transform: translateX(-50%) scale(0.96); }
+      100% { opacity: 1; transform: translateX(-50%) scale(1.06); }
+    }
+    @keyframes ringBreathe {
+      0% { transform: translateX(-50%) scale(0.93); opacity: 0.75; }
+      100% { transform: translateX(-50%) scale(1.06); opacity: 1; }
+    }
+    @keyframes fireflyOrbit1 {
+      0%, 100% { transform: translate(0, 0) scale(0.9); opacity: 0.9; }
+      35% { transform: translate(22px, -12px) scale(1.25); opacity: 1; }
+      70% { transform: translate(8px, 14px) scale(0.75); opacity: 0.55; }
+    }
+    @keyframes fireflyOrbit2 {
+      0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.85; }
+      45% { transform: translate(-24px, -10px) scale(0.75); opacity: 0.55; }
+      80% { transform: translate(-10px, 16px) scale(1.25); opacity: 1; }
+    }
+    @keyframes fireflyOrbit3 {
+      0%, 100% { transform: translate(0, 0) scale(0.8); opacity: 0.6; }
+      50% { transform: translate(28px, -22px) scale(1.2); opacity: 1; }
+    }
+
+    /* Extra pulse when user clicks a wrong mushroom */
+    .m-slot.attention-pulse .m-spotlight-ring {
+      animation: attentionRing 0.45s ease-out 2;
+    }
+    @keyframes attentionRing {
+      0% { transform: translateX(-50%) scale(0.9); box-shadow: 0 0 18px rgba(255, 236, 130, 0.9); }
+      50% { transform: translateX(-50%) scale(1.28); box-shadow: 0 0 34px rgba(255, 245, 160, 1); }
+      100% { transform: translateX(-50%) scale(1); box-shadow: 0 0 18px rgba(255, 236, 130, 0.9); }
+    }
+
+    /* Mushroom visual wrapper */
+    .m-visual {
+      position: relative;
+      width: 86%;
+      height: 86%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      transform-origin: bottom center;
+      filter: drop-shadow(0 6px 6px rgba(10, 24, 12, 0.42));
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.25s ease;
+    }
+
+    .m-visual svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    /* Active mushroom gentle bobbing */
+    .m-slot.active .m-visual {
+      animation: activeBob 1.75s ease-in-out infinite;
+      filter: drop-shadow(0 8px 12px rgba(255, 224, 96, 0.42)) drop-shadow(0 6px 6px rgba(10, 24, 12, 0.45));
+    }
+    .m-slot.active:hover .m-visual {
+      transform: scale(1.08);
+    }
+
+    /* Future (not yet active) mushrooms sit softly in the moss */
+    .m-slot.locked .m-visual {
+      opacity: 0.92;
+      filter: drop-shadow(0 5px 5px rgba(10, 24, 12, 0.42)) saturate(0.9);
+    }
+
+    /* Collected mushroom stump */
+    .m-slot.collected .m-visual {
+      animation: none;
+      filter: drop-shadow(0 3px 3px rgba(10, 24, 12, 0.3));
+      opacity: 0.9;
+    }
+
+    @keyframes activeBob {
+      0%, 100% { transform: translateY(0) scale(1.04, 1.04); }
+      50% { transform: translateY(-6px) scale(1.07, 1.09); }
+    }
+
+    /* Non-active click gentle shake */
+    .m-slot.shake-nope .m-visual {
+      animation: shakeNope 0.38s ease-in-out !important;
+    }
+    @keyframes shakeNope {
+      0%, 100% { transform: translateX(0) rotate(0deg); }
+      20% { transform: translateX(-5px) rotate(-5deg); }
+      45% { transform: translateX(5px) rotate(5deg); }
+      70% { transform: translateX(-3px) rotate(-3deg); }
+      88% { transform: translateX(2px) rotate(2deg); }
+    }
+
+    /* Wrong-tool comical rubbery wobble */
+    .m-slot.wobble-reject .m-visual {
+      animation: wobbleReject 0.56s cubic-bezier(0.36, 0.07, 0.19, 0.97) !important;
+    }
+    @keyframes wobbleReject {
+      0% { transform: scale(1, 1) rotate(0deg); }
+      18% { transform: scale(1.18, 0.82) rotate(-8deg); }
+      38% { transform: scale(0.88, 1.16) rotate(9deg); }
+      58% { transform: scale(1.09, 0.92) rotate(-6deg); }
+      78% { transform: scale(0.96, 1.04) rotate(3deg); }
+      100% { transform: scale(1.04, 1.04) rotate(0deg); }
+    }
+
+    /* =====================================================================
+       WOVEN WICKER BASKET AREA (RIGHT SIDE)
+       ===================================================================== */
+    #basket-area {
+      grid-column: 2 / 3;
+      grid-row: 1 / 2;
+      position: relative;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: clamp(12px, 3vh, 36px);
+      pointer-events: none;
+    }
+
+    #basket-wrap {
+      position: relative;
+      width: clamp(142px, 16.5vw, 248px);
+      height: clamp(150px, 18vw, 260px);
+      transform-origin: bottom center;
+      filter: drop-shadow(0 14px 16px rgba(8, 20, 10, 0.5));
+    }
+
+    #basket-wrap.bounce {
+      animation: basketBounce 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes basketBounce {
+      0% { transform: scale(1, 1); }
+      28% { transform: scale(1.12, 0.88); }
+      60% { transform: scale(0.95, 1.07); }
+      100% { transform: scale(1, 1); }
+    }
+
+    #basket-svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    /* =====================================================================
+       LAYER 5: CARVED MOSSY WOODEN TOOL DOCK (BOTTOM)
+       ===================================================================== */
+    #dock-area {
+      grid-column: 1 / 3;
+      grid-row: 2 / 3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      z-index: 20;
+    }
+
+    #tool-dock {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(10px, 2vw, 28px);
+      padding: clamp(8px, 1.2vh, 14px) clamp(20px, 3.2vw, 46px);
+      /* Carved mossy wooden log plank look - ZERO white rectangles */
+      background:
+        radial-gradient(ellipse at 50% 0%, rgba(255, 225, 160, 0.16), transparent 68%),
+        repeating-linear-gradient(
+          92deg,
+          rgba(42, 24, 11, 0.14) 0px,
+          rgba(42, 24, 11, 0.14) 3px,
+          transparent 3px,
+          transparent 14px
+        ),
+        linear-gradient(180deg, #6e4727 0%, #4e3018 52%, #351f0e 100%);
+      border-radius: 999px 999px 42px 42px / 48px 48px 26px 26px;
+      border: 3px solid #2b180a;
+      box-shadow:
+        inset 0 3px 6px rgba(246, 204, 142, 0.28),
+        inset 0 -5px 10px rgba(18, 9, 3, 0.65),
+        0 12px 24px rgba(5, 14, 7, 0.62),
+        0 0 0 3px rgba(74, 118, 52, 0.35);
+    }
+
+    /* Decorative moss tufts & leaves attached to the wooden plank */
+    .dock-moss-deco {
+      position: absolute;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .dock-moss-left {
+      left: -14px;
+      bottom: -6px;
+      width: 58px;
+      height: 44px;
+    }
+    .dock-moss-right {
+      right: -14px;
+      bottom: -6px;
+      width: 58px;
+      height: 44px;
+      transform: scaleX(-1);
+    }
+
+    /* Individual Tool Medallion (Carved wood & leaf crest) */
+    .tool-btn {
+      position: relative;
+      width: clamp(68px, 7.2vw, 98px);
+      height: clamp(68px, 7.2vw, 98px);
+      border: none;
+      background: transparent;
+      padding: 0;
+      outline: none;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.26s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.25s ease;
+    }
+
+    .tool-medallion-bg {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 35% 28%, #8f6239 0%, #5e3b1f 58%, #3c2310 100%);
+      border: 3px solid #2e1a0b;
+      box-shadow:
+        inset 0 3px 6px rgba(255, 224, 168, 0.28),
+        inset 0 -4px 8px rgba(18, 8, 2, 0.6),
+        0 6px 12px rgba(7, 16, 8, 0.5);
+      transition: all 0.26s ease;
+    }
+
+    /* Carved inner wood ring */
+    .tool-medallion-bg::after {
+      content: "";
+      position: absolute;
+      inset: 5px;
+      border-radius: 50%;
+      border: 1.5px dashed rgba(224, 184, 124, 0.34);
+    }
+
+    .tool-icon-svg {
+      position: relative;
+      z-index: 2;
+      width: 78%;
+      height: 78%;
+      filter: drop-shadow(0 4px 4px rgba(14, 8, 3, 0.5));
+      transition: transform 0.26s cubic-bezier(0.34, 1.56, 0.64, 1);
+      pointer-events: none;
+    }
+
+    /* Embedded mini mushroom pairing badge on medallion corner */
+    .tool-pair-badge {
+      position: absolute;
+      right: -6px;
+      bottom: -4px;
+      z-index: 4;
+      width: clamp(30px, 3.2vw, 42px);
+      height: clamp(30px, 3.2vw, 42px);
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #4b7d39 0%, #2b5222 72%, #1d3917 100%);
+      border: 2.5px solid #c99d55;
+      box-shadow: 0 3px 7px rgba(8, 18, 8, 0.55), inset 0 2px 4px rgba(185, 238, 130, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      pointer-events: none;
+      transition: transform 0.25s ease;
+    }
+
+    .tool-pair-badge svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+    }
+
+    .tool-btn:hover {
+      transform: translateY(-5px) scale(1.05);
+    }
+
+    /* Active selected tool state */
+    .tool-btn.selected {
+      transform: translateY(-13px) scale(1.13);
+      z-index: 6;
+    }
+
+    .tool-btn.selected .tool-medallion-bg {
+      background: radial-gradient(circle at 35% 28%, #c78d43 0%, #86521f 62%, #522e0e 100%);
+      border-color: #ffe37d;
+      box-shadow:
+        0 0 22px 4px rgba(255, 224, 102, 0.65),
+        inset 0 3px 8px rgba(255, 245, 194, 0.5),
+        0 12px 18px rgba(7, 16, 8, 0.55);
+    }
+
+    .tool-btn.selected .tool-icon-svg {
+      transform: rotate(-8deg) scale(1.08);
+    }
+
+    .tool-btn.selected .tool-pair-badge {
+      transform: scale(1.12);
+      border-color: #fff0a6;
+      box-shadow: 0 0 12px rgba(255, 232, 120, 0.8), 0 3px 6px rgba(0, 0, 0, 0.45);
+    }
+
+    /* Gentle guidance hint pulse when wrong tool is used */
+    .tool-btn.hint-pulse {
+      animation: toolHintPulse 0.65s ease-in-out 2;
+    }
+    @keyframes toolHintPulse {
+      0%, 100% { transform: translateY(0) scale(1); filter: drop-shadow(0 0 0 transparent); }
+      50% { transform: translateY(-12px) scale(1.16); filter: drop-shadow(0 0 18px rgba(255, 235, 118, 0.95)); }
+    }
+
+    /* =====================================================================
+       TOP-RIGHT MINIMALIST WOOD & LEAF ICON BUTTONS (SOUND + NEXT)
+       ===================================================================== */
+    #top-controls {
+      position: absolute;
+      top: clamp(12px, 2vh, 22px);
+      right: clamp(14px, 2vw, 28px);
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      gap: clamp(8px, 1.1vw, 14px);
+    }
+
+    .wood-circle-btn {
+      position: relative;
+      width: clamp(44px, 4.4vw, 56px);
+      height: clamp(44px, 4.4vw, 56px);
+      border-radius: 50%;
+      border: 2.5px solid #2b180a;
+      background: radial-gradient(circle at 32% 28%, #8b5f35 0%, #5a381c 62%, #3a220f 100%);
+      box-shadow:
+        inset 0 2px 5px rgba(255, 224, 164, 0.35),
+        inset 0 -3px 6px rgba(18, 8, 2, 0.58),
+        0 6px 14px rgba(5, 15, 7, 0.52),
+        0 0 0 2.5px rgba(84, 134, 58, 0.48);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      outline: none;
+      transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease;
+    }
+
+    .wood-circle-btn:hover {
+      transform: scale(1.1) translateY(-2px);
+      box-shadow:
+        inset 0 2px 6px rgba(255, 238, 190, 0.48),
+        0 0 16px rgba(255, 228, 115, 0.5),
+        0 8px 16px rgba(5, 15, 7, 0.55),
+        0 0 0 2.5px rgba(132, 194, 82, 0.72);
+    }
+
+    .wood-circle-btn:active {
+      transform: scale(0.93);
+    }
+
+    .wood-circle-btn svg {
+      width: 56%;
+      height: 56%;
+      filter: drop-shadow(0 2px 2px rgba(20, 10, 3, 0.55));
+      pointer-events: none;
+    }
+
+    .wood-circle-btn .leaf-accent {
+      position: absolute;
+      top: -6px;
+      right: -5px;
+      width: 22px;
+      height: 22px;
+      pointer-events: none;
+    }
+
+    /* =====================================================================
+       FOREGROUND SWAYING FERNS (CORNER FRAMING)
+       ===================================================================== */
+    #fg-foliage {
+      position: absolute;
+      inset: 0;
+      z-index: 22;
+      pointer-events: none;
+    }
+
+    /* =====================================================================
+       FLYING MUSHROOM, TOOL ACTION FX & CUSTOM INTERACTIVE CURSOR
+       ===================================================================== */
+    #action-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 35;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .flying-mushroom {
+      position: absolute;
+      width: clamp(58px, 6.5vw, 94px);
+      height: clamp(58px, 6.5vw, 94px);
+      transform-origin: center center;
+      filter: drop-shadow(0 10px 12px rgba(10, 22, 10, 0.45));
+      will-change: transform;
+    }
+
+    .tool-action-fx {
+      position: absolute;
+      width: clamp(74px, 7.6vw, 112px);
+      height: clamp(74px, 7.6vw, 112px);
+      transform-origin: center center;
+      filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.45));
+      pointer-events: none;
+    }
+
+    /* Tool-specific harvest & bounce animations */
+    .fx-knife-slice {
+      animation: knifeSlice 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    @keyframes knifeSlice {
+      0% { transform: translate(-50%, -50%) translate(34px, -24px) rotate(32deg) scale(1.1); opacity: 0.2; }
+      30% { opacity: 1; }
+      65% { transform: translate(-50%, -50%) translate(-26px, 24px) rotate(-42deg) scale(1.18); opacity: 1; }
+      100% { transform: translate(-50%, -50%) translate(-40px, 30px) rotate(-52deg) scale(0.95); opacity: 0; }
+    }
+
+    .fx-shears-snip {
+      animation: shearsSnip 0.42s ease-out forwards;
+    }
+    @keyframes shearsSnip {
+      0% { transform: translate(-50%, -50%) translate(26px, 10px) rotate(18deg) scale(1.12); opacity: 0.3; }
+      35% { transform: translate(-50%, -50%) translate(0px, 4px) rotate(-14deg) scale(1.22); opacity: 1; }
+      60% { transform: translate(-50%, -50%) translate(-6px, 0px) rotate(6deg) scale(1.06); opacity: 1; }
+      100% { transform: translate(-50%, -50%) translate(-14px, -8px) rotate(-8deg) scale(0.9); opacity: 0; }
+    }
+
+    .fx-tongs-pinch {
+      animation: tongsPinch 0.44s ease-out forwards;
+    }
+    @keyframes tongsPinch {
+      0% { transform: translate(-50%, -50%) translate(0px, -36px) rotate(-8deg) scale(1.15); opacity: 0.3; }
+      40% { transform: translate(-50%, -50%) translate(0px, 4px) rotate(0deg) scale(1.08); opacity: 1; }
+      75% { transform: translate(-50%, -50%) translate(0px, -24px) rotate(8deg) scale(1.16); opacity: 1; }
+      100% { transform: translate(-50%, -50%) translate(8px, -42px) rotate(14deg) scale(0.92); opacity: 0; }
+    }
+
+    .fx-trowel-scoop {
+      animation: trowelScoop 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    @keyframes trowelScoop {
+      0% { transform: translate(-50%, -50%) translate(32px, 16px) rotate(24deg) scale(1.08); opacity: 0.3; }
+      42% { transform: translate(-50%, -50%) translate(-4px, 28px) rotate(-18deg) scale(1.15); opacity: 1; }
+      75% { transform: translate(-50%, -50%) translate(-22px, -8px) rotate(-42deg) scale(1.15); opacity: 1; }
+      100% { transform: translate(-50%, -50%) translate(-28px, -24px) rotate(-52deg) scale(0.9); opacity: 0; }
+    }
+
+    .fx-rake-sweep {
+      animation: rakeSweep 0.45s ease-out forwards;
+    }
+    @keyframes rakeSweep {
+      0% { transform: translate(-50%, -50%) translate(34px, -14px) rotate(26deg) scale(1.1); opacity: 0.3; }
+      45% { transform: translate(-50%, -50%) translate(0px, 14px) rotate(-6deg) scale(1.16); opacity: 1; }
+      78% { transform: translate(-50%, -50%) translate(-30px, 2px) rotate(-32deg) scale(1.1); opacity: 1; }
+      100% { transform: translate(-50%, -50%) translate(-42px, -10px) rotate(-40deg) scale(0.9); opacity: 0; }
+    }
+
+    .fx-tool-bounce {
+      animation: toolBounceOff 0.48s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    @keyframes toolBounceOff {
+      0% { transform: translate(-50%, -50%) translate(14px, -8px) rotate(12deg) scale(1.08); opacity: 1; }
+      32% { transform: translate(-50%, -50%) translate(-2px, 4px) rotate(-16deg) scale(0.95); opacity: 1; }
+      68% { transform: translate(-50%, -50%) translate(28px, -32px) rotate(42deg) scale(1.12); opacity: 0.9; }
+      100% { transform: translate(-50%, -50%) translate(42px, -44px) rotate(68deg) scale(0.8); opacity: 0; }
+    }
+
+    /* Custom Interactive Tool Cursor (Desktop) */
+    #tool-cursor {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: clamp(58px, 5.2vw, 76px);
+      height: clamp(58px, 5.2vw, 76px);
+      z-index: 90;
+      pointer-events: none;
+      opacity: 0;
+      transform: translate(-100px, -100px);
+      will-change: transform;
+      filter: drop-shadow(0 8px 10px rgba(8, 18, 9, 0.5));
+      transition: opacity 0.16s ease;
+    }
+
+    #tool-cursor.visible {
+      opacity: 1;
+    }
+
+    #tool-cursor-inner {
+      width: 100%;
+      height: 100%;
+      transform-origin: 24% 24%;
+      transition: transform 0.12s ease-out;
+    }
+
+    #tool-cursor.clicking #tool-cursor-inner {
+      transform: rotate(-28deg) scale(0.92);
+    }
+
+    /* Responsive adjustments for smaller / portrait screens */
+    @media (max-width: 820px) {
+      #playfield {
+        grid-template-columns: 1fr clamp(95px, 18vw, 150px);
+        grid-template-rows: 1fr clamp(86px, 14vh, 118px);
+        padding: 10px 8px 8px;
+        gap: 4px;
+      }
+      #tool-dock {
+        gap: clamp(6px, 1.8vw, 16px);
+        padding: 8px 14px;
+      }
+      .tool-btn {
+        width: clamp(54px, 13vw, 74px);
+        height: clamp(54px, 13vw, 74px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <!-- ===================================================================
+         SHARED SVG PAINTERLY GRADIENTS & FILTERS
+         =================================================================== -->
+    <svg width="0" height="0" style="position:absolute;pointer-events:none;" aria-hidden="true">
+      <defs>
+        <!-- Forest Sky & Glade Gradients -->
+        <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#193d2d" />
+          <stop offset="32%" stop-color="#2c6344" />
+          <stop offset="68%" stop-color="#487c45" />
+          <stop offset="100%" stop-color="#1f4222" />
+        </linearGradient>
+
+        <radialGradient id="sunGlowGrad" cx="46%" cy="8%" r="65%">
+          <stop offset="0%" stop-color="#fff4b8" stop-opacity="0.72" />
+          <stop offset="28%" stop-color="#d8e989" stop-opacity="0.34" />
+          <stop offset="68%" stop-color="#5d9448" stop-opacity="0.1" />
+          <stop offset="100%" stop-color="#1a3822" stop-opacity="0" />
+        </radialGradient>
+
+        <linearGradient id="beamGrad" x1="0.5" y1="0" x2="0.5" y2="1">
+          <stop offset="0%" stop-color="#fff9c4" stop-opacity="0.52" />
+          <stop offset="55%" stop-color="#e9f29e" stop-opacity="0.16" />
+          <stop offset="100%" stop-color="#a8d16e" stop-opacity="0" />
+        </linearGradient>
+
+        <radialGradient id="gladeMeadowGrad" cx="46%" cy="54%" r="58%">
+          <stop offset="0%" stop-color="#6fa146" />
+          <stop offset="44%" stop-color="#4f8034" />
+          <stop offset="78%" stop-color="#315926" />
+          <stop offset="100%" stop-color="#1d3b1b" />
+        </radialGradient>
+
+        <linearGradient id="barkGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#26170d" />
+          <stop offset="35%" stop-color="#4a2e19" />
+          <stop offset="68%" stop-color="#603e22" />
+          <stop offset="100%" stop-color="#23140b" />
+        </linearGradient>
+
+        <linearGradient id="logGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#6c4527" />
+          <stop offset="48%" stop-color="#4a2d17" />
+          <stop offset="100%" stop-color="#29170b" />
+        </linearGradient>
+
+        <!-- Mushroom 1: Porcini (Білий гриб) -->
+        <radialGradient id="porciniCap" cx="38%" cy="28%" r="68%">
+          <stop offset="0%" stop-color="#c27a3d" />
+          <stop offset="45%" stop-color="#8b4d21" />
+          <stop offset="85%" stop-color="#582c10" />
+          <stop offset="100%" stop-color="#3f1e09" />
+        </radialGradient>
+        <linearGradient id="porciniStem" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#d8c3a2" />
+          <stop offset="36%" stop-color="#f7ecd7" />
+          <stop offset="74%" stop-color="#e3cfa9" />
+          <stop offset="100%" stop-color="#b59871" />
+        </linearGradient>
+
+        <!-- Mushroom 2: Chanterelle (Лисичка) -->
+        <radialGradient id="chantCap" cx="42%" cy="26%" r="72%">
+          <stop offset="0%" stop-color="#ffe066" />
+          <stop offset="45%" stop-color="#f59e1d" />
+          <stop offset="85%" stop-color="#cf6c0a" />
+          <stop offset="100%" stop-color="#9e4704" />
+        </radialGradient>
+        <linearGradient id="chantStem" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#d97b0c" />
+          <stop offset="42%" stop-color="#ffbe3b" />
+          <stop offset="80%" stop-color="#eb8c13" />
+          <stop offset="100%" stop-color="#b05606" />
+        </linearGradient>
+
+        <!-- Mushroom 3: Fly Agaric (Мухомор) -->
+        <radialGradient id="agaricCap" cx="36%" cy="26%" r="70%">
+          <stop offset="0%" stop-color="#ff5a47" />
+          <stop offset="44%" stop-color="#dc2626" />
+          <stop offset="86%" stop-color="#991212" />
+          <stop offset="100%" stop-color="#6b0a0a" />
+        </radialGradient>
+        <linearGradient id="agaricStem" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#d4d2c7" />
+          <stop offset="38%" stop-color="#ffffff" />
+          <stop offset="75%" stop-color="#eceae0" />
+          <stop offset="100%" stop-color="#bcb8aa" />
+        </linearGradient>
+
+        <!-- Mushroom 4: Violet Russula (Фіолетова сироїжка) -->
+        <radialGradient id="russulaCap" cx="44%" cy="24%" r="68%">
+          <stop offset="0%" stop-color="#d29bff" />
+          <stop offset="38%" stop-color="#8b42c9" />
+          <stop offset="78%" stop-color="#581d8f" />
+          <stop offset="100%" stop-color="#3a1063" />
+        </radialGradient>
+        <linearGradient id="soilGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#4d321f" />
+          <stop offset="100%" stop-color="#24150c" />
+        </linearGradient>
+
+        <!-- Mushroom 5: Turquoise Stropharia (Смарагдовий лісовий гриб) -->
+        <radialGradient id="tealCap" cx="38%" cy="28%" r="72%">
+          <stop offset="0%" stop-color="#7bf5df" />
+          <stop offset="42%" stop-color="#1db89e" />
+          <stop offset="82%" stop-color="#0c786a" />
+          <stop offset="100%" stop-color="#074d45" />
+        </radialGradient>
+        <linearGradient id="tealStem" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#8fd9cb" />
+          <stop offset="44%" stop-color="#e3fcf6" />
+          <stop offset="82%" stop-color="#b4e8dd" />
+          <stop offset="100%" stop-color="#6fb5a8" />
+        </linearGradient>
+
+        <!-- Tool Metals & Woods -->
+        <linearGradient id="steelBlade" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#f5f9fc" />
+          <stop offset="38%" stop-color="#cfdbe3" />
+          <stop offset="72%" stop-color="#8c9ba6" />
+          <stop offset="100%" stop-color="#596670" />
+        </linearGradient>
+        <linearGradient id="oakHandle" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#c98847" />
+          <stop offset="50%" stop-color="#8c5323" />
+          <stop offset="100%" stop-color="#522c0e" />
+        </linearGradient>
+        <linearGradient id="greenHandle" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#68b849" />
+          <stop offset="55%" stop-color="#3a7d28" />
+          <stop offset="100%" stop-color="#204c16" />
+        </linearGradient>
+        <linearGradient id="redGrip" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#f05646" />
+          <stop offset="55%" stop-color="#bd2419" />
+          <stop offset="100%" stop-color="#78100a" />
+        </linearGradient>
+        <linearGradient id="terraHandle" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#e08052" />
+          <stop offset="55%" stop-color="#ad4d26" />
+          <stop offset="100%" stop-color="#6e2c11" />
+        </linearGradient>
+        <linearGradient id="birchHandle" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#f2dec0" />
+          <stop offset="55%" stop-color="#d4b487" />
+          <stop offset="100%" stop-color="#9e7d52" />
+        </linearGradient>
+        <linearGradient id="brassMetal" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#fae08c" />
+          <stop offset="48%" stop-color="#c49538" />
+          <stop offset="100%" stop-color="#755215" />
+        </linearGradient>
+        <linearGradient id="wickerGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#d9a156" />
+          <stop offset="48%" stop-color="#ad7231" />
+          <stop offset="100%" stop-color="#6e4216" />
+        </linearGradient>
+        <linearGradient id="wickerDark" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#7a4c1d" />
+          <stop offset="100%" stop-color="#3e230a" />
+        </linearGradient>
+      </defs>
+    </svg>
+
+    <!-- ===================================================================
+         LAYER 1: PAINTERLY LIVING FOREST BACKGROUND
+         =================================================================== -->
+    <svg id="bg-scene" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <!-- Deep sunlit forest backdrop -->
+      <rect width="1920" height="1080" fill="url(#skyGrad)" />
+      <rect width="1920" height="1080" fill="url(#sunGlowGrad)" />
+
+      <!-- Distant misty woodland silhouettes -->
+      <g opacity="0.34" fill="#173828">
+        <rect x="85" y="0" width="52" height="580" />
+        <rect x="260" y="0" width="38" height="540" />
+        <rect x="460" y="0" width="64" height="520" />
+        <rect x="690" y="0" width="40" height="500" />
+        <rect x="930" y="0" width="54" height="490" />
+        <rect x="1180" y="0" width="44" height="510" />
+        <rect x="1410" y="0" width="68" height="540" />
+        <rect x="1650" y="0" width="46" height="570" />
+        <rect x="1810" y="0" width="62" height="590" />
+        <ellipse cx="220" cy="430" rx="260" ry="110" />
+        <ellipse cx="640" cy="410" rx="300" ry="120" />
+        <ellipse cx="1140" cy="415" rx="330" ry="115" />
+        <ellipse cx="1640" cy="435" rx="310" ry="125" />
+      </g>
+
+      <!-- Mid-ground painted tree trunks -->
+      <g>
+        <path d="M-20,0 L125,0 L155,740 L-20,760 Z" fill="url(#barkGrad)" />
+        <path d="M125,210 Q235,140 315,70 L328,96 Q242,174 135,258 Z" fill="#3c2514" />
+        <path d="M1770,0 L1940,0 L1940,770 L1745,750 Z" fill="url(#barkGrad)" />
+        <path d="M1765,190 Q1650,125 1585,60 L1568,85 Q1638,155 1760,235 Z" fill="#3c2514" />
+        <!-- Mid-left sunlit birch/oak -->
+        <path d="M290,0 L355,0 L372,490 L272,490 Z" fill="#2e4b32" opacity="0.65" />
+        <path d="M1505,0 L1575,0 L1595,500 L1490,500 Z" fill="#2b472f" opacity="0.65" />
+      </g>
+
+      <!-- Volumetric animated sunbeams -->
+      <g style="mix-blend-mode: screen;">
+        <polygon class="sunbeam" points="560,-20 820,-20 1120,980 650,980" fill="url(#beamGrad)" />
+        <polygon class="sunbeam sunbeam-2" points="860,-20 1090,-20 1440,980 1050,980" fill="url(#beamGrad)" />
+        <polygon class="sunbeam sunbeam-3" points="280,-20 460,-20 710,940 390,940" fill="url(#beamGrad)" />
+      </g>
+
+      <!-- Lush mossy hills & central forest glade -->
+      <path d="M-40,460 Q440,360 960,405 Q1480,355 1960,465 L1960,1120 L-40,1120 Z" fill="#284c24" />
+      <ellipse cx="890" cy="610" rx="1020" ry="370" fill="url(#gladeMeadowGrad)" />
+
+      <!-- Soft dappled sunlight patches on the mossy glade -->
+      <g opacity="0.22" fill="#e9f58f">
+        <ellipse cx="520" cy="480" rx="180" ry="62" />
+        <ellipse cx="940" cy="540" rx="240" ry="74" />
+        <ellipse cx="700" cy="700" rx="210" ry="65" />
+        <ellipse cx="1220" cy="630" rx="190" ry="58" />
+      </g>
+
+      <!-- Mossy fallen log along upper-left glade edge -->
+      <g transform="translate(80, 315)">
+        <ellipse cx="220" cy="78" rx="215" ry="26" fill="#122813" opacity="0.52" />
+        <path d="M22,42 Q180,14 410,36 Q424,52 414,74 Q185,58 18,76 Q5,58 22,42 Z" fill="url(#logGrad)" />
+        <ellipse cx="20" cy="59" rx="15" ry="18" fill="#8b623c" stroke="#361f0e" stroke-width="3" />
+        <ellipse cx="20" cy="59" rx="8" ry="10" fill="none" stroke="#5c3a1d" stroke-width="2" />
+        <!-- Velvety moss draping over the log -->
+        <path d="M72,34 Q120,16 172,30 Q218,18 268,31 Q290,48 258,52 Q212,42 162,50 Q105,40 72,34 Z" fill="#5e9c38" />
+        <path d="M90,34 Q130,22 168,33 Q205,24 246,35" fill="none" stroke="#9be060" stroke-width="4" stroke-linecap="round" opacity="0.65" />
+        <!-- Tiny decorative forest sprouts on log -->
+        <circle cx="315" cy="34" r="5" fill="#90cf55" />
+        <circle cx="328" cy="30" r="6" fill="#6fb33b" />
+        <circle cx="340" cy="35" r="4" fill="#a8e06c" />
+      </g>
+
+      <!-- Mossy bush on the right behind basket (where hedgehog peeks out) -->
+      <g transform="translate(1520, 440)">
+        <ellipse cx="185" cy="175" rx="185" ry="52" fill="#132914" opacity="0.5" />
+        <path d="M15,165 C10,95 65,48 135,55 C175,18 255,22 292,68 C345,75 375,120 355,170 Z" fill="#234f24" />
+        <path d="M40,162 C48,108 98,74 156,82 C194,54 256,58 286,98 C320,104 340,135 326,165 Z" fill="#356f2e" />
+        <!-- Tiny wild forest berries on the bush -->
+        <circle cx="118" cy="108" r="5.5" fill="#e0483e" />
+        <circle cx="130" cy="116" r="4.5" fill="#c73228" />
+        <circle cx="248" cy="96" r="5.5" fill="#e0483e" />
+        <circle cx="262" cy="104" r="4.5" fill="#ff7066" />
+      </g>
+
+      <!-- Upper canopy leaves gently swaying -->
+      <g class="bg-canopy-sway">
+        <path d="M-40,-20 C120,110 340,95 480,15 C640,90 860,65 1020,-10 C1210,85 1440,95 1620,25 C1740,95 1860,105 1960,10 L1960,-40 L-40,-40 Z" fill="#173820" />
+        <path d="M-20,-10 C140,70 300,58 430,0 C590,62 790,40 940,-15 C1120,58 1380,68 1560,8 C1700,66 1830,72 1940,-10 L1940,-40 L-20,-40 Z" fill="#2a5e30" opacity="0.82" />
+      </g>
+
+      <!-- Scattered subtle forest clovers & tiny wild flowers on edges -->
+      <g opacity="0.72">
+        <circle cx="220" cy="610" r="4" fill="#fff3b0" />
+        <circle cx="232" cy="624" r="3.2" fill="#ffe17d" />
+        <circle cx="1450" cy="740" r="4.5" fill="#fff3b0" />
+        <circle cx="1468" cy="752" r="3.5" fill="#ffd966" />
+        <circle cx="380" cy="860" r="4" fill="#e9f7a8" />
+      </g>
+    </svg>
+
+    <!-- ===================================================================
+         LAYER 3: LIVING BUTTERFLIES & CELEBRATION HEDGEHOG
+         =================================================================== -->
+    <div id="critters-layer" aria-hidden="true">
+      <div id="hedgehog-wrap">
+        <svg viewBox="0 0 180 150" aria-hidden="true">
+          <!-- Cute realistic storybook forest hedgehog -->
+          <g transform="translate(8, 12)">
+            <!-- Soft shadow -->
+            <ellipse cx="82" cy="122" rx="68" ry="14" fill="rgba(10,24,10,0.45)" />
+            <!-- Back spines layer -->
+            <path d="M22,95 L8,74 L28,68 L18,45 L42,46 L38,24 L62,33 L68,12 L86,27 L102,12 L112,32 L134,24 L132,46 L154,48 L142,70 L160,82 L140,98 Z" fill="#47301e" />
+            <!-- Mid lighter tipped spines -->
+            <path d="M28,96 L18,78 L36,72 L30,52 L50,52 L48,34 L70,42 L78,24 L94,38 L110,26 L116,44 L136,40 L132,60 L148,70 L134,94 Z" fill="#6b4b32" />
+            <!-- Cream highlights on spines -->
+            <path d="M44,44 L54,32 M68,36 L76,22 M94,34 L106,24 M118,46 L132,38 M32,64 L44,56" stroke="#c7a989" stroke-width="3" stroke-linecap="round" />
+            <!-- Plump warm face & belly -->
+            <ellipse cx="82" cy="90" rx="52" ry="38" fill="#d9b793" />
+            <ellipse cx="82" cy="98" rx="44" ry="27" fill="#ecd2b3" />
+            <!-- Rounded furry ears -->
+            <circle cx="44" cy="64" r="12" fill="#b89068" />
+            <circle cx="44" cy="64" r="7" fill="#e8b89b" />
+            <circle cx="120" cy="64" r="12" fill="#b89068" />
+            <circle cx="120" cy="64" r="7" fill="#e8b89b" />
+            <!-- Rosy cheeks -->
+            <ellipse cx="52" cy="95" rx="9" ry="5.5" fill="#e88a7d" opacity="0.52" />
+            <ellipse cx="112" cy="95" rx="9" ry="5.5" fill="#e88a7d" opacity="0.52" />
+            <!-- Bright glossy eyes -->
+            <circle cx="62" cy="82" r="7.5" fill="#1c120a" />
+            <circle cx="60" cy="79.5" r="2.6" fill="#ffffff" />
+            <circle cx="102" cy="82" r="7.5" fill="#1c120a" />
+            <circle cx="100" cy="79.5" r="2.6" fill="#ffffff" />
+            <!-- Cute button nose & happy smile -->
+            <ellipse cx="82" cy="94" rx="8.5" ry="6.5" fill="#2b1b12" />
+            <ellipse cx="80" cy="92" rx="3" ry="1.8" fill="#705444" />
+            <path d="M74,104 Q82,111 90,104" fill="none" stroke="#4f311c" stroke-width="2.8" stroke-linecap="round" />
+            <!-- Little paws holding a tiny forest leaf -->
+            <ellipse cx="54" cy="118" rx="11" ry="7" fill="#9c7450" />
+            <ellipse cx="110" cy="118" rx="11" ry="7" fill="#9c7450" />
+            <!-- Tiny celebratory golden leaf on head -->
+            <path d="M84,26 Q98,6 112,18 Q98,32 84,26 Z" fill="#7ec949" stroke="#3c701c" stroke-width="1.5" />
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <!-- ===================================================================
+         LAYER 4: MAIN PLAYFIELD (28 MUSHROOMS + WICKER BASKET + TOOL DOCK)
+         =================================================================== -->
+    <div id="playfield">
+      <!-- Glade with Trail & 4x7 Mushroom Grid -->
+      <div id="glade-area">
+        <div id="glade-moss-floor">
+          <svg id="trail-svg" aria-hidden="true"></svg>
+          <div id="mushroom-grid"></div>
+        </div>
+      </div>
+
+      <!-- Woven Wicker Basket on the Right -->
+      <div id="basket-area">
+        <div id="basket-wrap">
+          <svg id="basket-svg" viewBox="0 0 240 245" aria-hidden="true">
+            <!-- Mossy forest stump base under basket -->
+            <ellipse cx="120" cy="222" rx="98" ry="20" fill="#122713" opacity="0.58" />
+            <path d="M40,214 Q120,192 200,214 Q188,232 120,234 Q52,232 40,214 Z" fill="#3a6b2b" />
+
+            <!-- Basket arched woven handle -->
+            <path d="M44,122 C44,18 196,18 196,122" fill="none" stroke="#5e3712" stroke-width="18" stroke-linecap="round" />
+            <path d="M44,122 C44,18 196,18 196,122" fill="none" stroke="#c98e46" stroke-width="11" stroke-linecap="round" />
+            <path d="M44,122 C44,18 196,18 196,122" fill="none" stroke="#804f1e" stroke-width="11" stroke-dasharray="6 10" stroke-linecap="round" />
+
+            <!-- Dark basket interior cavity -->
+            <ellipse cx="120" cy="118" rx="88" ry="24" fill="url(#wickerDark)" stroke="#4f2c0d" stroke-width="4" />
+
+            <!-- Dynamic collected mini mushrooms pile inside the basket! -->
+            <g id="basket-mushrooms-layer"></g>
+
+            <!-- Front woven basket body -->
+            <path d="M32,118 L48,204 C54,224 186,224 192,204 L208,118 C176,136 64,136 32,118 Z" fill="url(#wickerGrad)" stroke="#4c2b0e" stroke-width="3.5" />
+
+            <!-- Horizontal woven wicker ribs -->
+            <g stroke="#5e3612" stroke-width="2.6" fill="none" opacity="0.78">
+              <path d="M36,138 Q120,156 204,138" />
+              <path d="M40,158 Q120,175 200,158" />
+              <path d="M44,178 Q120,194 196,178" />
+              <path d="M47,196 Q120,211 193,196" />
+            </g>
+
+            <!-- Vertical woven wicker stakes -->
+            <g stroke="#f0c178" stroke-width="3.2" stroke-dasharray="10 10" fill="none" opacity="0.58">
+              <path d="M58,128 L68,208" />
+              <path d="M84,133 L90,214" />
+              <path d="M120,135 L120,216" />
+              <path d="M156,133 L150,214" />
+              <path d="M182,128 L172,208" />
+            </g>
+
+            <!-- Thick braided wicker rim -->
+            <path d="M26,116 Q120,142 214,116" fill="none" stroke="#4c2b0e" stroke-width="18" stroke-linecap="round" />
+            <path d="M26,116 Q120,142 214,116" fill="none" stroke="#e0a95c" stroke-width="12" stroke-linecap="round" />
+            <path d="M26,116 Q120,142 214,116" fill="none" stroke="#8c5722" stroke-width="12" stroke-dasharray="8 9" stroke-linecap="round" />
+
+            <!-- Decorative moss & fern sprig tucked on basket side -->
+            <path d="M30,198 Q12,174 28,158 Q42,174 44,198 Z" fill="#529434" />
+            <path d="M38,204 Q24,186 44,174 Q54,188 52,206 Z" fill="#78bd48" />
+          </svg>
+        </div>
+      </div>
+
+      <!-- Stylized Carved Mossy Wooden Tool Dock -->
+      <div id="dock-area">
+        <div id="tool-dock">
+          <!-- Left moss & leaf corner cluster -->
+          <svg class="dock-moss-deco dock-moss-left" viewBox="0 0 64 48" aria-hidden="true">
+            <path d="M4,42 C8,22 24,14 38,22 C48,18 58,28 58,42 Z" fill="#46822d" />
+            <path d="M14,42 C18,28 30,24 44,30 C50,32 54,38 54,42 Z" fill="#70b342" />
+            <path d="M10,26 Q2,10 18,8 Q24,18 16,28 Z" fill="#8fd156" />
+          </svg>
+          <!-- Right moss & leaf corner cluster -->
+          <svg class="dock-moss-deco dock-moss-right" viewBox="0 0 64 48" aria-hidden="true">
+            <path d="M4,42 C8,22 24,14 38,22 C48,18 58,28 58,42 Z" fill="#46822d" />
+            <path d="M14,42 C18,28 30,24 44,30 C50,32 54,38 54,42 Z" fill="#70b342" />
+            <path d="M10,26 Q2,10 18,8 Q24,18 16,28 Z" fill="#8fd156" />
+          </svg>
+          <!-- 5 Tool Medallions injected cleanly via JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================================
+         LAYER 6: FOREGROUND SWAYING FERNS & GRASS BLADES
+         =================================================================== -->
+    <svg id="fg-foliage" viewBox="0 0 1920 1080" preserveAspectRatio="none" aria-hidden="true">
+      <!-- Bottom-left swaying fern -->
+      <g class="bg-fern-sway" transform="translate(-20, 810)">
+        <path d="M0,290 Q45,140 165,65 Q105,165 65,290 Z" fill="#1e4a20" />
+        <path d="M10,290 Q90,175 210,145 Q130,210 95,290 Z" fill="#326e2c" />
+        <path d="M0,290 Q20,170 72,95 Q55,190 42,290 Z" fill="#4b8c37" />
+      </g>
+      <!-- Bottom-right swaying fern -->
+      <g class="bg-fern-sway-slow" transform="translate(1720, 800)">
+        <path d="M220,300 Q170,130 45,55 Q115,165 155,300 Z" fill="#1c451e" />
+        <path d="M210,300 Q135,175 18,150 Q105,215 135,300 Z" fill="#316b2b" />
+        <path d="M215,300 Q190,165 140,95 Q165,195 178,300 Z" fill="#4b8f38" />
+      </g>
+    </svg>
+
+    <!-- ===================================================================
+         LAYER 7: PARTICLE & POLLEN CANVAS
+         =================================================================== -->
+    <canvas id="fx-canvas"></canvas>
+
+    <!-- ===================================================================
+         LAYER 8: FLYING MUSHROOM & TOOL ACTION LAYER
+         =================================================================== -->
+    <div id="action-layer"></div>
+
+    <!-- ===================================================================
+         TOP-RIGHT MINIMALIST ICON CONTROLS (SOUND + NEXT)
+         =================================================================== -->
+    <div id="top-controls">
+      <!-- Mute / Unmute Button -->
+      <button id="btn-sound" class="wood-circle-btn" type="button" aria-label="Sound">
+        <svg id="icon-sound-on" viewBox="0 0 36 36">
+          <path d="M7,14 L13,14 L21,7 L21,29 L13,22 L7,22 Z" fill="#ffefc2" stroke="#3b220d" stroke-width="1.6" stroke-linejoin="round" />
+          <path d="M25,12.5 Q29,18 25,23.5" fill="none" stroke="#ffefc2" stroke-width="2.6" stroke-linecap="round" />
+          <path d="M28.5,9 Q34.5,18 28.5,27" fill="none" stroke="#ffe082" stroke-width="2.4" stroke-linecap="round" />
+        </svg>
+        <svg id="icon-sound-off" viewBox="0 0 36 36" style="display:none;">
+          <path d="M7,14 L13,14 L21,7 L21,29 L13,22 L7,22 Z" fill="#d9c19c" stroke="#3b220d" stroke-width="1.6" stroke-linejoin="round" />
+          <path d="M25,13 L32,23 M32,13 L25,23" stroke="#ff8266" stroke-width="3" stroke-linecap="round" />
+        </svg>
+      </button>
+
+      <!-- Minimalist Next / Skip Button -->
+      <button id="btn-next" class="wood-circle-btn" type="button" aria-label="Next">
+        <svg class="leaf-accent" viewBox="0 0 24 24">
+          <path d="M4,20 Q6,4 22,4 Q20,18 4,20 Z" fill="#78c443" stroke="#2a5216" stroke-width="1.5" />
+          <path d="M6,18 Q12,11 19,6" fill="none" stroke="#c8f285" stroke-width="1.3" stroke-linecap="round" />
+        </svg>
+        <svg viewBox="0 0 36 36">
+          <path d="M7,9 L19,18 L7,27 Z" fill="#ffefc2" stroke="#3b220d" stroke-width="1.6" stroke-linejoin="round" />
+          <path d="M18,9 L30,18 L18,27 Z" fill="#ffe07d" stroke="#3b220d" stroke-width="1.6" stroke-linejoin="round" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- ===================================================================
+         CUSTOM INTERACTIVE TOOL CURSOR (DESKTOP)
+         =================================================================== -->
+    <div id="tool-cursor" aria-hidden="true">
+      <div id="tool-cursor-inner"></div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      /* ===================================================================
+         1. PAINTERLY SVG ARTWORK GENERATORS (5 MUSHROOMS + 5 TOOLS + STUMPS)
+         =================================================================== */
+
+      /**
+       * Returns realistic painterly SVG markup for each of the 5 mushroom species.
+       * 0: Porcini (Білий гриб)
+       * 1: Chanterelle (Лисичка)
+       * 2: Fly Agaric (Мухомор)
+       * 3: Violet Russula (Фіолетова сироїжка)
+       * 4: Turquoise Stropharia (Смарагдовий лісовий гриб)
+       */
+      function getMushroomSVG(type) {
+        switch (type) {
+          case 0: // Porcini — plump cream stem, glossy chestnut dome cap
+            return `
+              <svg viewBox="0 0 110 110" aria-hidden="true">
+                <!-- Mossy base shadow -->
+                <ellipse cx="55" cy="98" rx="28" ry="8" fill="rgba(16,38,16,0.45)" />
+                <!-- Plump bulbous cream stem -->
+                <path d="M36,56 C30,72 28,92 38,98 C46,102 64,102 72,98 C82,92 80,72 74,56 Z" fill="url(#porciniStem)" stroke="#7a5e40" stroke-width="2" />
+                <!-- Subtle stem reticulation texture -->
+                <path d="M44,64 Q55,70 66,64 M41,76 Q55,83 69,76 M43,88 Q55,93 67,88" fill="none" stroke="#c4a67d" stroke-width="1.5" opacity="0.65" />
+                <!-- Pale yellowish sponge underside -->
+                <ellipse cx="55" cy="56" rx="40" ry="11" fill="#e6d699" stroke="#78582d" stroke-width="1.6" />
+                <!-- Glossy chestnut dome cap -->
+                <path d="M12,56 C10,20 34,8 55,8 C76,8 100,20 98,56 C82,63 28,63 12,56 Z" fill="url(#porciniCap)" stroke="#472108" stroke-width="2.2" />
+                <!-- Specular sunlight highlights -->
+                <ellipse cx="38" cy="24" rx="14" ry="7" transform="rotate(-22 38 24)" fill="#f2b87c" opacity="0.46" />
+                <ellipse cx="32" cy="21" rx="6" ry="3" transform="rotate(-22 32 21)" fill="#fff2d6" opacity="0.58" />
+                <!-- Tiny grass blades at base -->
+                <path d="M27,98 Q24,86 30,82 Q30,90 33,98 Z" fill="#4f9133" />
+                <path d="M77,98 Q83,87 79,81 Q75,89 73,98 Z" fill="#63ab3e" />
+              </svg>`;
+
+          case 1: // Chanterelle — golden-orange wavy trumpet cap with forked ridges
+            return `
+              <svg viewBox="0 0 110 110" aria-hidden="true">
+                <ellipse cx="55" cy="99" rx="22" ry="7" fill="rgba(16,38,16,0.42)" />
+                <!-- Tapered golden funnel stem -->
+                <path d="M31,45 C40,62 43,78 44,96 C49,101 61,101 66,96 C67,78 70,62 79,45 Z" fill="url(#chantStem)" stroke="#8a4006" stroke-width="2" />
+                <!-- Trumpet gill ridges running down stem -->
+                <g stroke="#b85407" stroke-width="1.6" fill="none" opacity="0.72" stroke-linecap="round">
+                  <path d="M36,48 Q46,66 47,88" />
+                  <path d="M45,51 Q51,68 52,92" />
+                  <path d="M55,52 L55,94" />
+                  <path d="M65,51 Q59,68 58,92" />
+                  <path d="M74,48 Q64,66 63,88" />
+                </g>
+                <!-- Wavy ruffled golden trumpet cap -->
+                <path d="M12,38 C16,22 32,18 44,24 C53,14 68,14 76,24 C88,18 100,26 98,40 C94,54 78,57 68,52 C59,58 46,58 38,51 C24,56 10,50 12,38 Z" fill="url(#chantCap)" stroke="#8a3e04" stroke-width="2.2" />
+                <!-- Inner concave golden depression -->
+                <path d="M26,34 C38,26 70,26 84,35 C72,44 38,44 26,34 Z" fill="#d97109" opacity="0.6" />
+                <path d="M32,33 C42,29 66,29 76,34" fill="none" stroke="#fff099" stroke-width="3" stroke-linecap="round" opacity="0.65" />
+                <!-- Second tiny companion chanterelle -->
+                <path d="M74,80 C76,88 76,94 79,97 C83,98 86,95 86,82 Z" fill="url(#chantStem)" stroke="#8a4006" stroke-width="1.5" />
+                <path d="M68,78 C72,68 90,68 94,78 C88,84 74,84 68,78 Z" fill="url(#chantCap)" stroke="#8a3e04" stroke-width="1.6" />
+              </svg>`;
+
+          case 2: // Fly Agaric — scarlet cap with raised white warts & skirted stem
+            return `
+              <svg viewBox="0 0 110 110" aria-hidden="true">
+                <ellipse cx="55" cy="99" rx="24" ry="7" fill="rgba(16,38,16,0.45)" />
+                <!-- Bulbous white volva & tall ivory stem -->
+                <path d="M46,50 L44,82 C38,87 38,97 47,100 C53,102 57,102 63,100 C72,97 72,87 66,82 L64,50 Z" fill="url(#agaricStem)" stroke="#8c887b" stroke-width="2" />
+                <!-- Pleated white skirt ring (annulus) -->
+                <path d="M44,58 C37,65 37,71 45,70 C50,74 60,74 65,70 C73,71 73,65 66,58 Z" fill="#f7f5ed" stroke="#9e9a8d" stroke-width="1.6" />
+                <!-- Pale gills under cap -->
+                <ellipse cx="55" cy="51" rx="39" ry="9" fill="#edeae0" stroke="#998f82" stroke-width="1.5" />
+                <!-- Bright scarlet dome cap -->
+                <path d="M13,51 C14,17 36,9 55,9 C74,9 96,17 97,51 C78,56 32,56 13,51 Z" fill="url(#agaricCap)" stroke="#6e0b0b" stroke-width="2.2" />
+                <!-- Glossy highlight -->
+                <ellipse cx="38" cy="23" rx="12" ry="5" transform="rotate(-24 38 23)" fill="#ff9e94" opacity="0.45" />
+                <!-- Raised cream-white warts -->
+                <g fill="#fffdf5" stroke="#d4c7b4" stroke-width="1">
+                  <ellipse cx="55" cy="18" rx="6.5" ry="4" />
+                  <ellipse cx="33" cy="30" rx="6" ry="4.2" transform="rotate(-18 33 30)" />
+                  <ellipse cx="76" cy="28" rx="6" ry="4" transform="rotate(16 76 28)" />
+                  <ellipse cx="54" cy="34" rx="5.5" ry="4" />
+                  <ellipse cx="23" cy="43" rx="4.5" ry="3.2" />
+                  <ellipse cx="42" cy="44" rx="4.8" ry="3.2" />
+                  <ellipse cx="70" cy="43" rx="5" ry="3.4" />
+                  <ellipse cx="87" cy="42" rx="4.2" ry="3" />
+                </g>
+              </svg>`;
+
+          case 3: // Violet Russula — rich purple slightly cupped cap, pale gills, dark soil mound
+            return `
+              <svg viewBox="0 0 110 110" aria-hidden="true">
+                <!-- Rich dark soil mound (signaling trowel digging!) -->
+                <path d="M18,98 C22,82 38,77 55,78 C72,77 88,82 92,98 C74,104 36,104 18,98 Z" fill="url(#soilGrad)" stroke="#1a0e07" stroke-width="1.8" />
+                <circle cx="31" cy="92" r="3" fill="#69462d" />
+                <circle cx="76" cy="90" r="3.5" fill="#5e3d26" />
+                <circle cx="62" cy="96" r="2.5" fill="#754f34" />
+                <!-- Sturdy white stem -->
+                <path d="M44,50 L43,86 C48,90 62,90 67,86 L66,50 Z" fill="url(#agaricStem)" stroke="#8c8396" stroke-width="2" />
+                <!-- Crisp pale radial gills -->
+                <ellipse cx="55" cy="49" rx="41" ry="12" fill="#f7f2fa" stroke="#7d6491" stroke-width="1.6" />
+                <g stroke="#c6b5d6" stroke-width="1.3">
+                  <line x1="22" y1="49" x2="45" y2="52" />
+                  <line x1="34" y1="56" x2="49" y2="53" />
+                  <line x1="55" y1="60" x2="55" y2="53" />
+                  <line x1="76" y1="56" x2="61" y2="53" />
+                  <line x1="88" y1="49" x2="65" y2="52" />
+                </g>
+                <!-- Royal-purple slightly cupped cap -->
+                <path d="M11,45 C14,22 34,20 55,25 C76,20 96,22 99,45 C82,53 28,53 11,45 Z" fill="url(#russulaCap)" stroke="#380f5e" stroke-width="2.2" />
+                <!-- Cupped center sheen -->
+                <ellipse cx="55" cy="30" rx="22" ry="6.5" fill="#4f1780" opacity="0.52" />
+                <path d="M24,33 Q38,26 52,29" fill="none" stroke="#e5c4ff" stroke-width="3.2" stroke-linecap="round" opacity="0.62" />
+                <ellipse cx="78" cy="33" rx="8" ry="3.2" transform="rotate(14 78 33)" fill="#d8a8ff" opacity="0.38" />
+              </svg>`;
+
+          case 4: // Turquoise Stropharia — emerald-teal conical cap with white speckles & slender stem
+          default:
+            return `
+              <svg viewBox="0 0 110 110" aria-hidden="true">
+                <ellipse cx="55" cy="99" rx="24" ry="7" fill="rgba(16,38,16,0.44)" />
+                <!-- Fallen autumn/forest leaves nestled at base (signaling rake!) -->
+                <path d="M22,95 Q34,84 46,94 Q34,102 22,95 Z" fill="#94ba41" stroke="#456619" stroke-width="1.4" />
+                <path d="M64,96 Q78,84 90,94 Q78,103 64,96 Z" fill="#d49e39" stroke="#755013" stroke-width="1.4" />
+                <!-- Slender slightly curved pale teal stem -->
+                <path d="M51,48 C48,66 49,82 47,97 C51,100 58,100 61,97 C59,82 60,66 59,48 Z" fill="url(#tealStem)" stroke="#32756a" stroke-width="1.9" />
+                <!-- Delicate underside rim -->
+                <ellipse cx="55" cy="54" rx="31" ry="8" fill="#0d594f" />
+                <!-- Distinctive conical emerald-teal cap -->
+                <path d="M21,54 C25,30 42,8 55,7 C68,8 85,30 89,54 C72,60 38,60 21,54 Z" fill="url(#tealCap)" stroke="#074740" stroke-width="2.2" />
+                <!-- Glossy highlight along cone -->
+                <path d="M46,16 Q38,30 34,46" fill="none" stroke="#bffff2" stroke-width="3.8" stroke-linecap="round" opacity="0.52" />
+                <!-- Delicate white speckles around lower cap -->
+                <g fill="#ebfffb" opacity="0.92">
+                  <circle cx="32" cy="49" r="2.8" />
+                  <circle cx="44" cy="45" r="2.2" />
+                  <circle cx="56" cy="50" r="2.8" />
+                  <circle cx="69" cy="45" r="2.4" />
+                  <circle cx="79" cy="49" r="2.5" />
+                  <circle cx="52" cy="31" r="2" />
+                  <circle cx="64" cy="34" r="1.9" />
+                </g>
+              </svg>`;
+        }
+      }
+
+      /**
+       * Returns cute mossy stump / soil hollow left behind after harvesting.
+       */
+      function getHarvestedStumpSVG(type) {
+        if (type === 3) {
+          // Scooped soil dimple with sprouting leaf
+          return `
+            <svg viewBox="0 0 110 110" aria-hidden="true">
+              <ellipse cx="55" cy="92" rx="27" ry="10" fill="#2e1c10" opacity="0.82" />
+              <ellipse cx="55" cy="91" rx="20" ry="6.5" fill="#1b1008" opacity="0.72" />
+              <path d="M55,90 Q53,75 43,72 Q48,83 55,90 Z" fill="#70b840" />
+              <path d="M55,90 Q58,76 68,74 Q62,84 55,90 Z" fill="#8fd457" />
+            </svg>`;
+        }
+        return `
+          <svg viewBox="0 0 110 110" aria-hidden="true">
+            <ellipse cx="55" cy="95" rx="23" ry="7.5" fill="rgba(16,38,16,0.4)" />
+            <path d="M45,84 L44,95 C49,99 61,99 66,95 L65,84 Z" fill="#e6d7b9" stroke="#856c4b" stroke-width="1.6" />
+            <ellipse cx="55" cy="84" rx="10.5" ry="4" fill="#faf2df" stroke="#856c4b" stroke-width="1.5" />
+            <!-- Cute sprouting grass blades -->
+            <path d="M42,95 Q36,80 42,74 Q43,85 46,95 Z" fill="#63ad3c" />
+            <path d="M64,95 Q71,82 67,76 Q62,85 61,95 Z" fill="#82c951" />
+          </svg>`;
+      }
+
+      /**
+       * Returns realistic painterly SVG markup for each of the 5 harvesting tools.
+       * 0: Curved Wooden Foraging Knife (for Porcini)
+       * 1: Garden Shears / Scissors (for Chanterelle)
+       * 2: Long Metal/Wood Tongs (for Fly Agaric)
+       * 3: Mini Garden Trowel (for Violet Russula)
+       * 4: 3-Prong Mini Garden Rake (for Turquoise Stropharia)
+       */
+      function getToolSVG(type) {
+        switch (type) {
+          case 0: // Curved Foraging Knife
+            return `
+              <svg viewBox="0 0 100 100" aria-hidden="true">
+                <!-- Curved silver steel blade -->
+                <path d="M22,18 C42,10 62,20 55,48 L43,45 C47,30 37,22 22,18 Z" fill="url(#steelBlade)" stroke="#3e4b54" stroke-width="2.2" stroke-linejoin="round" />
+                <!-- Blade shine glint -->
+                <path d="M31,18 C43,16 53,23 50,38" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" opacity="0.85" />
+                <!-- Brass bolster -->
+                <rect x="42" y="42" width="16" height="8" rx="3" transform="rotate(24 50 46)" fill="url(#brassMetal)" stroke="#5c3d0c" stroke-width="1.6" />
+                <!-- Carved oak handle -->
+                <path d="M48,47 L78,74 C84,80 78,90 69,87 L41,53 Z" fill="url(#oakHandle)" stroke="#3b1f09" stroke-width="2.2" />
+                <!-- Brass rivets on handle -->
+                <circle cx="56" cy="60" r="2.6" fill="#f7d674" stroke="#593a0b" stroke-width="1" />
+                <circle cx="67" cy="72" r="2.6" fill="#f7d674" stroke="#593a0b" stroke-width="1" />
+                <!-- Wood grain highlight -->
+                <path d="M52,53 L73,75" stroke="#e0a563" stroke-width="2" stroke-linecap="round" opacity="0.55" />
+              </svg>`;
+
+          case 1: // Garden Shears / Scissors
+            return `
+              <svg viewBox="0 0 100 100" aria-hidden="true">
+                <!-- Left steel blade -->
+                <path d="M24,14 C34,20 44,34 50,48 L41,51 C33,37 24,25 24,14 Z" fill="url(#steelBlade)" stroke="#39464f" stroke-width="2" />
+                <!-- Right steel blade -->
+                <path d="M74,14 C64,20 54,34 48,48 L57,51 C65,37 74,25 74,14 Z" fill="url(#steelBlade)" stroke="#39464f" stroke-width="2" />
+                <!-- Left forest-green handle loop -->
+                <path d="M44,50 L26,64 C16,72 22,89 35,86 C45,83 47,68 48,54 Z" fill="url(#greenHandle)" stroke="#193b11" stroke-width="2.2" />
+                <ellipse cx="33" cy="74" rx="6.5" ry="8.5" transform="rotate(24 33 74)" fill="#2a1a0d" opacity="0.55" />
+                <!-- Right forest-green handle loop -->
+                <path d="M54,50 L72,64 C82,72 76,89 63,86 C53,83 51,68 50,54 Z" fill="url(#greenHandle)" stroke="#193b11" stroke-width="2.2" />
+                <ellipse cx="65" cy="74" rx="6.5" ry="8.5" transform="rotate(-24 65 74)" fill="#2a1a0d" opacity="0.55" />
+                <!-- Brass center pivot screw -->
+                <circle cx="49" cy="49" r="5.5" fill="url(#brassMetal)" stroke="#4f3509" stroke-width="1.8" />
+                <circle cx="49" cy="49" r="2" fill="#fff2ba" />
+              </svg>`;
+
+          case 2: // Long Wooden/Metal Tongs (red grip accents)
+            return `
+              <svg viewBox="0 0 100 100" aria-hidden="true">
+                <!-- Spring hinge loop at bottom-right -->
+                <circle cx="77" cy="77" r="9" fill="none" stroke="#7c8b96" stroke-width="5.5" />
+                <!-- Upper pincer arm -->
+                <path d="M74,71 L30,22 C24,16 17,22 22,29 L29,34" fill="none" stroke="url(#steelBlade)" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M74,71 L30,22" fill="none" stroke="#ffffff" stroke-width="1.6" opacity="0.7" />
+                <!-- Lower pincer arm -->
+                <path d="M71,78 L18,46 C11,42 14,33 22,36 L30,41" fill="none" stroke="url(#steelBlade)" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round" />
+                <!-- Red grip wraps -->
+                <path d="M67,63 L48,42" stroke="url(#redGrip)" stroke-width="9" stroke-linecap="round" />
+                <path d="M62,73 L39,59" stroke="url(#redGrip)" stroke-width="9" stroke-linecap="round" />
+                <!-- Highlights on red grips -->
+                <path d="M65,61 L50,44" stroke="#ff9c94" stroke-width="2" stroke-linecap="round" opacity="0.75" />
+                <path d="M60,71 L41,60" stroke="#ff9c94" stroke-width="2" stroke-linecap="round" opacity="0.75" />
+              </svg>`;
+
+          case 3: // Mini Garden Trowel (metal scoop + terracotta handle)
+            return `
+              <svg viewBox="0 0 100 100" aria-hidden="true">
+                <!-- Curved forged metal scoop blade -->
+                <path d="M16,16 C34,12 52,22 57,41 L42,56 C23,51 12,34 16,16 Z" fill="url(#steelBlade)" stroke="#3b4852" stroke-width="2.2" stroke-linejoin="round" />
+                <!-- Scoop inner ridge & glint -->
+                <path d="M20,20 L48,48" stroke="#6d7c87" stroke-width="2" opacity="0.75" />
+                <path d="M28,20 C39,21 48,29 50,39" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" opacity="0.75" />
+                <!-- Metal neck -->
+                <path d="M49,49 L60,60" stroke="#7d8d99" stroke-width="7" stroke-linecap="round" />
+                <!-- Terracotta wooden handle -->
+                <path d="M56,56 L82,76 C89,82 81,92 73,86 L52,62 Z" fill="url(#terraHandle)" stroke="#4f1d09" stroke-width="2.2" />
+                <!-- Handle highlight & brass ferrule -->
+                <rect x="52" y="54" width="11" height="7" rx="2" transform="rotate(44 57 57)" fill="url(#brassMetal)" stroke="#54380a" stroke-width="1.4" />
+                <path d="M62,64 L78,78" stroke="#f5b38c" stroke-width="2.4" stroke-linecap="round" opacity="0.6" />
+              </svg>`;
+
+          case 4: // 3-Prong Mini Garden Rake (brass claws + birch handle)
+          default:
+            return `
+              <svg viewBox="0 0 100 100" aria-hidden="true">
+                <!-- 3 curved brass/iron prongs -->
+                <path d="M42,40 L26,24 C20,18 13,25 18,32" fill="none" stroke="url(#brassMetal)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M46,45 L22,42 C14,41 13,50 20,53" fill="none" stroke="url(#brassMetal)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M48,50 L36,64 C30,70 36,77 43,72" fill="none" stroke="url(#brassMetal)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" />
+                <!-- Crossbar head -->
+                <path d="M37,37 L51,51" stroke="#6e4d12" stroke-width="7.5" stroke-linecap="round" />
+                <path d="M37,37 L51,51" stroke="#e6be63" stroke-width="3.5" stroke-linecap="round" />
+                <!-- Birch wood handle -->
+                <path d="M47,47 L82,82" stroke="#5e462a" stroke-width="13" stroke-linecap="round" />
+                <path d="M47,47 L82,82" stroke="url(#birchHandle)" stroke-width="9" stroke-linecap="round" />
+                <!-- Teal cord accent wrap near top of handle -->
+                <path d="M55,55 L64,64" stroke="#18ad94" stroke-width="10" stroke-linecap="round" />
+                <path d="M55,55 L64,64" stroke="#79f2dc" stroke-width="3" stroke-dasharray="2 3" stroke-linecap="round" />
+              </svg>`;
+        }
+      }
+
+      /* ===================================================================
+         2. PROCEDURAL WEB AUDIO API SOUND ENGINE (ZERO EXTERNAL FILES)
+         =================================================================== */
+      const SoundEngine = (() => {
+        let ctx = null;
+        let muted = false;
+        let noiseBuffer = null;
+
+        function ensureContext() {
+          if (muted) return null;
+          try {
+            if (!ctx) {
+              const AudioCtx = window.AudioContext || window.webkitAudioContext;
+              if (!AudioCtx) return null;
+              ctx = new AudioCtx();
+              // Pre-generate 1.5s white noise buffer for rustles, scoops, whooshes
+              const len = Math.floor(ctx.sampleRate * 1.5);
+              noiseBuffer = ctx.createBuffer(1, len, ctx.sampleRate);
+              const data = noiseBuffer.getChannelData(0);
+              for (let i = 0; i < len; i++) {
+                data[i] = Math.random() * 2 - 1;
+              }
+            }
+            if (ctx.state === "suspended") {
+              ctx.resume();
+            }
+            return ctx;
+          } catch (e) {
+            return null;
+          }
+        }
+
+        function setMuted(val) {
+          muted = Boolean(val);
+        }
+
+        function isMuted() {
+          return muted;
+        }
+
+        // Play warm marimba / wooden note
+        function playMarimba(freq, delay = 0, duration = 0.28, volume = 0.16) {
+          const ac = ensureContext();
+          if (!ac) return;
+          const t = ac.currentTime + delay;
+
+          const osc = ac.createOscillator();
+          const overtone = ac.createOscillator();
+          const gain = ac.createGain();
+          const overGain = ac.createGain();
+
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, t);
+
+          overtone.type = "triangle";
+          overtone.frequency.setValueAtTime(freq * 4, t);
+
+          gain.gain.setValueAtTime(0.001, t);
+          gain.gain.linearRampToValueAtTime(volume, t + 0.012);
+          gain.gain.exponentialRampToValueAtTime(0.0008, t + duration);
+
+          overGain.gain.setValueAtTime(0.001, t);
+          overGain.gain.linearRampToValueAtTime(volume * 0.25, t + 0.006);
+          overGain.gain.exponentialRampToValueAtTime(0.0005, t + 0.055);
+
+          osc.connect(gain);
+          overtone.connect(overGain);
+          overGain.connect(gain);
+          gain.connect(ac.destination);
+
+          osc.start(t);
+          overtone.start(t);
+          osc.stop(t + duration + 0.03);
+          overtone.stop(t + 0.08);
+        }
+
+        // Play filtered noise burst
+        function playNoiseBurst(filterType, freqStart, freqEnd, duration, volume, delay = 0, q = 2.0) {
+          const ac = ensureContext();
+          if (!ac || !noiseBuffer) return;
+          const t = ac.currentTime + delay;
+
+          const src = ac.createBufferSource();
+          src.buffer = noiseBuffer;
+
+          const filter = ac.createBiquadFilter();
+          filter.type = filterType;
+          filter.Q.setValueAtTime(q, t);
+          filter.frequency.setValueAtTime(freqStart, t);
+          filter.frequency.exponentialRampToValueAtTime(Math.max(40, freqEnd), t + duration);
+
+          const gain = ac.createGain();
+          gain.gain.setValueAtTime(0.001, t);
+          gain.gain.linearRampToValueAtTime(volume, t + duration * 0.18);
+          gain.gain.exponentialRampToValueAtTime(0.0008, t + duration);
+
+          src.connect(filter);
+          filter.connect(gain);
+          gain.connect(ac.destination);
+
+          src.start(t);
+          src.stop(t + duration + 0.03);
+        }
+
+        // Crisp wooden click when selecting a tool
+        function playToolSelect(toolIdx) {
+          const base = 360 + toolIdx * 42;
+          playMarimba(base, 0, 0.11, 0.14);
+          playMarimba(base * 1.5, 0.03, 0.09, 0.08);
+        }
+
+        // Soft hollow wood tap when clicking a non-active mushroom
+        function playWrongSpot() {
+          const ac = ensureContext();
+          if (!ac) return;
+          const t = ac.currentTime;
+          const osc = ac.createOscillator();
+          const gain = ac.createGain();
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(210, t);
+          osc.frequency.exponentialRampToValueAtTime(118, t + 0.11);
+          gain.gain.setValueAtTime(0.14, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+          osc.connect(gain);
+          gain.connect(ac.destination);
+          osc.start(t);
+          osc.stop(t + 0.13);
+        }
+
+        // Comical springy 'boing' + soft spore puff when using the wrong tool
+        function playWrongTool() {
+          const ac = ensureContext();
+          if (!ac) return;
+          const t = ac.currentTime;
+
+          const osc = ac.createOscillator();
+          const lfo = ac.createOscillator();
+          const lfoGain = ac.createGain();
+          const gain = ac.createGain();
+
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(175, t);
+          osc.frequency.exponentialRampToValueAtTime(340, t + 0.11);
+          osc.frequency.exponentialRampToValueAtTime(145, t + 0.36);
+
+          lfo.frequency.setValueAtTime(26, t);
+          lfoGain.gain.setValueAtTime(28, t);
+          lfo.connect(lfoGain);
+          lfoGain.connect(osc.frequency);
+
+          gain.gain.setValueAtTime(0.001, t);
+          gain.gain.linearRampToValueAtTime(0.18, t + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+
+          osc.connect(gain);
+          gain.connect(ac.destination);
+
+          osc.start(t);
+          lfo.start(t);
+          osc.stop(t + 0.4);
+          lfo.stop(t + 0.4);
+
+          // Tiny airy spore puff
+          playNoiseBurst("bandpass", 950, 380, 0.18, 0.08, 0.05, 1.8);
+        }
+
+        // Unique synthesized harvest sound per tool + rising pentatonic marimba chime
+        const PENTATONIC = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51];
+
+        function playHarvest(toolIdx, streak) {
+          switch (toolIdx) {
+            case 0: // Knife: crisp metallic slice
+              playNoiseBurst("highpass", 2400, 5200, 0.13, 0.11, 0, 1.4);
+              playMarimba(1760, 0.02, 0.09, 0.06);
+              break;
+            case 1: // Shears: quick double metallic snip
+              playNoiseBurst("bandpass", 3600, 1800, 0.055, 0.14, 0, 3.2);
+              playNoiseBurst("bandpass", 4100, 2100, 0.06, 0.13, 0.075, 3.5);
+              break;
+            case 2: // Tongs: crisp pinch clack + gentle pluck
+              playMarimba(420, 0, 0.07, 0.14);
+              playMarimba(640, 0.055, 0.08, 0.12);
+              break;
+            case 3: // Trowel: earthy granular soil scoop
+              playNoiseBurst("bandpass", 420, 980, 0.19, 0.16, 0, 1.2);
+              playMarimba(190, 0.02, 0.12, 0.12);
+              break;
+            case 4: // Rake: brisk leafy brush sweep
+              playNoiseBurst("bandpass", 1500, 3100, 0.17, 0.12, 0, 1.6);
+              playMarimba(987, 0.04, 0.09, 0.07);
+              break;
+          }
+
+          // Cheerful marimba reward chime rising subtly with streaks
+          const note = PENTATONIC[streak % PENTATONIC.length];
+          playMarimba(note, 0.08, 0.34, 0.16);
+          if (streak > 0 && streak % 4 === 3) {
+            playMarimba(note * 1.25, 0.15, 0.3, 0.11);
+          }
+        }
+
+        // Soft wicker plop when mushroom lands in basket
+        function playBasketPlop() {
+          const ac = ensureContext();
+          if (!ac) return;
+          const t = ac.currentTime;
+          const osc = ac.createOscillator();
+          const gain = ac.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(240, t);
+          osc.frequency.exponentialRampToValueAtTime(410, t + 0.085);
+          gain.gain.setValueAtTime(0.12, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+          osc.connect(gain);
+          gain.connect(ac.destination);
+          osc.start(t);
+          osc.stop(t + 0.12);
+        }
+
+        // Breezy swirling leaves whoosh on Next button
+        function playNextWhoosh() {
+          playNoiseBurst("bandpass", 360, 2100, 0.38, 0.13, 0, 1.3);
+          playMarimba(523.25, 0.05, 0.22, 0.1);
+          playMarimba(659.25, 0.13, 0.26, 0.11);
+        }
+
+        // Warm harp & marimba arpeggio on completing all 28 mushrooms
+        function playCelebration() {
+          const melody = [
+            { f: 523.25, d: 0.0 },
+            { f: 659.25, d: 0.11 },
+            { f: 783.99, d: 0.22 },
+            { f: 1046.5, d: 0.34 },
+            { f: 880.0, d: 0.48 },
+            { f: 1046.5, d: 0.62 },
+            { f: 1318.51, d: 0.78 },
+            { f: 1567.98, d: 0.96 }
+          ];
+          melody.forEach((m) => playMarimba(m.f, m.d, 0.55, 0.15));
+          // Gentle joyful wind shimmer
+          playNoiseBurst("bandpass", 800, 2600, 0.65, 0.08, 0.1, 1.5);
+        }
+
+        return {
+          setMuted,
+          isMuted,
+          playToolSelect,
+          playWrongSpot,
+          playWrongTool,
+          playHarvest,
+          playBasketPlop,
+          playNextWhoosh,
+          playCelebration
+        };
+      })();
+
+      /* ===================================================================
+         3. CANVAS PARTICLE ENGINE (POLLEN, SPARKLES, LEAVES, SOIL, SPORES)
+         =================================================================== */
+      const FX = (() => {
+        const canvas = document.getElementById("fx-canvas");
+        const ctx = canvas.getContext("2d");
+        let W = window.innerWidth;
+        let H = window.innerHeight;
+        let dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        const pollen = [];
+        const particles = [];
+
+        function resize() {
+          W = window.innerWidth;
+          H = window.innerHeight;
+          dpr = Math.min(window.devicePixelRatio || 1, 2);
+          canvas.width = Math.floor(W * dpr);
+          canvas.height = Math.floor(H * dpr);
+          canvas.style.width = W + "px";
+          canvas.style.height = H + "px";
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+        function initPollen() {
+          pollen.length = 0;
+          const count = Math.min(48, Math.max(24, Math.floor((W * H) / 38000)));
+          for (let i = 0; i < count; i++) {
+            pollen.push({
+              x: Math.random() * W,
+              y: Math.random() * H,
+              r: 1.2 + Math.random() * 2.6,
+              vx: 0.12 + Math.random() * 0.35,
+              vy: -0.18 + Math.random() * 0.36,
+              phase: Math.random() * Math.PI * 2,
+              alpha: 0.2 + Math.random() * 0.55
+            });
+          }
+        }
+
+        // Burst harvest particles tailored to each tool
+        function burstHarvest(x, y, toolIdx) {
+          // Golden sparkles & dew drops
+          for (let i = 0; i < 16; i++) {
+            const ang = (Math.PI * 2 * i) / 16 + (Math.random() - 0.5) * 0.3;
+            const spd = 2.0 + Math.random() * 4.5;
+            particles.push({
+              kind: i % 3 === 0 ? "star" : "dew",
+              x,
+              y,
+              vx: Math.cos(ang) * spd,
+              vy: Math.sin(ang) * spd - 1.8,
+              g: 0.12,
+              size: 3 + Math.random() * 4.5,
+              rot: Math.random() * Math.PI * 2,
+              vrot: (Math.random() - 0.5) * 0.2,
+              life: 1,
+              decay: 0.02 + Math.random() * 0.015,
+              color: i % 2 === 0 ? "#fff29c" : "#c8f7a6"
+            });
+          }
+
+          // Tool-specific thematic particles
+          if (toolIdx === 3) {
+            // Flying dark soil clods for trowel
+            for (let i = 0; i < 14; i++) {
+              const ang = -Math.PI * 0.15 - Math.random() * Math.PI * 0.7;
+              const spd = 2.5 + Math.random() * 4.8;
+              particles.push({
+                kind: "soil",
+                x: x + (Math.random() - 0.5) * 18,
+                y: y + 12,
+                vx: Math.cos(ang) * spd,
+                vy: Math.sin(ang) * spd - 1.5,
+                g: 0.22,
+                size: 3 + Math.random() * 4.2,
+                rot: Math.random() * 6,
+                vrot: (Math.random() - 0.5) * 0.25,
+                life: 1,
+                decay: 0.022 + Math.random() * 0.012,
+                color: i % 2 === 0 ? "#52331c" : "#784c2b"
+              });
+            }
+          } else if (toolIdx === 4 || toolIdx === 1) {
+            // Fluttering forest leaves for rake & shears
+            const leafColors = ["#73bf43", "#a2db5c", "#e6b84c", "#4e9630"];
+            for (let i = 0; i < 10; i++) {
+              const ang = Math.random() * Math.PI * 2;
+              const spd = 1.8 + Math.random() * 3.8;
+              particles.push({
+                kind: "leaf",
+                x,
+                y,
+                vx: Math.cos(ang) * spd,
+                vy: Math.sin(ang) * spd - 2.2,
+                g: 0.06,
+                size: 6 + Math.random() * 5,
+                rot: Math.random() * Math.PI * 2,
+                vrot: (Math.random() - 0.5) * 0.18,
+                life: 1,
+                decay: 0.014 + Math.random() * 0.01,
+                color: leafColors[i % leafColors.length]
+              });
+            }
+          }
+        }
+
+        // Playful spore puff on wrong tool
+        function burstSporePuff(x, y) {
+          for (let i = 0; i < 14; i++) {
+            const ang = -Math.PI * 0.1 - Math.random() * Math.PI * 0.8;
+            const spd = 0.9 + Math.random() * 2.4;
+            particles.push({
+              kind: "spore",
+              x: x + (Math.random() - 0.5) * 20,
+              y: y - 8,
+              vx: Math.cos(ang) * spd,
+              vy: Math.sin(ang) * spd - 0.5,
+              g: -0.015,
+              size: 6 + Math.random() * 8,
+              rot: 0,
+              vrot: 0,
+              life: 1,
+              decay: 0.026 + Math.random() * 0.014,
+              color: "#f2ecd8"
+            });
+          }
+        }
+
+        // Swirling leaf wind transition when pressing Next or starting new board
+        function burstLeafWind() {
+          const leafColors = ["#7cc949", "#b3e060", "#f2c14e", "#569c32", "#e08734"];
+          for (let i = 0; i < 36; i++) {
+            particles.push({
+              kind: "leaf",
+              x: -30 - Math.random() * 140,
+              y: H * 0.1 + Math.random() * H * 0.78,
+              vx: 11 + Math.random() * 11,
+              vy: (Math.random() - 0.5) * 3.5,
+              g: 0.02,
+              size: 8 + Math.random() * 7,
+              rot: Math.random() * Math.PI * 2,
+              vrot: 0.09 + Math.random() * 0.14,
+              life: 1,
+              decay: 0.012 + Math.random() * 0.008,
+              color: leafColors[i % leafColors.length]
+            });
+          }
+        }
+
+        // Joyful golden leaves & firefly celebration swirl
+        function burstCelebration() {
+          const leafColors = ["#ffe169", "#8fd952", "#f5a638", "#b9f27c", "#ffdf85"];
+          for (let i = 0; i < 65; i++) {
+            const fromLeft = i % 2 === 0;
+            particles.push({
+              kind: i % 3 === 0 ? "star" : "leaf",
+              x: fromLeft ? W * 0.15 + Math.random() * W * 0.35 : W * 0.5 + Math.random() * W * 0.35,
+              y: H * 0.75 + Math.random() * H * 0.2,
+              vx: (Math.random() - 0.5) * 7,
+              vy: -6 - Math.random() * 8.5,
+              g: 0.09,
+              size: 6 + Math.random() * 7,
+              rot: Math.random() * Math.PI * 2,
+              vrot: (Math.random() - 0.5) * 0.2,
+              life: 1,
+              decay: 0.0075 + Math.random() * 0.006,
+              color: leafColors[i % leafColors.length]
+            });
+          }
+        }
+
+        function drawStar(c, r) {
+          c.beginPath();
+          for (let i = 0; i < 8; i++) {
+            const rad = i % 2 === 0 ? r : r * 0.38;
+            const a = (i * Math.PI) / 4;
+            if (i === 0) c.moveTo(Math.cos(a) * rad, Math.sin(a) * rad);
+            else c.lineTo(Math.cos(a) * rad, Math.sin(a) * rad);
+          }
+          c.closePath();
+          c.fill();
+        }
+
+        function tick(now) {
+          ctx.clearRect(0, 0, W, H);
+
+          // 1. Floating golden pollen motes
+          for (let i = 0; i < pollen.length; i++) {
+            const p = pollen[i];
+            p.x += p.vx + Math.sin(now * 0.0008 + p.phase) * 0.22;
+            p.y += p.vy + Math.cos(now * 0.0006 + p.phase) * 0.18;
+            if (p.x > W + 12) p.x = -12;
+            if (p.x < -12) p.x = W + 12;
+            if (p.y > H + 12) p.y = -12;
+            if (p.y < -12) p.y = H + 12;
+
+            const pulse = 0.65 + 0.35 * Math.sin(now * 0.002 + p.phase);
+            ctx.save();
+            ctx.globalAlpha = p.alpha * pulse;
+            const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 2.5);
+            grad.addColorStop(0, "#fff8c4");
+            grad.addColorStop(0.5, "rgba(255, 232, 128, 0.55)");
+            grad.addColorStop(1, "rgba(255, 232, 128, 0)");
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r * 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+
+          // 2. Active burst particles
+          for (let i = particles.length - 1; i >= 0; i--) {
+            const pt = particles[i];
+            pt.x += pt.vx;
+            pt.y += pt.vy;
+            pt.vy += pt.g;
+            pt.vx *= 0.985;
+            pt.rot += pt.vrot;
+            pt.life -= pt.decay;
+
+            if (pt.life <= 0) {
+              particles.splice(i, 1);
+              continue;
+            }
+
+            ctx.save();
+            ctx.translate(pt.x, pt.y);
+            ctx.rotate(pt.rot);
+            ctx.globalAlpha = Math.max(0, pt.life);
+
+            if (pt.kind === "star") {
+              ctx.fillStyle = pt.color;
+              drawStar(ctx, pt.size);
+            } else if (pt.kind === "leaf") {
+              ctx.fillStyle = pt.color;
+              ctx.beginPath();
+              ctx.ellipse(0, 0, pt.size, pt.size * 0.48, 0, 0, Math.PI * 2);
+              ctx.fill();
+            } else if (pt.kind === "spore") {
+              ctx.globalAlpha = Math.max(0, pt.life * 0.52);
+              ctx.fillStyle = pt.color;
+              ctx.beginPath();
+              ctx.arc(0, 0, pt.size * (1.45 - pt.life * 0.45), 0, Math.PI * 2);
+              ctx.fill();
+            } else if (pt.kind === "soil") {
+              ctx.fillStyle = pt.color;
+              ctx.beginPath();
+              ctx.roundRect(-pt.size * 0.5, -pt.size * 0.5, pt.size, pt.size * 0.85, 2);
+              ctx.fill();
+            } else {
+              ctx.fillStyle = pt.color;
+              ctx.beginPath();
+              ctx.arc(0, 0, pt.size * 0.6, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            ctx.restore();
+          }
+
+          requestAnimationFrame(tick);
+        }
+
+        resize();
+        initPollen();
+        window.addEventListener("resize", () => {
+          resize();
+          initPollen();
+        });
+        requestAnimationFrame(tick);
+
+        return { burstHarvest, burstSporePuff, burstLeafWind, burstCelebration };
+      })();
+
+      /* ===================================================================
+         4. LIVING FOREST BUTTERFLIES
+         =================================================================== */
+      const Butterflies = (() => {
+        const container = document.getElementById("critters-layer");
+        const palettes = [
+          { top: "#ffb732", bot: "#e06d14", accent: "#fff3b0" }, // Monarch gold
+          { top: "#69d6f5", bot: "#2488cc", accent: "#d9f7ff" }, // Morpho sky
+          { top: "#f783b8", bot: "#c93e7a", accent: "#ffe3f0" }  // Woodland rose
+        ];
+        const list = [];
+
+        function createButterflySVG(pal) {
+          return `
+            <svg viewBox="0 0 60 60" aria-hidden="true">
+              <g class="wing-l">
+                <path d="M29,30 C16,10 2,14 6,28 C9,36 20,34 29,32 Z" fill="${pal.top}" stroke="#2b190c" stroke-width="1.4" />
+                <path d="M29,32 C18,34 10,46 18,51 C24,54 28,44 29,36 Z" fill="${pal.bot}" stroke="#2b190c" stroke-width="1.4" />
+                <circle cx="15" cy="24" r="3" fill="${pal.accent}" opacity="0.85" />
+              </g>
+              <g class="wing-r">
+                <path d="M31,30 C44,10 58,14 54,28 C51,36 40,34 31,32 Z" fill="${pal.top}" stroke="#2b190c" stroke-width="1.4" />
+                <path d="M31,32 C42,34 50,46 42,51 C36,54 32,44 31,36 Z" fill="${pal.bot}" stroke="#2b190c" stroke-width="1.4" />
+                <circle cx="45" cy="24" r="3" fill="${pal.accent}" opacity="0.85" />
+              </g>
+              <ellipse cx="30" cy="33" rx="2.4" ry="11" fill="#2b1a0e" />
+              <path d="M29,22 Q25,14 22,13 M31,22 Q35,14 38,13" fill="none" stroke="#2b1a0e" stroke-width="1.2" stroke-linecap="round" />
+            </svg>`;
+        }
+
+        function spawn(isExtra = false) {
+          const el = document.createElement("div");
+          el.className = "butterfly";
+          const pal = palettes[list.length % palettes.length];
+          el.innerHTML = createButterflySVG(pal);
+          container.appendChild(el);
+
+          const W = window.innerWidth;
+          const H = window.innerHeight;
+          const b = {
+            el,
+            x: isExtra ? -50 : Math.random() * W,
+            y: H * (0.12 + Math.random() * 0.55),
+            tx: W * (0.15 + Math.random() * 0.7),
+            ty: H * (0.1 + Math.random() * 0.55),
+            speed: isExtra ? 2.6 + Math.random() * 1.4 : 0.95 + Math.random() * 0.75,
+            phase: Math.random() * Math.PI * 2,
+            isExtra,
+            born: performance.now()
+          };
+          list.push(b);
+        }
+
+        // Start with 3 ambient forest butterflies
+        spawn(false);
+        spawn(false);
+        spawn(false);
+
+        function celebrateFlock() {
+          for (let i = 0; i < 4; i++) {
+            spawn(true);
+          }
+        }
+
+        function animate(now) {
+          const W = window.innerWidth;
+          const H = window.innerHeight;
+          for (let i = list.length - 1; i >= 0; i--) {
+            const b = list[i];
+            const dx = b.tx - b.x;
+            const dy = b.ty - b.y;
+            const dist = Math.hypot(dx, dy);
+
+            if (dist < 40) {
+              if (b.isExtra && now - b.born > 2400) {
+                b.tx = W + 120;
+                b.ty = H * 0.15;
+              } else {
+                b.tx = W * (0.08 + Math.random() * 0.84);
+                b.ty = H * (0.08 + Math.random() * 0.62);
+              }
+            }
+
+            const angle = Math.atan2(dy, dx);
+            b.x += Math.cos(angle) * b.speed;
+            b.y += Math.sin(angle) * b.speed + Math.sin(now * 0.005 + b.phase) * 0.85;
+
+            const tilt = Math.cos(angle) * 24;
+            b.el.style.transform = `translate3d(${b.x.toFixed(1)}px, ${b.y.toFixed(1)}px, 0) rotate(${tilt.toFixed(1)}deg)`;
+
+            if (b.isExtra && b.x > W + 70) {
+              b.el.remove();
+              list.splice(i, 1);
+            }
+          }
+          requestAnimationFrame(animate);
+        }
+        requestAnimationFrame(animate);
+
+        return { celebrateFlock };
+      })();
+
+      /* ===================================================================
+         5. CORE GAME STATE, INFINITE GENERATOR & INTERACTIVE ENGINE
+         =================================================================== */
+      const ROWS = 4;
+      const COLS = 7;
+      const TOTAL_MUSHROOMS = ROWS * COLS; // 28 mushrooms
+      const NUM_TYPES = 5;
+
+      const state = {
+        board: [],           // Array of 28 mushroom type indices (0..4)
+        activeIndex: 0,      // Strict sequential cursor (0..27)
+        selectedTool: 0,     // Currently held tool (0..4)
+        streak: 0,           // Consecutive correct picks for subtle chime progression
+        isTransitioning: false,
+        usingTouch: false
+      };
+
+      const stageEl = document.getElementById("stage");
+      const gridEl = document.getElementById("mushroom-grid");
+      const trailSvg = document.getElementById("trail-svg");
+      const dockEl = document.getElementById("tool-dock");
+      const basketWrap = document.getElementById("basket-wrap");
+      const basketMushroomsLayer = document.getElementById("basket-mushrooms-layer");
+      const actionLayer = document.getElementById("action-layer");
+      const hedgehogWrap = document.getElementById("hedgehog-wrap");
+      const toolCursorEl = document.getElementById("tool-cursor");
+      const toolCursorInner = document.getElementById("tool-cursor-inner");
+      const btnNext = document.getElementById("btn-next");
+      const btnSound = document.getElementById("btn-sound");
+      const iconSoundOn = document.getElementById("icon-sound-on");
+      const iconSoundOff = document.getElementById("icon-sound-off");
+
+      const toolButtons = [];
+      let slotElements = [];
+
+      /**
+       * Smart Infinite Combination Generator:
+       * Generates 28 mushrooms using all 5 species evenly, limiting
+       * consecutive identical mushrooms to at most 2 so the child actively
+       * switches tools throughout the glade.
+       */
+      function generateSmartBoard() {
+        // Create balanced pool ensuring every tool appears 5-6 times
+        const pool = [];
+        for (let t = 0; t < NUM_TYPES; t++) {
+          const count = t < 3 ? 6 : 5; // 6+6+6+5+5 = 28
+          for (let c = 0; c < count; c++) pool.push(t);
+        }
+
+        // Try shuffling with max-2-in-a-row constraint (and prefer frequent switches)
+        for (let attempt = 0; attempt < 60; attempt++) {
+          const arr = pool.slice();
+          for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+          }
+
+          // Repair any triple-runs if they occur
+          let valid = true;
+          for (let i = 2; i < arr.length; i++) {
+            if (arr[i] === arr[i - 1] && arr[i] === arr[i - 2]) {
+              // Find a swap candidate
+              let swapped = false;
+              for (let k = i + 1; k < arr.length; k++) {
+                if (arr[k] !== arr[i]) {
+                  [arr[i], arr[k]] = [arr[k], arr[i]];
+                  swapped = true;
+                  break;
+                }
+              }
+              if (!swapped) {
+                valid = false;
+                break;
+              }
+            }
+          }
+          if (valid) return arr;
+        }
+        return pool;
+      }
+
+      /**
+       * Build the 5 Stylized Tool Medallions inside the Carved Wooden Dock.
+       * Each medallion embeds a tiny visual badge of its matching mushroom.
+       */
+      function buildToolDock() {
+        for (let i = 0; i < NUM_TYPES; i++) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "tool-btn";
+          btn.dataset.tool = String(i);
+          btn.setAttribute("aria-label", `Tool ${i + 1}`);
+
+          btn.innerHTML = `
+            <span class="tool-medallion-bg"></span>
+            <span class="tool-icon-svg">${getToolSVG(i)}</span>
+            <span class="tool-pair-badge">${getMushroomSVG(i)}</span>
+          `;
+
+          btn.addEventListener("pointerdown", (e) => {
+            e.stopPropagation();
+            selectTool(i, true);
+          });
+
+          dockEl.appendChild(btn);
+          toolButtons.push(btn);
+        }
+      }
+
+      /**
+       * Select a harvesting tool, update dock highlights & custom cursor.
+       */
+      function selectTool(toolIdx, withSound = true) {
+        state.selectedTool = toolIdx;
+        toolButtons.forEach((btn, idx) => {
+          btn.classList.toggle("selected", idx === toolIdx);
+          btn.classList.remove("hint-pulse");
+        });
+        toolCursorInner.innerHTML = getToolSVG(toolIdx);
+        if (withSound) {
+          SoundEngine.playToolSelect(toolIdx);
+        }
+      }
+
+      /**
+       * Render the 28 mushrooms in 4 horizontal rows of 7.
+       */
+      function renderBoard() {
+        gridEl.innerHTML = "";
+        slotElements = [];
+
+        for (let i = 0; i < TOTAL_MUSHROOMS; i++) {
+          const type = state.board[i];
+          const slot = document.createElement("div");
+          slot.className = "m-slot " + (i === 0 ? "active" : "locked");
+          slot.dataset.index = String(i);
+
+          slot.innerHTML = `
+            <div class="m-ground-pad"></div>
+            <div class="m-spotlight">
+              <div class="m-spotlight-beam"></div>
+              <div class="m-spotlight-ring"></div>
+              <div class="m-firefly f1"></div>
+              <div class="m-firefly f2"></div>
+              <div class="m-firefly f3"></div>
+            </div>
+            <div class="m-visual">${getMushroomSVG(type)}</div>
+          `;
+
+          slot.addEventListener("pointerdown", (e) => {
+            e.preventDefault();
+            if (e.pointerType === "touch") {
+              state.usingTouch = true;
+              stageEl.classList.remove("custom-cursor-active");
+              toolCursorEl.classList.remove("visible");
+            }
+            handleMushroomInteract(i);
+          });
+
+          gridEl.appendChild(slot);
+          slotElements.push(slot);
+        }
+
+        // Draw subtle mossy stepping-pebble trail once layout settles
+        requestAnimationFrame(drawGladeTrail);
+      }
+
+      /**
+       * Draws subtle dappled mossy stepping pebbles / path dots connecting the
+       * 28 mushrooms in strict reading order (Row 1 L->R, Row 2 L->R, etc.)
+       * with zero numbers or text.
+       */
+      function drawGladeTrail() {
+        if (slotElements.length !== TOTAL_MUSHROOMS) return;
+        const containerRect = trailSvg.getBoundingClientRect();
+        if (containerRect.width === 0 || containerRect.height === 0) return;
+
+        const centers = slotElements.map((el) => {
+          const r = el.getBoundingClientRect();
+          return {
+            x: r.left - containerRect.left + r.width * 0.5,
+            y: r.top - containerRect.top + r.height * 0.82
+          };
+        });
+
+        let svgContent = "";
+
+        // Draw subtle stepping pebbles between adjacent mushrooms in each row
+        for (let row = 0; row < ROWS; row++) {
+          for (let col = 0; col < COLS - 1; col++) {
+            const idx = row * COLS + col;
+            const a = centers[idx];
+            const b = centers[idx + 1];
+            const collected = idx < state.activeIndex;
+            const isNextLink = idx === state.activeIndex;
+
+            const steps = 3;
+            for (let s = 1; s <= steps; s++) {
+              const t = s / (steps + 1);
+              const px = a.x + (b.x - a.x) * t;
+              const py = a.y + (b.y - a.y) * t + Math.sin(t * Math.PI) * 3;
+              const rx = 3.4 + (s % 2) * 1.1;
+              const ry = 2.1 + (s % 2) * 0.5;
+              const fill = collected
+                ? "rgba(180, 224, 128, 0.36)"
+                : isNextLink
+                  ? "rgba(255, 236, 138, 0.72)"
+                  : "rgba(218, 206, 168, 0.34)";
+              svgContent += `<ellipse cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" rx="${rx}" ry="${ry}" fill="${fill}" />`;
+            }
+          }
+
+          // Subtle gentle dappled curve guiding from end of one row to start of next row
+          if (row < ROWS - 1) {
+            const endPt = centers[row * COLS + (COLS - 1)];
+            const startPt = centers[(row + 1) * COLS];
+            const midY = (endPt.y + startPt.y) * 0.5;
+            const pathDone = (row + 1) * COLS <= state.activeIndex;
+            const stroke = pathDone
+              ? "rgba(182, 226, 130, 0.28)"
+              : "rgba(235, 224, 178, 0.22)";
+            svgContent += `
+              <path d="M ${endPt.x.toFixed(1)},${(endPt.y + 4).toFixed(1)}
+                       C ${(endPt.x + 22).toFixed(1)},${midY.toFixed(1)}
+                         ${(startPt.x - 22).toFixed(1)},${midY.toFixed(1)}
+                         ${startPt.x.toFixed(1)},${(startPt.y - 4).toFixed(1)}"
+                    fill="none" stroke="${stroke}" stroke-width="2.5"
+                    stroke-dasharray="4 9" stroke-linecap="round" />`;
+          }
+        }
+
+        trailSvg.innerHTML = svgContent;
+      }
+
+      /**
+       * Handle clicking/tapping any mushroom slot.
+       */
+      function handleMushroomInteract(index) {
+        if (state.isTransitioning) return;
+
+        // Trigger quick click tilt on desktop cursor
+        if (!state.usingTouch) {
+          toolCursorEl.classList.add("clicking");
+          setTimeout(() => toolCursorEl.classList.remove("clicking"), 150);
+        }
+
+        const slot = slotElements[index];
+        if (!slot) return;
+
+        // 1. Clicking an already-collected or future (non-active) mushroom
+        if (index !== state.activeIndex) {
+          if (index > state.activeIndex) {
+            slot.classList.remove("shake-nope");
+            void slot.offsetWidth;
+            slot.classList.add("shake-nope");
+          }
+          SoundEngine.playWrongSpot();
+
+          // Gently pulse the active mushroom's golden spotlight to guide focus
+          const activeSlot = slotElements[state.activeIndex];
+          if (activeSlot) {
+            activeSlot.classList.remove("attention-pulse");
+            void activeSlot.offsetWidth;
+            activeSlot.classList.add("attention-pulse");
+          }
+          return;
+        }
+
+        // 2. Clicking the ACTIVE mushroom
+        const requiredTool = state.board[index];
+        const rect = slot.getBoundingClientRect();
+        const cx = rect.left + rect.width * 0.5;
+        const cy = rect.top + rect.height * 0.5;
+
+        // 2a. WRONG tool -> playful springy bounce, wobble, spore puff, subtle dock hint
+        if (state.selectedTool !== requiredTool) {
+          state.streak = 0;
+          SoundEngine.playWrongTool();
+          FX.burstSporePuff(cx, cy);
+          spawnToolActionFX(cx, cy, state.selectedTool, true);
+
+          slot.classList.remove("wobble-reject");
+          void slot.offsetWidth;
+          slot.classList.add("wobble-reject");
+
+          // Subtle golden pulse on the matching tool medallion in the dock
+          const matchBtn = toolButtons[requiredTool];
+          if (matchBtn) {
+            matchBtn.classList.remove("hint-pulse");
+            void matchBtn.offsetWidth;
+            matchBtn.classList.add("hint-pulse");
+          }
+          return;
+        }
+
+        // 2b. CORRECT tool -> harvest animation, sound, particles, arc into basket!
+        harvestActiveMushroom(index, requiredTool, cx, cy);
+      }
+
+      /**
+       * Spawns an animated tool graphic right over the mushroom for crisp tactile feedback
+       * (works beautifully on both desktop and touchscreens!).
+       */
+      function spawnToolActionFX(x, y, toolIdx, isBounce) {
+        const el = document.createElement("div");
+        const animClasses = [
+          "fx-knife-slice",
+          "fx-shears-snip",
+          "fx-tongs-pinch",
+          "fx-trowel-scoop",
+          "fx-rake-sweep"
+        ];
+        el.className = "tool-action-fx " + (isBounce ? "fx-tool-bounce" : animClasses[toolIdx]);
+        el.style.left = x + "px";
+        el.style.top = y + "px";
+        el.innerHTML = getToolSVG(toolIdx);
+        actionLayer.appendChild(el);
+        setTimeout(() => el.remove(), 500);
+      }
+
+      /**
+       * Executes the harvest sequence for the active mushroom.
+       */
+      function harvestActiveMushroom(index, type, cx, cy) {
+        const slot = slotElements[index];
+
+        SoundEngine.playHarvest(type, state.streak);
+        state.streak++;
+
+        spawnToolActionFX(cx, cy, type, false);
+        FX.burstHarvest(cx, cy, type);
+
+        // Immediately replace mushroom with cute mossy cut stump / soil hollow
+        slot.classList.remove("active", "attention-pulse", "wobble-reject");
+        slot.classList.add("collected");
+        const visual = slot.querySelector(".m-visual");
+        if (visual) {
+          visual.innerHTML = getHarvestedStumpSVG(type);
+        }
+
+        // Launch picked mushroom smoothly along a parabolic arc into the wicker basket
+        flyMushroomToBasket(type, cx, cy, index);
+
+        // Advance strict sequential pointer
+        state.activeIndex++;
+
+        if (state.activeIndex < TOTAL_MUSHROOMS) {
+          const nextSlot = slotElements[state.activeIndex];
+          if (nextSlot) {
+            nextSlot.classList.remove("locked");
+            nextSlot.classList.add("active");
+          }
+          drawGladeTrail();
+        } else {
+          // All 28 mushrooms harvested! Trigger joyful forest celebration
+          drawGladeTrail();
+          triggerCelebration();
+        }
+      }
+
+      /**
+       * Animates the harvested mushroom along a smooth parabolic curve into the basket,
+       * then adds a visible mini mushroom inside the basket pile and bounces it.
+       */
+      function flyMushroomToBasket(type, startX, startY, pickedOrder) {
+        const flyer = document.createElement("div");
+        flyer.className = "flying-mushroom";
+        flyer.innerHTML = getMushroomSVG(type);
+        actionLayer.appendChild(flyer);
+
+        const bRect = basketWrap.getBoundingClientRect();
+        const endX = bRect.left + bRect.width * (0.35 + Math.random() * 0.3);
+        const endY = bRect.top + bRect.height * 0.44;
+
+        const peakY = Math.min(startY, endY) - Math.max(95, window.innerHeight * 0.16);
+        const duration = 490;
+        const t0 = performance.now();
+        const spinDir = endX >= startX ? 1 : -1;
+
+        function step(now) {
+          const p = Math.min(1, (now - t0) / duration);
+          // Ease out-in quad
+          const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+
+          // Quadratic Bezier arc
+          const inv = 1 - e;
+          const x = inv * inv * startX + 2 * inv * e * ((startX + endX) * 0.5) + e * e * endX;
+          const y = inv * inv * startY + 2 * inv * e * peakY + e * e * endY;
+          const scale = 1.05 - e * 0.48;
+          const rot = spinDir * e * 38;
+
+          flyer.style.transform = `translate3d(${(x - 42).toFixed(1)}px, ${(y - 42).toFixed(1)}px, 0) scale(${scale.toFixed(2)}) rotate(${rot.toFixed(1)}deg)`;
+
+          if (p < 1) {
+            requestAnimationFrame(step);
+          } else {
+            flyer.remove();
+            addMushroomInsideBasket(type, pickedOrder);
+            SoundEngine.playBasketPlop();
+            basketWrap.classList.remove("bounce");
+            void basketWrap.offsetWidth;
+            basketWrap.classList.add("bounce");
+          }
+        }
+        requestAnimationFrame(step);
+      }
+
+      /**
+       * Visibly stacks collected mushrooms inside the woven wicker basket rim.
+       */
+      function addMushroomInsideBasket(type, countIdx) {
+        // Compute organic stacked coordinates inside the basket opening (x: 56..184, y: 112..78)
+        const layer = Math.floor(countIdx / 7); // 0..3
+        const col = countIdx % 7;
+        const spread = 112 - layer * 14;
+        const startX = 120 - spread * 0.5;
+        const x = startX + (col / 6) * spread + (Math.random() - 0.5) * 10;
+        const y = 104 - layer * 9 + (Math.random() - 0.5) * 5;
+        const tilt = (Math.random() - 0.5) * 34;
+
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        g.setAttribute("transform", `translate(${x.toFixed(1)}, ${y.toFixed(1)}) rotate(${tilt.toFixed(1)}) scale(0.36) translate(-55, -75)`);
+        // Parse the inner SVG content cleanly
+        const temp = document.createElement("div");
+        temp.innerHTML = getMushroomSVG(type);
+        const svgNode = temp.querySelector("svg");
+        if (svgNode) {
+          g.innerHTML = svgNode.innerHTML;
+        }
+        basketMushroomsLayer.appendChild(g);
+      }
+
+      /**
+       * Joyful non-verbal celebration after collecting all 28 mushrooms,
+       * then automatically sweeps in a fresh 28-mushroom glade.
+       */
+      function triggerCelebration() {
+        state.isTransitioning = true;
+        SoundEngine.playCelebration();
+        FX.burstCelebration();
+        Butterflies.celebrateFlock();
+        hedgehogWrap.classList.add("celebrate");
+
+        setTimeout(() => {
+          hedgehogWrap.classList.remove("celebrate");
+          startNewBoard(true);
+        }, 2650);
+      }
+
+      /**
+       * Generates & transitions to a brand-new 28-mushroom glade.
+       */
+      function startNewBoard(withWind = true) {
+        state.isTransitioning = true;
+        if (withWind) {
+          FX.burstLeafWind();
+        }
+
+        gridEl.classList.add("board-swap-out");
+
+        setTimeout(() => {
+          state.board = generateSmartBoard();
+          state.activeIndex = 0;
+          state.streak = 0;
+          basketMushroomsLayer.innerHTML = "";
+          renderBoard();
+
+          gridEl.classList.remove("board-swap-out");
+          gridEl.classList.add("board-swap-in");
+          setTimeout(() => {
+            gridEl.classList.remove("board-swap-in");
+            state.isTransitioning = false;
+          }, 520);
+        }, withWind ? 320 : 0);
+      }
+
+      /* ===================================================================
+         6. CUSTOM INTERACTIVE TOOL CURSOR (SMOOTH POINTER TRACKING)
+         =================================================================== */
+      const cursorPos = { x: -120, y: -120, tx: -120, ty: -120, vx: 0 };
+
+      window.addEventListener("pointermove", (e) => {
+        if (e.pointerType === "touch") {
+          state.usingTouch = true;
+          stageEl.classList.remove("custom-cursor-active");
+          toolCursorEl.classList.remove("visible");
+          return;
+        }
+        state.usingTouch = false;
+        stageEl.classList.add("custom-cursor-active");
+        toolCursorEl.classList.add("visible");
+        cursorPos.vx = e.clientX - cursorPos.tx;
+        cursorPos.tx = e.clientX;
+        cursorPos.ty = e.clientY;
+      });
+
+      document.addEventListener("mouseleave", () => {
+        toolCursorEl.classList.remove("visible");
+      });
+
+      function animateCursor() {
+        cursorPos.x += (cursorPos.tx - cursorPos.x) * 0.42;
+        cursorPos.y += (cursorPos.ty - cursorPos.y) * 0.42;
+        const tilt = Math.max(-18, Math.min(18, cursorPos.vx * 0.55));
+        cursorPos.vx *= 0.78;
+
+        if (!state.usingTouch) {
+          toolCursorEl.style.transform = `translate3d(${(cursorPos.x - 16).toFixed(1)}px, ${(cursorPos.y - 16).toFixed(1)}px, 0) rotate(${tilt.toFixed(1)}deg)`;
+        }
+        requestAnimationFrame(animateCursor);
+      }
+
+      /* ===================================================================
+         7. CONTROLS: NEXT BUTTON, SOUND TOGGLE, KEYBOARD SHORTCUTS (1-5)
+         =================================================================== */
+      btnNext.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        if (state.isTransitioning) return;
+        hedgehogWrap.classList.remove("celebrate");
+        SoundEngine.playNextWhoosh();
+        startNewBoard(true);
+      });
+
+      btnSound.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        const nextMuted = !SoundEngine.isMuted();
+        SoundEngine.setMuted(nextMuted);
+        iconSoundOn.style.display = nextMuted ? "none" : "block";
+        iconSoundOff.style.display = nextMuted ? "block" : "none";
+        if (!nextMuted) {
+          SoundEngine.playToolSelect(2);
+        }
+      });
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key >= "1" && e.key <= "5") {
+          selectTool(Number(e.key) - 1, true);
+        } else if (e.key === "ArrowRight" || e.key === " ") {
+          if (!state.isTransitioning && e.key === "ArrowRight") {
+            SoundEngine.playNextWhoosh();
+            startNewBoard(true);
+          }
+        }
+      });
+
+      window.addEventListener("resize", () => {
+        requestAnimationFrame(drawGladeTrail);
+      });
+
+      /* ===================================================================
+         8. BOOTSTRAP ON WINDOW LOAD
+         =================================================================== */
+      window.onload = function () {
+        buildToolDock();
+        selectTool(0, false);
+        state.board = generateSmartBoard();
+        renderBoard();
+        animateCursor();
+      };
+    })();
+  </script>
+</body>
+</html>
